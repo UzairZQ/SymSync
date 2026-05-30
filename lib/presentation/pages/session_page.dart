@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../theme/app_theme.dart';
-import '../../widgets/app_card.dart';
-import '../../widgets/section_label.dart';
+import '../../widgets/session_tab_bar.dart';
+import '../../widgets/status_badge.dart';
+import '../bloc/session_bloc.dart';
 import 'anatomical_view_page.dart';
 import 'balance_monitor_page.dart';
-
-enum SessionViewTab { anatomical, balance }
+import 'signal_view_content.dart';
 
 class SessionPage extends StatefulWidget {
   const SessionPage({super.key});
@@ -16,128 +17,213 @@ class SessionPage extends StatefulWidget {
 }
 
 class _SessionPageState extends State<SessionPage> {
-  SessionViewTab _selectedTab = SessionViewTab.anatomical;
+  final PageController _pageController = PageController();
+  int _selectedIndex = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceLG),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Session Control',
-                      style: AppTheme.headingLarge.copyWith(
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spaceXS),
-                    Text(
-                      'Choose your live monitoring view',
-                      style: AppTheme.bodyLarge.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.spaceSM,
-                  vertical: AppTheme.spaceXS,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundCard,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                  border: Border.all(color: AppTheme.divider),
-                ),
-                child: Text(
-                  _selectedTab == SessionViewTab.anatomical
-                      ? 'Live'
-                      : 'Balance',
-                  style: AppTheme.bodyMedium.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        AppCard(
-          padding: const EdgeInsets.all(AppTheme.spaceMD),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              const SectionLabel(label: 'View mode'),
-              const SizedBox(height: AppTheme.spaceSM),
-              Row(
+    return BlocBuilder<SessionBloc, SessionState>(
+      builder: (context, state) {
+        final minutes = (state.sessionSeconds / 60).floor();
+        final seconds = state.sessionSeconds % 60;
+        final timerStr = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+        final statusLabel = state.status == SessionStatus.connected
+            ? 'Connected'
+            : state.status == SessionStatus.connecting
+            ? 'Connecting'
+            : state.status == SessionStatus.signalLost
+            ? 'Signal Lost'
+            : 'Disconnected';
+
+        final statusState = state.status == SessionStatus.connected
+            ? StatusBadgeState.connected
+            : state.status == SessionStatus.connecting
+            ? StatusBadgeState.recording
+            : StatusBadgeState.disconnected;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            // Custom Header
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppTheme.spaceMD),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
-                  _buildOptionButton(
-                    label: 'Anatomical',
-                    selected: _selectedTab == SessionViewTab.anatomical,
-                    onTap: () => setState(
-                      () => _selectedTab = SessionViewTab.anatomical,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Session Control',
+                          style: AppTheme.headingLarge.copyWith(
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.spaceXS),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.timer_outlined,
+                              size: 14,
+                              color: AppTheme.accentTeal.withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              timerStr,
+                              style: AppTheme.monoSmall.copyWith(
+                                color: AppTheme.accentTeal,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(width: 1, height: 10, color: AppTheme.divider),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Live bilateral monitoring',
+                              style: AppTheme.bodyMedium.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: AppTheme.spaceSM),
-                  _buildOptionButton(
-                    label: 'Balance',
-                    selected: _selectedTab == SessionViewTab.balance,
-                    onTap: () =>
-                        setState(() => _selectedTab = SessionViewTab.balance),
+                  StatusBadge(
+                    label: statusLabel,
+                    state: statusState,
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppTheme.spaceXL),
-        Expanded(
-          child: _selectedTab == SessionViewTab.anatomical
-              ? const AnatomicalViewContent()
-              : const BalanceMonitorContent(),
-        ),
-      ],
+            ),
+
+            // Tab Bar
+            SessionTabBar(
+              selectedIndex: _selectedIndex,
+              onTap: (index) {
+                _pageController.jumpToPage(index);
+                setState(() => _selectedIndex = index);
+              },
+            ),
+            const SizedBox(height: AppTheme.spaceLG),
+
+            // Tab Content
+            Expanded(
+              child: PageView(
+                physics: const NeverScrollableScrollPhysics(),
+                controller: _pageController,
+                children: const <Widget>[
+                  AnatomicalViewContent(),
+                  BalanceMonitorContent(),
+                  SignalViewContent(),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppTheme.spaceMD),
+
+            // Shared Session Actions Bar
+            const _SessionActionsBar(),
+          ],
+        );
+      },
     );
   }
+}
 
-  Widget _buildOptionButton({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMD),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.accentTeal.withValues(alpha: 0.18)
-                : AppTheme.backgroundElevated,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-            border: Border.all(
-              color: selected ? AppTheme.accentTeal : AppTheme.divider,
+class _SessionActionsBar extends StatelessWidget {
+  const _SessionActionsBar();
+
+  static const String _deviceMac = '00:07:80:8C:0A:27';
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SessionBloc, SessionState>(
+      builder: (context, state) {
+        final isConnected = state.isConnected;
+        final isConnecting = state.status == SessionStatus.connecting;
+        final isBusy = state.busy;
+
+        return Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: isBusy
+                    ? null
+                    : () {
+                        if (isConnected) {
+                          context.read<SessionBloc>().disconnect();
+                        } else {
+                          context.read<SessionBloc>().connect(_deviceMac);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMD),
+                  backgroundColor: isConnected ? AppTheme.accentRed : AppTheme.accentTeal,
+                  disabledBackgroundColor: AppTheme.backgroundElevated,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                  ),
+                ),
+                child: isConnecting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        isConnected ? 'Stop Recording' : 'Start Recording',
+                        style: AppTheme.headingMedium.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isBusy ? context.txtTertiary : Colors.white,
+                        ),
+                      ),
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: AppTheme.bodyLarge.copyWith(
-              color: selected ? AppTheme.accentTeal : AppTheme.textPrimary,
-              fontWeight: FontWeight.w700,
+            const SizedBox(width: AppTheme.spaceMD),
+            ElevatedButton(
+              onPressed: (isConnected && !isBusy)
+                  ? () => context.read<SessionBloc>().calibrate()
+                  : null,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spaceLG,
+                  vertical: AppTheme.spaceMD,
+                ),
+                backgroundColor: AppTheme.backgroundElevated,
+                disabledBackgroundColor: AppTheme.backgroundElevated.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                  side: BorderSide(
+                    color: isConnected ? AppTheme.accentTeal : AppTheme.divider,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Text(
+                'Calibrate',
+                style: AppTheme.headingMedium.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isConnected ? AppTheme.accentTeal : context.txtTertiary,
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 }

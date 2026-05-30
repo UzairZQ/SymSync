@@ -201,6 +201,11 @@ class SessionBloc extends Cubit<SessionState> {
     SignalProcessor.adcMidpoint,
     growable: true,
   );
+  final List<int> _rawPoints3 = List<int>.filled(
+    3000,
+    SignalProcessor.adcMidpoint,
+    growable: true,
+  );
   final List<double> _activationPoints = <double>[];
   final List<SessionSummary> _history = <SessionSummary>[];
 
@@ -237,7 +242,7 @@ class SessionBloc extends Cubit<SessionState> {
     try {
       await _hardware.connect(macAddress);
       await _hardware.startAcquisition(
-        channels: const <int>[1],
+        channels: const <int>[1, 3],
         sampleRate: 1000,
       );
 
@@ -341,6 +346,10 @@ class SessionBloc extends Cubit<SessionState> {
     if (_rawPoints.length > 3000) {
       _rawPoints.removeRange(0, _rawPoints.length - 3000);
     }
+    _rawPoints3.add(frame.ch3);
+    if (_rawPoints3.length > 3000) {
+      _rawPoints3.removeRange(0, _rawPoints3.length - 3000);
+    }
     _activationPoints.add(_liveActivation);
     if (_activationPoints.length > 3000) {
       _activationPoints.removeRange(0, _activationPoints.length - 3000);
@@ -407,6 +416,52 @@ class SessionBloc extends Cubit<SessionState> {
     _activationSum = 0;
     _activationCount = 0;
     _peakRaw = SignalProcessor.adcMidpoint;
+    _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
+    _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
+  }
+
+  double? _calculateSymmetryIndex() {
+    if (state.status != SessionStatus.connected) {
+      return null;
+    }
+    final sampleCount = _rawPoints.length;
+    if (sampleCount == 0) {
+      return null;
+    }
+    final startIndex = sampleCount > 2000 ? sampleCount - 2000 : 0;
+    
+    int min1 = 999999;
+    int max1 = -999999;
+    for (int i = startIndex; i < sampleCount; i++) {
+      final v = _rawPoints[i];
+      if (v < min1) min1 = v;
+      if (v > max1) max1 = v;
+    }
+    final ch1Active = (max1 - min1) > 50;
+
+    int min3 = 999999;
+    int max3 = -999999;
+    for (int i = startIndex; i < sampleCount; i++) {
+      if (i < _rawPoints3.length) {
+        final v = _rawPoints3[i];
+        if (v < min3) min3 = v;
+        if (v > max3) max3 = v;
+      }
+    }
+    final ch3Active = (max3 - min3) > 50;
+
+    if (ch1Active && ch3Active) {
+      final leftActivation = _liveActivation;
+      final rightActivation = _signalProcessor.activationFromRaw(
+        (_rawPoints3.isNotEmpty ? _rawPoints3.last : SignalProcessor.adcMidpoint) - 
+        _calibrationMidpoint + SignalProcessor.adcMidpoint,
+      );
+      return _signalProcessor.symmetryIndexFromLevels(
+        leftActivation,
+        rightActivation,
+      );
+    }
+    return null;
   }
 
   void _emitSnapshot() {
@@ -429,7 +484,7 @@ class SessionBloc extends Cubit<SessionState> {
         sessionSeconds: sessionSeconds,
         calibrationMidpoint: _calibrationMidpoint,
         liveActivation: _liveActivation,
-        symmetryIndex: null,
+        symmetryIndex: _calculateSymmetryIndex(),
         rawPoints: List<int>.unmodifiable(_rawPoints),
         history: List<SessionSummary>.unmodifiable(_history),
         connectedAtMs: startedAt?.millisecondsSinceEpoch,

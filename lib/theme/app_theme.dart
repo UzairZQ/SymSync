@@ -173,7 +173,6 @@ abstract class AppTheme {
         elevation: 0,
       ),
       colorScheme: const ColorScheme.dark(
-        background: backgroundPrimary,
         surface: backgroundCard,
         primary: accentTeal,
         secondary: accentBlue,
@@ -181,9 +180,19 @@ abstract class AppTheme {
         onPrimary: textPrimary,
         onSecondary: textPrimary,
         onSurface: textPrimary,
-        onBackground: textPrimary,
         onError: Colors.white,
-      ).copyWith(background: backgroundPrimary),
+      ).copyWith(surface: backgroundPrimary),
     );
   }
 }
+
+extension AppThemeContextExtension on BuildContext {
+  Color get bgElevated => AppTheme.backgroundElevated;
+  Color get bgCard => AppTheme.backgroundCard;
+  Color get txtPrimary => AppTheme.textPrimary;
+  Color get txtSecondary => AppTheme.textSecondary;
+  Color get txtTertiary => AppTheme.textTertiary;
+  Color get dividerClr => AppTheme.divider;
+  Color get accentTeal => AppTheme.accentTeal;
+}
+

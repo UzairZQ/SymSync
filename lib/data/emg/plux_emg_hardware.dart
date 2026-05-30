@@ -15,10 +15,10 @@ class PluxEmgHardware implements EmgHardware {
 
   @override
   Future<void> startAcquisition({
-    List<int> channels = const <int>[1],
+    List<int> channels = const <int>[1, 3],
     int sampleRate = 1000,
   }) {
-    return _service.startAcquisition();
+    return _service.startAcquisition(channels: channels);
   }
 
   @override

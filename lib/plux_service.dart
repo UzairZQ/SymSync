@@ -16,9 +16,9 @@ class PluxService {
     return _methodChannel.invokeMethod<void>('connect', mac);
   }
 
-  Future<void> startAcquisition() {
+  Future<void> startAcquisition({List<int> channels = const <int>[1, 3]}) {
     return _methodChannel.invokeMethod<void>('startAcquisition', {
-      'channels': <int>[1],
+      'channels': channels,
       'sampleRate': 1000,
     });
   }
