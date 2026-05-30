@@ -1,0 +1,451 @@
+import 'dart:async';
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../data/emg/emg_hardware.dart';
+import '../../data/history/session_history_store.dart';
+import '../../domain/models/emg_frame.dart';
+import '../../domain/models/session_summary.dart';
+import '../../domain/models/session_tab.dart';
+import '../../domain/services/signal_processor.dart';
+
+enum SessionStatus { disconnected, connecting, connected, signalLost, error }
+
+class SessionState extends Equatable {
+  const SessionState({
+    required this.status,
+    required this.selectedTab,
+    required this.busy,
+    required this.latestRaw,
+    required this.samplesPerSecond,
+    required this.sessionSeconds,
+    required this.calibrationMidpoint,
+    required this.liveActivation,
+    required this.symmetryIndex,
+    required this.rawPoints,
+    required this.history,
+    required this.notice,
+    required this.errorMessage,
+    required this.connectedAtMs,
+    required this.lastFrameMs,
+  });
+
+  factory SessionState.initial() {
+    return SessionState(
+      status: SessionStatus.disconnected,
+      selectedTab: SessionTab.dashboard,
+      busy: false,
+      latestRaw: SignalProcessor.adcMidpoint,
+      samplesPerSecond: 0,
+      sessionSeconds: 0,
+      calibrationMidpoint: SignalProcessor.adcMidpoint,
+      liveActivation: 0,
+      symmetryIndex: null,
+      rawPoints: List<int>.filled(
+        3000,
+        SignalProcessor.adcMidpoint,
+        growable: true,
+      ),
+      history: const <SessionSummary>[],
+      notice: null,
+      errorMessage: null,
+      connectedAtMs: null,
+      lastFrameMs: null,
+    );
+  }
+
+  final SessionStatus status;
+  final SessionTab selectedTab;
+  final bool busy;
+  final int latestRaw;
+  final int samplesPerSecond;
+  final int sessionSeconds;
+  final int calibrationMidpoint;
+  final double liveActivation;
+  final double? symmetryIndex;
+  final List<int> rawPoints;
+  final List<SessionSummary> history;
+  final String? notice;
+  final String? errorMessage;
+  final int? connectedAtMs;
+  final int? lastFrameMs;
+
+  bool get isConnected =>
+      status == SessionStatus.connected || status == SessionStatus.signalLost;
+
+  bool get bilateralReady => symmetryIndex != null;
+
+  SessionState copyWith({
+    SessionStatus? status,
+    SessionTab? selectedTab,
+    bool? busy,
+    int? latestRaw,
+    int? samplesPerSecond,
+    int? sessionSeconds,
+    int? calibrationMidpoint,
+    double? liveActivation,
+    double? symmetryIndex,
+    List<int>? rawPoints,
+    List<SessionSummary>? history,
+    String? notice,
+    bool clearNotice = false,
+    String? errorMessage,
+    bool clearErrorMessage = false,
+    int? connectedAtMs,
+    int? lastFrameMs,
+  }) {
+    return SessionState(
+      status: status ?? this.status,
+      selectedTab: selectedTab ?? this.selectedTab,
+      busy: busy ?? this.busy,
+      latestRaw: latestRaw ?? this.latestRaw,
+      samplesPerSecond: samplesPerSecond ?? this.samplesPerSecond,
+      sessionSeconds: sessionSeconds ?? this.sessionSeconds,
+      calibrationMidpoint: calibrationMidpoint ?? this.calibrationMidpoint,
+      liveActivation: liveActivation ?? this.liveActivation,
+      symmetryIndex: symmetryIndex ?? this.symmetryIndex,
+      rawPoints: rawPoints ?? this.rawPoints,
+      history: history ?? this.history,
+      notice: clearNotice ? null : (notice ?? this.notice),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
+      connectedAtMs: connectedAtMs ?? this.connectedAtMs,
+      lastFrameMs: lastFrameMs ?? this.lastFrameMs,
+    );
+  }
+
+  @override
+  List<Object?> get props => <Object?>[
+    status,
+    selectedTab,
+    busy,
+    latestRaw,
+    samplesPerSecond,
+    sessionSeconds,
+    calibrationMidpoint,
+    liveActivation,
+    symmetryIndex,
+    rawPoints,
+    history,
+    notice,
+    errorMessage,
+    connectedAtMs,
+    lastFrameMs,
+  ];
+}
+
+class SessionBloc extends Cubit<SessionState> {
+  SessionBloc({
+    required EmgHardware hardware,
+    required SessionHistoryStore historyStore,
+  }) : _hardware = hardware,
+       _historyStore = historyStore,
+       _signalProcessor = const SignalProcessor(),
+       super(SessionState.initial()) {
+    _loadHistory();
+    _rebuildTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (isClosed) {
+        return;
+      }
+      _emitSnapshot();
+    });
+    _spsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isClosed) {
+        return;
+      }
+      _samplesPerSecond = _samplesThisSecond;
+      _samplesThisSecond = 0;
+      if (_sessionStartedAt != null) {
+        final seconds = DateTime.now()
+            .difference(_sessionStartedAt!)
+            .inSeconds
+            .clamp(0, 9999);
+        emit(state.copyWith(sessionSeconds: seconds));
+      }
+    });
+    _signalLossTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (isClosed || _sessionStartedAt == null) {
+        return;
+      }
+      final lastFrame = _lastFrameAt;
+      if (lastFrame == null) {
+        return;
+      }
+      final elapsed = DateTime.now().difference(lastFrame);
+      if (state.isConnected &&
+          elapsed.inMilliseconds > 2000 &&
+          state.status != SessionStatus.signalLost) {
+        emit(
+          state.copyWith(
+            status: SessionStatus.signalLost,
+            notice: 'Signal lost',
+          ),
+        );
+      }
+    });
+  }
+
+  final EmgHardware _hardware;
+  final SessionHistoryStore _historyStore;
+  final SignalProcessor _signalProcessor;
+
+  StreamSubscription<EmgFrame>? _frameSubscription;
+  Timer? _rebuildTimer;
+  Timer? _spsTimer;
+  Timer? _signalLossTimer;
+
+  final List<int> _rawPoints = List<int>.filled(
+    3000,
+    SignalProcessor.adcMidpoint,
+    growable: true,
+  );
+  final List<double> _activationPoints = <double>[];
+  final List<SessionSummary> _history = <SessionSummary>[];
+
+  DateTime? _sessionStartedAt;
+  DateTime? _lastFrameAt;
+  int _samplesThisSecond = 0;
+  int _samplesPerSecond = 0;
+  int _latestRaw = SignalProcessor.adcMidpoint;
+  int _calibrationMidpoint = SignalProcessor.adcMidpoint;
+  double _liveActivation = 0;
+  double _activationSum = 0;
+  int _activationCount = 0;
+  int _peakRaw = SignalProcessor.adcMidpoint;
+  bool _busy = false;
+
+  Future<void> start() async {
+    await _loadHistory();
+  }
+
+  Future<void> connect(String macAddress) async {
+    if (_busy || state.busy || state.isConnected) {
+      return;
+    }
+    _busy = true;
+    emit(
+      state.copyWith(
+        status: SessionStatus.connecting,
+        busy: true,
+        notice: 'Connecting to biosignalsplux...',
+        clearErrorMessage: true,
+      ),
+    );
+
+    try {
+      await _hardware.connect(macAddress);
+      await _hardware.startAcquisition(
+        channels: const <int>[1],
+        sampleRate: 1000,
+      );
+
+      _sessionStartedAt = DateTime.now();
+      _lastFrameAt = _sessionStartedAt;
+      _samplesThisSecond = 0;
+      _samplesPerSecond = 0;
+      _activationSum = 0;
+      _activationCount = 0;
+      _peakRaw = SignalProcessor.adcMidpoint;
+      await _frameSubscription?.cancel();
+      _frameSubscription = _hardware.frames.listen(
+        _onFrame,
+        onError: _onFrameError,
+      );
+
+      emit(
+        state.copyWith(
+          status: SessionStatus.connected,
+          busy: false,
+          connectedAtMs: _sessionStartedAt!.millisecondsSinceEpoch,
+          lastFrameMs: _lastFrameAt!.millisecondsSinceEpoch,
+          notice: 'Connected',
+          clearErrorMessage: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: SessionStatus.error,
+          busy: false,
+          errorMessage: error.toString(),
+          clearNotice: true,
+        ),
+      );
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<void> disconnect() async {
+    if (_busy || state.busy) {
+      return;
+    }
+    _busy = true;
+    emit(
+      state.copyWith(
+        busy: true,
+        notice: 'Disconnecting...',
+        clearErrorMessage: true,
+      ),
+    );
+
+    try {
+      await _frameSubscription?.cancel();
+      _frameSubscription = null;
+      await _hardware.stopAcquisition();
+      await _hardware.disconnect();
+      await _persistSessionIfNeeded();
+      final selectedTab = state.selectedTab;
+      _resetSession();
+      emit(
+        SessionState.initial().copyWith(
+          selectedTab: selectedTab,
+          history: List<SessionSummary>.unmodifiable(_history),
+          notice: 'Disconnected',
+        ),
+      );
+    } catch (error) {
+      emit(state.copyWith(busy: false, errorMessage: error.toString()));
+    } finally {
+      _busy = false;
+    }
+  }
+
+  void calibrate() {
+    _calibrationMidpoint = _latestRaw;
+    emit(
+      state.copyWith(
+        calibrationMidpoint: _calibrationMidpoint,
+        notice: 'Calibration saved at $_calibrationMidpoint',
+      ),
+    );
+  }
+
+  void selectTab(SessionTab tab) {
+    emit(state.copyWith(selectedTab: tab));
+  }
+
+  void _onFrame(EmgFrame frame) {
+    _latestRaw = frame.ch1;
+    _peakRaw = frame.ch1 > _peakRaw ? frame.ch1 : _peakRaw;
+    _lastFrameAt = DateTime.now();
+    _samplesThisSecond++;
+    _liveActivation = _signalProcessor.activationFromRaw(
+      frame.ch1 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
+    );
+    _activationSum += _liveActivation;
+    _activationCount++;
+    _rawPoints.add(frame.ch1);
+    if (_rawPoints.length > 3000) {
+      _rawPoints.removeRange(0, _rawPoints.length - 3000);
+    }
+    _activationPoints.add(_liveActivation);
+    if (_activationPoints.length > 3000) {
+      _activationPoints.removeRange(0, _activationPoints.length - 3000);
+    }
+    if (state.status == SessionStatus.signalLost) {
+      emit(
+        state.copyWith(
+          status: SessionStatus.connected,
+          notice: 'Signal recovered',
+        ),
+      );
+    }
+  }
+
+  void _onFrameError(Object error, StackTrace stackTrace) {
+    addError(error, stackTrace);
+    emit(
+      state.copyWith(
+        status: SessionStatus.error,
+        busy: false,
+        errorMessage: error.toString(),
+      ),
+    );
+  }
+
+  Future<void> _loadHistory() async {
+    final loaded = await _historyStore.load();
+    _history
+      ..clear()
+      ..addAll(loaded);
+    if (isClosed) {
+      return;
+    }
+    emit(state.copyWith(history: List<SessionSummary>.unmodifiable(_history)));
+  }
+
+  Future<void> _persistSessionIfNeeded() async {
+    if (_sessionStartedAt == null || _activationCount == 0) {
+      return;
+    }
+    final now = DateTime.now();
+    final duration = now.difference(_sessionStartedAt!).inSeconds;
+    final summary = SessionSummary(
+      startedAt: _sessionStartedAt!,
+      endedAt: now,
+      durationSeconds: duration,
+      peakRaw: _peakRaw,
+      averageActivation: _activationSum / _activationCount,
+      averageSymmetryIndex: null,
+      note: 'Stair-climb leg activation session',
+    );
+    _history.insert(0, summary);
+    await _historyStore.save(_history.take(10).toList(growable: false));
+  }
+
+  void _resetSession() {
+    _sessionStartedAt = null;
+    _lastFrameAt = null;
+    _samplesThisSecond = 0;
+    _samplesPerSecond = 0;
+    _latestRaw = SignalProcessor.adcMidpoint;
+    _calibrationMidpoint = SignalProcessor.adcMidpoint;
+    _liveActivation = 0;
+    _activationSum = 0;
+    _activationCount = 0;
+    _peakRaw = SignalProcessor.adcMidpoint;
+  }
+
+  void _emitSnapshot() {
+    final startedAt = _sessionStartedAt;
+    final sessionSeconds = startedAt == null
+        ? 0
+        : DateTime.now().difference(startedAt).inSeconds;
+
+    emit(
+      state.copyWith(
+        status:
+            state.status == SessionStatus.connected &&
+                _lastFrameAt != null &&
+                DateTime.now().difference(_lastFrameAt!).inMilliseconds > 2000
+            ? SessionStatus.signalLost
+            : state.status,
+        busy: _busy,
+        latestRaw: _latestRaw,
+        samplesPerSecond: _samplesPerSecond,
+        sessionSeconds: sessionSeconds,
+        calibrationMidpoint: _calibrationMidpoint,
+        liveActivation: _liveActivation,
+        symmetryIndex: null,
+        rawPoints: List<int>.unmodifiable(_rawPoints),
+        history: List<SessionSummary>.unmodifiable(_history),
+        connectedAtMs: startedAt?.millisecondsSinceEpoch,
+        lastFrameMs: _lastFrameAt?.millisecondsSinceEpoch,
+      ),
+    );
+  }
+
+  @override
+  Future<void> close() async {
+    await _frameSubscription?.cancel();
+    _rebuildTimer?.cancel();
+    _spsTimer?.cancel();
+    _signalLossTimer?.cancel();
+    unawaited(_hardware.stopAcquisition());
+    unawaited(_hardware.disconnect());
+    return super.close();
+  }
+}
