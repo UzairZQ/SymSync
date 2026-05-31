@@ -24,33 +24,25 @@ class _HomeShellPageState extends State<HomeShellPage> {
   static const String _deviceMac = '00:07:80:8C:0A:27';
 
   Future<bool> _requestPermissions() async {
-    if (!Platform.isAndroid) {
-      return true;
-    }
+    if (!Platform.isAndroid) return true;
     final statuses = await <Permission>[
       Permission.bluetoothConnect,
       Permission.bluetoothScan,
       Permission.locationWhenInUse,
     ].request();
-    return statuses.values.every(
-      (status) => status.isGranted || status.isLimited,
-    );
+    return statuses.values.every((s) => s.isGranted || s.isLimited);
   }
 
   Future<void> _connect(BuildContext context) async {
     final granted = await _requestPermissions();
     if (!granted) {
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bluetooth permissions are required.')),
       );
       return;
     }
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
     unawaited(context.read<SessionBloc>().connect(_deviceMac));
   }
 
@@ -68,7 +60,7 @@ class _HomeShellPageState extends State<HomeShellPage> {
         lower.contains('not found') ||
             lower.contains('unable to connect') ||
             lower.contains('could not connect')
-        ? 'Not found check Bluetooth is on and device is powered'
+        ? 'Not found — check Bluetooth is on and device is powered'
         : message;
     ScaffoldMessenger.of(
       context,
@@ -93,39 +85,35 @@ class _HomeShellPageState extends State<HomeShellPage> {
     ];
 
     return BlocListener<SessionBloc, SessionState>(
-      listenWhen: (previous, current) =>
-          previous.errorMessage != current.errorMessage &&
-          current.errorMessage != null,
+      listenWhen: (prev, cur) =>
+          prev.errorMessage != cur.errorMessage && cur.errorMessage != null,
       listener: (context, state) {
-        if (state.errorMessage != null) {
+        if (state.errorMessage != null)
           _showError(context, state.errorMessage!);
-        }
       },
       child: Scaffold(
         body: Stack(
           children: <Widget>[
+            // Theme-aware background gradient
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    AppTheme.backgroundPrimary,
-                    AppTheme.backgroundElevated,
-                  ],
+                  colors: [context.bgPrimary, context.bgElevated],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
               ),
             ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Expanded(
+            Column(
+              children: <Widget>[
+                Expanded(
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: BlocBuilder<SessionBloc, SessionState>(
-                        buildWhen: (previous, current) =>
-                            previous.selectedTab != current.selectedTab,
+                        buildWhen: (prev, cur) =>
+                            prev.selectedTab != cur.selectedTab,
                         builder: (context, state) {
                           return IndexedStack(
                             index: state.selectedTab.index,
@@ -147,14 +135,13 @@ class _HomeShellPageState extends State<HomeShellPage> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _BottomNav(
-                      onChanged: (tab) =>
-                          context.read<SessionBloc>().selectTab(tab),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                _BottomNav(
+                  onChanged: (tab) =>
+                      context.read<SessionBloc>().selectTab(tab),
+                ),
+              ],
             ),
           ],
         ),
@@ -170,6 +157,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
         final items = <_NavItemData>[
@@ -200,11 +188,11 @@ class _BottomNav extends StatelessWidget {
         ];
 
         return Container(
-          height: 72,
+          height: 72 + bottomPadding,
+          padding: EdgeInsets.only(bottom: bottomPadding),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundCard,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-            border: Border(top: BorderSide(color: AppTheme.divider)),
+            color: context.bgCard,
+            border: Border(top: BorderSide(color: context.dividerClr)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -226,9 +214,9 @@ class _BottomNav extends StatelessWidget {
                           selected ? item.selectedIcon : item.icon,
                           color: selected
                               ? AppTheme.accentTeal
-                              : AppTheme.textTertiary,
+                              : context.txtTertiary,
                         ),
-                        if (selected) ...<Widget>[
+                        if (selected) ...[
                           const SizedBox(height: AppTheme.spaceXS),
                           Text(
                             item.label,
@@ -237,7 +225,7 @@ class _BottomNav extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 1),
                           Container(
                             width: 24,
                             height: 4,

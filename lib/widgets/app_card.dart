@@ -17,10 +17,10 @@ class AppCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: AppTheme.backgroundCard,
+        color: context.bgCard,
         borderRadius: AppTheme.cardRadius,
-        border: Border.all(color: AppTheme.divider),
-        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: context.dividerClr),
+        boxShadow: context.cardShadow,
       ),
       child: child,
     );
