@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/emg/emg_hardware.dart';
 import '../data/emg/plux_emg_hardware.dart';
@@ -34,10 +33,9 @@ class _SymSyncAppState extends State<SymSyncApp> {
 
   Future<void> _init() async {
     await ThemeProvider.init();
-    final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+        _onboardingComplete = false;
         _loading = false;
       });
     }

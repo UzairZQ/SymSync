@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/emg/emg_hardware.dart';
 import '../../data/history/session_history_store.dart';
@@ -11,6 +12,14 @@ import '../../domain/models/session_tab.dart';
 import '../../domain/services/signal_processor.dart';
 
 enum SessionStatus { disconnected, connecting, connected, signalLost, error }
+
+String greetingForHour(int hour) {
+  if (hour < 5) return 'Good night';
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  if (hour < 21) return 'Good evening';
+  return 'Good night';
+}
 
 class SessionState extends Equatable {
   const SessionState({
@@ -29,6 +38,7 @@ class SessionState extends Equatable {
     required this.errorMessage,
     required this.connectedAtMs,
     required this.lastFrameMs,
+    required this.userName,
   });
 
   factory SessionState.initial() {
@@ -52,6 +62,7 @@ class SessionState extends Equatable {
       errorMessage: null,
       connectedAtMs: null,
       lastFrameMs: null,
+      userName: null,
     );
   }
 
@@ -70,11 +81,20 @@ class SessionState extends Equatable {
   final String? errorMessage;
   final int? connectedAtMs;
   final int? lastFrameMs;
+  final String? userName;
 
   bool get isConnected =>
       status == SessionStatus.connected || status == SessionStatus.signalLost;
 
   bool get bilateralReady => symmetryIndex != null;
+
+  String get greeting => greetingForHour(DateTime.now().hour);
+
+  String get displayName {
+    final n = userName?.trim();
+    if (n == null || n.isEmpty) return 'there';
+    return n.split(' ').first;
+  }
 
   SessionState copyWith({
     SessionStatus? status,
@@ -94,6 +114,7 @@ class SessionState extends Equatable {
     bool clearErrorMessage = false,
     int? connectedAtMs,
     int? lastFrameMs,
+    String? userName,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -113,6 +134,7 @@ class SessionState extends Equatable {
           : (errorMessage ?? this.errorMessage),
       connectedAtMs: connectedAtMs ?? this.connectedAtMs,
       lastFrameMs: lastFrameMs ?? this.lastFrameMs,
+      userName: userName ?? this.userName,
     );
   }
 
@@ -133,6 +155,7 @@ class SessionState extends Equatable {
     errorMessage,
     connectedAtMs,
     lastFrameMs,
+    userName,
   ];
 }
 
@@ -145,6 +168,7 @@ class SessionBloc extends Cubit<SessionState> {
        _signalProcessor = const SignalProcessor(),
        super(SessionState.initial()) {
     _loadHistory();
+    _loadUserName();
     _rebuildTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (isClosed) {
         return;
@@ -223,6 +247,28 @@ class SessionBloc extends Cubit<SessionState> {
 
   Future<void> start() async {
     await _loadHistory();
+    await _loadUserName();
+  }
+
+  Future<void> setUserName(String name) async {
+    final cleaned = name.trim();
+    emit(state.copyWith(userName: cleaned.isEmpty ? null : cleaned));
+    final prefs = await SharedPreferences.getInstance();
+    if (cleaned.isEmpty) {
+      await prefs.remove('user_name');
+    } else {
+      await prefs.setString('user_name', cleaned);
+    }
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString('user_name');
+    if (stored != null && stored.isNotEmpty && stored != state.userName) {
+      if (!isClosed) {
+        emit(state.copyWith(userName: stored));
+      }
+    }
   }
 
   Future<void> connect(String macAddress) async {

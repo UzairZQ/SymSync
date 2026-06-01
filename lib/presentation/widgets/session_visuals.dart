@@ -76,11 +76,27 @@ class LegPairSilhouette extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return CustomPaint(
-          size: Size(constraints.maxWidth, constraints.maxHeight),
-          painter: _LegPairPainter(
-            leftActivation: leftActivation,
-            rightActivation: rightActivation,
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              Image.asset(
+                'assets/images/leg_silhouette.png',
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+              ),
+              CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: _LegActivationPainter(
+                  leftActivation: leftActivation,
+                  rightActivation: rightActivation,
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -88,8 +104,8 @@ class LegPairSilhouette extends StatelessWidget {
   }
 }
 
-class _LegPairPainter extends CustomPainter {
-  _LegPairPainter({
+class _LegActivationPainter extends CustomPainter {
+  _LegActivationPainter({
     required this.leftActivation,
     required this.rightActivation,
   });
@@ -106,138 +122,100 @@ class _LegPairPainter extends CustomPainter {
     )!;
   }
 
-  void _drawLeg(
+  void _drawLegHeatmap(
     Canvas canvas,
-    Rect thigh,
-    Rect calf,
+    Rect area,
     double activation, {
-    bool active = true,
+    required bool active,
   }) {
-    final color = active ? _heatColor(activation) : const Color(0xFFB7BED4);
-    final thighPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: <Color>[
-          color.withValues(alpha: active ? 0.95 : 0.45),
-          color.withValues(alpha: active ? 0.70 : 0.25),
-        ],
-      ).createShader(thigh);
-    final calfPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: <Color>[
-          color.withValues(alpha: active ? 0.88 : 0.42),
-          color.withValues(alpha: active ? 0.55 : 0.20),
-        ],
-      ).createShader(calf);
-    final edgePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..color = const Color(0xFF1D2433).withValues(alpha: 0.08);
+    const cols = 4;
+    const rows = 14;
+    final spacingX = area.width / (cols + 1);
+    final spacingY = area.height / (rows + 1);
+    final dotRadius = (spacingX * 0.35).clamp(2.0, 6.0);
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(thigh, const Radius.circular(26)),
-      thighPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(thigh, const Radius.circular(26)),
-      edgePaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(calf, const Radius.circular(22)),
-      calfPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(calf, const Radius.circular(22)),
-      edgePaint,
-    );
+    final base = active
+        ? _heatColor(activation)
+        : const Color(0xFFB7BED4);
 
-    final jointPaint = Paint()
-      ..color = color.withValues(alpha: active ? 0.55 : 0.2);
-    canvas.drawCircle(Offset(thigh.center.dx, thigh.bottom - 6), 8, jointPaint);
-    canvas.drawCircle(Offset(calf.center.dx, calf.top + 6), 7, jointPaint);
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        final x = area.left + spacingX * (c + 1);
+        final y = area.top + spacingY * (r + 1);
+
+        final vertical = (r / (rows - 1)).clamp(0.0, 1.0);
+        final horizontal = (c / (cols - 1) - 0.5).abs() * 2.0;
+        final intensity = (1.0 - (vertical * 0.6 + horizontal * 0.4)) *
+            (active ? 1.0 : 0.35);
+
+        final color = active
+            ? _heatColor(activation * intensity.clamp(0.0, 1.0))
+            : base;
+        final alpha = active
+            ? (0.30 + intensity.clamp(0.0, 1.0) * 0.70)
+            : 0.25;
+
+        final paint = Paint()..color = color.withValues(alpha: alpha);
+        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+      }
+    }
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final pelvisPaint = Paint()
-      ..color = const Color(0xFF1D2433).withValues(alpha: 0.07);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(size.width / 2, size.height * 0.16),
-          width: size.width * 0.34,
-          height: size.height * 0.08,
-        ),
-        const Radius.circular(18),
-      ),
-      pelvisPaint,
+    final leftThigh = Rect.fromLTWH(
+      size.width * 0.30,
+      size.height * 0.22,
+      size.width * 0.13,
+      size.height * 0.22,
+    );
+    final leftCalf = Rect.fromLTWH(
+      size.width * 0.30,
+      size.height * 0.52,
+      size.width * 0.12,
+      size.height * 0.28,
+    );
+    final rightThigh = Rect.fromLTWH(
+      size.width * 0.57,
+      size.height * 0.22,
+      size.width * 0.13,
+      size.height * 0.22,
+    );
+    final rightCalf = Rect.fromLTWH(
+      size.width * 0.58,
+      size.height * 0.52,
+      size.width * 0.12,
+      size.height * 0.28,
     );
 
-    final leftThigh = Rect.fromCenter(
-      center: Offset(size.width * 0.38, size.height * 0.40),
-      width: size.width * 0.13,
-      height: size.height * 0.36,
-    );
-    final leftCalf = Rect.fromCenter(
-      center: Offset(size.width * 0.38, size.height * 0.74),
-      width: size.width * 0.11,
-      height: size.height * 0.34,
-    );
-    final rightThigh = Rect.fromCenter(
-      center: Offset(size.width * 0.62, size.height * 0.40),
-      width: size.width * 0.13,
-      height: size.height * 0.36,
-    );
-    final rightCalf = Rect.fromCenter(
-      center: Offset(size.width * 0.62, size.height * 0.74),
-      width: size.width * 0.11,
-      height: size.height * 0.34,
-    );
-
-    _drawLeg(canvas, leftThigh, leftCalf, leftActivation);
-    _drawLeg(
+    _drawLegHeatmap(canvas, leftThigh, leftActivation, active: true);
+    _drawLegHeatmap(canvas, leftCalf, leftActivation, active: true);
+    _drawLegHeatmap(
       canvas,
       rightThigh,
+      rightActivation ?? 0.0,
+      active: rightActivation != null,
+    );
+    _drawLegHeatmap(
+      canvas,
       rightCalf,
-      rightActivation ?? 0.12,
+      rightActivation ?? 0.0,
       active: rightActivation != null,
     );
 
     final guidePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = const Color(0xFF355CFF).withValues(alpha: 0.08);
+      ..strokeWidth = 1
+      ..color = const Color(0xFF355CFF).withValues(alpha: 0.10);
     canvas.drawLine(
       Offset(size.width / 2, size.height * 0.10),
       Offset(size.width / 2, size.height * 0.98),
       guidePaint,
     );
-
-    final footPaint = Paint()
-      ..color = const Color(0xFF1D2433).withValues(alpha: 0.08);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(size.width * 0.38, size.height * 0.99),
-        width: size.width * 0.16,
-        height: size.height * 0.05,
-      ),
-      footPaint,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(size.width * 0.62, size.height * 0.99),
-        width: size.width * 0.16,
-        height: size.height * 0.05,
-      ),
-      footPaint,
-    );
   }
 
   @override
-  bool shouldRepaint(covariant _LegPairPainter oldDelegate) {
+  bool shouldRepaint(covariant _LegActivationPainter oldDelegate) {
     return oldDelegate.leftActivation != leftActivation ||
         oldDelegate.rightActivation != rightActivation;
   }

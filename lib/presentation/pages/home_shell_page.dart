@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../domain/models/session_tab.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
+import 'activation_summary_page.dart';
 import 'dashboard_page.dart';
 import 'profile_page.dart';
 import 'session_page.dart';
@@ -79,6 +80,7 @@ class _HomeShellPageState extends State<HomeShellPage> {
         onCalibrate: () => _calibrate(context),
       ),
       const SessionPage(),
+      const ActivationSummaryPage(),
       const ProfilePage(),
     ];
 
@@ -104,21 +106,19 @@ class _HomeShellPageState extends State<HomeShellPage> {
                         buildWhen: (prev, cur) =>
                             prev.selectedTab != cur.selectedTab,
                         builder: (context, state) {
-                          final index = state.selectedTab == SessionTab.summary
-                              ? SessionTab.session.index
-                              : state.selectedTab.index;
+                          final index = state.selectedTab.index.clamp(
+                            0,
+                            pages.length - 1,
+                          );
                           return IndexedStack(
-                            index: index > 2 ? 2 : index,
+                            index: index,
                             children: pages.asMap().entries.map((entry) {
                               return AnimatedOpacity(
                                 duration: const Duration(milliseconds: 200),
-                                opacity: (index > 2 ? 2 : index) == entry.key
-                                    ? 1
-                                    : 0,
+                                opacity: index == entry.key ? 1 : 0,
                                 curve: Curves.easeInOut,
                                 child: IgnorePointer(
-                                  ignoring:
-                                      (index > 2 ? 2 : index) != entry.key,
+                                  ignoring: index != entry.key,
                                   child: entry.value,
                                 ),
                               );
@@ -166,6 +166,12 @@ class _BottomNav extends StatelessWidget {
             label: 'Session',
           ),
           _NavItemData(
+            tab: SessionTab.summary,
+            icon: Icons.insights_outlined,
+            selectedIcon: Icons.insights,
+            label: 'Summary',
+          ),
+          _NavItemData(
             tab: SessionTab.profile,
             icon: Icons.person_outline,
             selectedIcon: Icons.person,
@@ -173,9 +179,7 @@ class _BottomNav extends StatelessWidget {
           ),
         ];
 
-        final selectedTab = state.selectedTab == SessionTab.summary
-            ? SessionTab.session
-            : state.selectedTab;
+        final selectedTab = state.selectedTab;
 
         return Container(
           height: 88 + bottomPadding,

@@ -56,6 +56,11 @@ flutter:
 
   assets:
     - assets/images/leg.png
+    - assets/images/leg_silhouette.png
+    - assets/images/onboarding/welcome.png
+    - assets/images/onboarding/emg.png
+    - assets/images/onboarding/stairs.png
+    - assets/images/onboarding/ready.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

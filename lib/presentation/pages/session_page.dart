@@ -93,10 +93,13 @@ class _SessionPageState extends State<SessionPage> {
                               color: context.dividerClr,
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              'Live bilateral monitoring',
-                              style: AppTheme.bodyMedium.copyWith(
-                                color: context.txtSecondary,
+                            Flexible(
+                              child: Text(
+                                'Live bilateral monitoring',
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTheme.bodyMedium.copyWith(
+                                  color: context.txtSecondary,
+                                ),
                               ),
                             ),
                           ],

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/connection_badge.dart';
 import '../../widgets/theme_toggle.dart';
 import '../bloc/session_bloc.dart';
 
@@ -13,16 +14,25 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final sessionCount = state.history.length == 0
-            ? 128
-            : state.history.length;
-        final totalHours = state.history.fold<int>(
+        final sessionCount = state.history.length;
+        final totalSeconds = state.history.fold<int>(
           0,
-          (sum, item) => sum + (item.durationSeconds / 3600).round(),
+          (sum, item) => sum + item.durationSeconds,
         );
+        final totalHours = (totalSeconds / 3600).round();
         final balance = state.symmetryIndex == null
-            ? '98.4'
+            ? '—'
             : (100 - state.symmetryIndex!.abs() * 100).toStringAsFixed(1);
+        final balanceLabel = state.symmetryIndex == null
+            ? 'Awaiting data'
+            : (100 - state.symmetryIndex!.abs() * 100) >= 90
+                  ? 'Optimal'
+                  : 'Tracking';
+        final displayName = state.displayName;
+        final initials = _initials(displayName);
+        final isConnected = state.isConnected;
+        final isConnecting = state.status == SessionStatus.connecting;
+        final hasData = sessionCount > 0;
 
         return ListView(
           key: const PageStorageKey<String>('profile'),
@@ -40,6 +50,11 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                ConnectionBadge(
+                  isConnected: isConnected,
+                  isConnecting: isConnecting,
+                ),
+                const SizedBox(width: AppTheme.spaceSM),
                 const ThemeToggle(),
               ],
             ),
@@ -65,7 +80,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      'ZO',
+                      initials,
                       style: AppTheme.displayMedium.copyWith(
                         color: context.bgPrimary,
                         fontSize: 38,
@@ -91,7 +106,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'ATHLETE',
+              hasData ? 'TRACKING' : 'NEW USER',
               textAlign: TextAlign.center,
               style: AppTheme.labelSmall.copyWith(
                 color: AppTheme.accentGreen,
@@ -100,7 +115,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Zoro',
+              displayName,
               textAlign: TextAlign.center,
               style: AppTheme.displayMedium.copyWith(
                 color: context.txtPrimary,
@@ -109,7 +124,9 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Specializing in high-performance\nbiometric synchronization and\nstructural balance since 2021.',
+              hasData
+                  ? 'Monitoring bilateral performance and\nsymmetry trends across your sessions.'
+                  : 'Set up your sensors and run your first\nsession to start tracking your progress.',
               textAlign: TextAlign.center,
               style: AppTheme.bodyLarge.copyWith(
                 color: context.txtSecondary,
@@ -154,21 +171,21 @@ class ProfilePage extends StatelessWidget {
               icon: Icons.grid_view_outlined,
               title: 'Sessions',
               value: '$sessionCount',
-              suffix: '+12%',
+              suffix: hasData ? 'Recorded' : 'None yet',
             ),
             const SizedBox(height: 14),
             _ProfileStatCard(
               icon: Icons.timer_outlined,
               title: 'Time',
-              value: totalHours == 0 ? '342' : '$totalHours',
-              suffix: 'h Total',
+              value: totalSeconds == 0 ? '0' : '$totalHours',
+              suffix: totalSeconds == 0 ? 'h Total' : 'h Tracked',
             ),
             const SizedBox(height: 14),
             _ProfileStatCard(
               icon: Icons.balance_outlined,
               title: 'Balance',
               value: balance,
-              suffix: 'Optimal',
+              suffix: balanceLabel,
               inverted: true,
             ),
             const SizedBox(height: 34),
@@ -182,7 +199,9 @@ class ProfilePage extends StatelessWidget {
               title: 'Connected Devices',
               body: state.isConnected
                   ? 'biosignalsplux device is active.'
-                  : 'No active device connection.',
+                  : (isConnecting
+                        ? 'Connecting to biosignalsplux…'
+                        : 'No active device connection.'),
               onTap: () {},
             ),
             const SizedBox(height: 28),
@@ -241,6 +260,16 @@ class ProfilePage extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '·';
+    if (parts.length == 1) {
+      return parts.first.substring(0, 1).toUpperCase();
+    }
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 }
 

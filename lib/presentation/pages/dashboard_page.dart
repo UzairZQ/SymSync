@@ -3,8 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/models/session_summary.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/connection_badge.dart';
 import '../../widgets/theme_toggle.dart';
 import '../bloc/session_bloc.dart';
 
@@ -29,22 +31,28 @@ class DashboardPage extends StatelessWidget {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
         final symmetry = state.symmetryIndex;
-        final index = symmetry == null
-            ? 90
-            : (100 - min(65, symmetry.abs() * 100)).round();
-        final avg = symmetry == null
-            ? '88.4'
-            : (100 - symmetry.abs() * 100).toStringAsFixed(1);
+        final hasSymmetry = symmetry != null;
         final symmetryScores = state.history
             .map((s) => s.averageSymmetryIndex)
             .whereType<double>()
             .toList();
-        final best = symmetryScores.isEmpty
-            ? '94%'
-            : '${(100 - symmetryScores.map((s) => s.abs()).reduce(min) * 100).toStringAsFixed(0)}%';
+        final indexScore = hasSymmetry
+            ? (100 - min(65, symmetry.abs() * 100)).round()
+            : null;
+        final avgSymmetry = hasSymmetry
+            ? (100 - symmetry.abs() * 100).toStringAsFixed(1)
+            : null;
+        final bestSymmetry = symmetryScores.isEmpty
+            ? null
+            : (100 -
+                      symmetryScores.map((s) => s.abs()).reduce(min) * 100)
+                  .toStringAsFixed(0);
         final channelA = state.latestRaw;
         final channelB = state.rawPoints.isEmpty ? 712 : state.rawPoints.last;
         final isConnected = state.isConnected;
+        final isConnecting = state.status == SessionStatus.connecting;
+        final hasAnyData = state.history.isNotEmpty || hasSymmetry;
+        final recent = state.history.take(3).toList();
 
         return ListView(
           key: const PageStorageKey<String>('dashboard'),
@@ -62,12 +70,17 @@ class DashboardPage extends StatelessWidget {
                     ),
                   ),
                 ),
+                ConnectionBadge(
+                  isConnected: isConnected,
+                  isConnecting: isConnecting,
+                ),
+                const SizedBox(width: AppTheme.spaceSM),
                 const ThemeToggle(),
               ],
             ),
             const SizedBox(height: 28),
             Text(
-              'Good morning,\nZoro',
+              '${state.greeting},\n${state.displayName}',
               style: AppTheme.displayLarge.copyWith(
                 color: context.txtPrimary,
                 fontSize: 32,
@@ -76,7 +89,9 @@ class DashboardPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Your movement symmetry is up 4% this week. Let’s maintain this momentum with a calibration session.',
+              hasAnyData
+                  ? 'Stay consistent — your next session will build on the progress you have already made.'
+                  : 'Pair your sensors and run a session to start tracking your bilateral symmetry.',
               style: AppTheme.bodyMedium.copyWith(
                 color: context.txtSecondary,
                 height: 1.45,
@@ -94,18 +109,20 @@ class DashboardPage extends StatelessWidget {
                       alignment: Alignment.center,
                       children: <Widget>[
                         CircularProgressIndicator(
-                          value: index / 100,
+                          value: (indexScore ?? 0) / 100,
                           strokeWidth: 9,
                           backgroundColor: context.bgElevated,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppTheme.accentTeal,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            indexScore == null
+                                ? context.txtTertiary
+                                : AppTheme.accentTeal,
                           ),
                         ),
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: <Widget>[
                             Text(
-                              '$index%',
+                              indexScore == null ? '—' : '$indexScore%',
                               style: AppTheme.displayMedium.copyWith(
                                 color: context.txtPrimary,
                                 fontSize: 30,
@@ -128,8 +145,14 @@ class DashboardPage extends StatelessWidget {
                     label: 'Sessions Today',
                     value: '${state.history.length}',
                   ),
-                  _MetricRow(label: 'Avg Symmetry', value: avg),
-                  _MetricRow(label: 'Best Balance', value: best),
+                  _MetricRow(
+                    label: 'Avg Symmetry',
+                    value: avgSymmetry ?? '—',
+                  ),
+                  _MetricRow(
+                    label: 'Best Balance',
+                    value: bestSymmetry == null ? '—' : '$bestSymmetry%',
+                  ),
                 ],
               ),
             ),
@@ -159,7 +182,9 @@ class DashboardPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Begin a real-time motion analysis session with automated sensors.',
+                    isConnected
+                        ? 'Sensors are streaming. Open a session to begin bilateral analysis.'
+                        : 'Connect your biosignalsplux sensors to start a real-time session.',
                     style: AppTheme.bodyMedium.copyWith(
                       color: context.bgPrimary.withValues(alpha: 0.78),
                       height: 1.45,
@@ -180,15 +205,19 @@ class DashboardPage extends StatelessWidget {
                           Icons.sensors_outlined,
                           color: isConnected
                               ? AppTheme.accentLime
-                              : AppTheme.accentAmber,
+                              : (isConnecting
+                                    ? AppTheme.accentAmber
+                                    : context.bgPrimary),
                           size: 18,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            isConnected
-                                ? 'BIOSIGNALSPLUX: CONNECTED'
-                                : 'BIOSIGNALSPLUX: NOT CONNECTED',
+                            isConnecting
+                                ? 'BIOSIGNALSPLUX: CONNECTING…'
+                                : (isConnected
+                                      ? 'BIOSIGNALSPLUX: CONNECTED'
+                                      : 'BIOSIGNALSPLUX: NOT CONNECTED'),
                             style: AppTheme.labelSmall.copyWith(
                               color: context.bgPrimary,
                               letterSpacing: 0.5,
@@ -215,12 +244,18 @@ class DashboardPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: onOpenSession,
+                    onPressed: isConnected ? onOpenSession : null,
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: const Text('Launch Session'),
                     style: FilledButton.styleFrom(
                       backgroundColor: context.bgPrimary,
                       foregroundColor: context.txtPrimary,
+                      disabledBackgroundColor: context.bgPrimary.withValues(
+                        alpha: 0.45,
+                      ),
+                      disabledForegroundColor: context.txtPrimary.withValues(
+                        alpha: 0.6,
+                      ),
                       shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
@@ -232,15 +267,17 @@ class DashboardPage extends StatelessWidget {
             _ChannelCard(
               label: 'CHANNEL A',
               title: 'Left Hemisphere',
-              value: channelA.toString(),
+              value: hasSymmetry || isConnected ? channelA.toString() : '—',
               color: AppTheme.leftLeg,
+              hasData: hasSymmetry || isConnected,
             ),
             const SizedBox(height: 12),
             _ChannelCard(
               label: 'CHANNEL B',
               title: 'Right Hemisphere',
-              value: channelB.toString(),
+              value: hasSymmetry || isConnected ? channelB.toString() : '—',
               color: AppTheme.rightLeg,
+              hasData: hasSymmetry || isConnected,
             ),
             const SizedBox(height: 18),
             AppCard(
@@ -267,89 +304,49 @@ class DashboardPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const _SessionListItem(
-                    title: 'Morning Gait Analysis',
-                    tag: 'Optimal',
-                  ),
-                  const _SessionListItem(
-                    title: 'Post-Rehab Strength',
-                    tag: 'Fair',
-                  ),
-                  const _SessionListItem(
-                    title: 'Stair Climbing Test',
-                    tag: 'Critical',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            AppCard(
-              padding: EdgeInsets.zero,
-              child: ClipRRect(
-                borderRadius: AppTheme.cardRadius,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
+                  if (recent.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'RECOMMENDED READING',
-                            style: AppTheme.labelSmall.copyWith(
-                              color: AppTheme.accentBlue,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            'Understanding the nuances of Pelvic Tilt and Kinetic Chain Symmetry',
-                            style: AppTheme.headingMedium.copyWith(
-                              color: context.txtPrimary,
-                              fontSize: 22,
-                              height: 1.12,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Clinical studies show that a 5% improvement in pelvic stability correlates with reduced joint inflammation.',
-                            style: AppTheme.bodyMedium.copyWith(
-                              color: context.txtSecondary,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      height: 132,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: <Color>[
-                            AppTheme.accentAmber.withValues(alpha: 0.25),
-                            context.txtPrimary.withValues(alpha: 0.9),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Center(
-                        child: Icon(
-                          Icons.self_improvement,
-                          size: 60,
-                          color: context.bgPrimary.withValues(alpha: 0.9),
+                        child: Text(
+                          'No sessions yet — your history will appear here.',
+                          textAlign: TextAlign.center,
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: context.txtTertiary,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    )
+                  else
+                    for (final s in recent)
+                      _SessionListItem(
+                        title: s.note.isNotEmpty ? s.note : _defaultTitle(s),
+                        tag: _tagFor(s),
+                      ),
+                ],
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  String _defaultTitle(SessionSummary s) {
+    final h = s.startedAt.hour;
+    if (h < 12) return 'Morning Session';
+    if (h < 17) return 'Afternoon Session';
+    if (h < 21) return 'Evening Session';
+    return 'Night Session';
+  }
+
+  String _tagFor(SessionSummary s) {
+    final v = s.averageSymmetryIndex;
+    if (v == null) return 'Recorded';
+    final score = 100 - v.abs() * 100;
+    if (score >= 90) return 'Optimal';
+    if (score >= 75) return 'Fair';
+    return 'Critical';
   }
 }
 
@@ -393,12 +390,14 @@ class _ChannelCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.color,
+    required this.hasData,
   });
 
   final String label;
   final String title;
   final String value;
   final Color color;
+  final bool hasData;
 
   @override
   Widget build(BuildContext context) {
@@ -448,24 +447,35 @@ class _ChannelCard extends StatelessWidget {
           const SizedBox(height: 12),
           SizedBox(
             height: 42,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List<Widget>.generate(8, (index) {
-                final heights = <double>[16, 22, 30, 18, 26, 14, 24, 20];
-                return Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    height: heights[index],
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: index.isEven ? 0.55 : 0.8),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(8),
+            child: hasData
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: List<Widget>.generate(8, (index) {
+                      final heights = <double>[16, 22, 30, 18, 26, 14, 24, 20];
+                      return Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          height: heights[index],
+                          decoration: BoxDecoration(
+                            color: color.withValues(
+                              alpha: index.isEven ? 0.55 : 0.8,
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(8),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  )
+                : Center(
+                    child: Text(
+                      'No data yet',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: context.txtTertiary,
                       ),
                     ),
                   ),
-                );
-              }),
-            ),
           ),
         ],
       ),
@@ -484,7 +494,8 @@ class _SessionListItem extends StatelessWidget {
     final tagColor = switch (tag) {
       'Optimal' => AppTheme.accentLime,
       'Fair' => AppTheme.accentAmber,
-      _ => AppTheme.accentRed,
+      'Critical' => AppTheme.accentRed,
+      _ => AppTheme.accentTeal,
     };
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -520,7 +531,9 @@ class _SessionListItem extends StatelessWidget {
               style: AppTheme.labelSmall.copyWith(
                 color: tag == 'Critical'
                     ? AppTheme.accentRed
-                    : AppTheme.accentGreen,
+                    : (tag == 'Fair'
+                          ? AppTheme.accentAmber
+                          : AppTheme.accentGreen),
                 letterSpacing: 0,
               ),
             ),

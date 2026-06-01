@@ -4,7 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/section_label.dart';
+import '../../widgets/connection_badge.dart';
+import '../widgets/session_visuals.dart';
 
 class ActivationSummaryPage extends StatefulWidget {
   const ActivationSummaryPage({super.key});
@@ -20,25 +21,54 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final trendValue = state.symmetryIndex ?? 0.18;
-        final deviation = (trendValue.abs() * 100).toStringAsFixed(0);
-        final trendingUp = trendValue >= 0;
+        final symmetry = state.symmetryIndex;
+        final hasSymmetry = symmetry != null;
         final historyCount = state.history.length;
+
+        final symmetryScores = state.history
+            .map((s) => s.averageSymmetryIndex)
+            .whereType<double>()
+            .toList();
+        final avgDeviation = symmetryScores.isEmpty
+            ? null
+            : symmetryScores.map((s) => s.abs()).reduce((a, b) => a + b) /
+                  symmetryScores.length;
+        final trendPercent = _trendPercent(state.history);
+        final trendingUp = trendPercent == null
+            ? null
+            : trendPercent >= 0;
+        final leftActivation = state.liveActivation;
+        final rightActivation = hasSymmetry
+            ? (state.liveActivation * (1 - symmetry))
+            : null;
+        final isConnected = state.isConnected;
+        final isConnecting = state.status == SessionStatus.connecting;
+        final hasData = historyCount > 0 || hasSymmetry;
 
         return ListView(
           key: const PageStorageKey<String>('summary'),
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceXXL),
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceXL),
           children: <Widget>[
-            Text(
-              'Activation Summary',
-              style: AppTheme.headingLarge.copyWith(
-                color: AppTheme.textPrimary,
-              ),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Activation Summary',
+                    style: AppTheme.headingLarge.copyWith(
+                      color: context.txtPrimary,
+                    ),
+                  ),
+                ),
+                ConnectionBadge(
+                  isConnected: isConnected,
+                  isConnecting: isConnecting,
+                ),
+              ],
             ),
             const SizedBox(height: AppTheme.spaceXS),
             Text(
               'Review your recent symmetry and muscle pattern trends',
-              style: AppTheme.bodyLarge.copyWith(color: AppTheme.textSecondary),
+              style: AppTheme.bodyLarge.copyWith(color: context.txtSecondary),
             ),
             const SizedBox(height: AppTheme.spaceXL),
             AppCard(
@@ -46,107 +76,29 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const SectionLabel(label: 'Imbalance heatmap'),
+                  Text(
+                    'Imbalance heatmap',
+                    style: AppTheme.labelSmall.copyWith(
+                      color: context.txtTertiary,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
                   const SizedBox(height: AppTheme.spaceMD),
                   SizedBox(
-                    height: 240,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: <Widget>[
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusXL,
-                            ),
-                            gradient: const LinearGradient(
-                              colors: [
-                                AppTheme.backgroundElevated,
-                                AppTheme.backgroundCard,
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 30,
-                          child: Container(
-                            width: 160,
-                            height: 220,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(100),
-                              gradient: RadialGradient(
-                                colors: <Color>[
-                                  AppTheme.accentAmber.withValues(alpha: 0.24),
-                                  Colors.transparent,
-                                ],
-                                radius: 0.6,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 50,
-                          top: 60,
-                          child: Container(
-                            width: 90,
-                            height: 130,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(60),
-                              gradient: RadialGradient(
-                                colors: <Color>[
-                                  AppTheme.accentBlue.withValues(alpha: 0.26),
-                                  Colors.transparent,
-                                ],
-                                radius: 0.6,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 50,
-                          top: 80,
-                          child: Container(
-                            width: 90,
-                            height: 130,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(60),
-                              gradient: RadialGradient(
-                                colors: <Color>[
-                                  AppTheme.accentAmber.withValues(alpha: 0.26),
-                                  Colors.transparent,
-                                ],
-                                radius: 0.6,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            Icon(
-                              Icons.person_outline,
-                              size: 88,
-                              color: AppTheme.textTertiary.withValues(
-                                alpha: 0.16,
-                              ),
-                            ),
-                            const SizedBox(height: AppTheme.spaceSM),
-                            Text(
-                              'Front view history',
-                              style: AppTheme.labelSmall.copyWith(
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                    height: 280,
+                    child: hasData
+                        ? LegPairSilhouette(
+                            leftActivation: leftActivation.clamp(0.0, 1.0),
+                            rightActivation: rightActivation?.clamp(0.0, 1.0),
+                          )
+                        : _EmptyHeatmap(),
                   ),
                   const SizedBox(height: AppTheme.spaceXL),
                   Row(
                     children: <Widget>[
                       Expanded(
                         child: _summaryMetric(
+                          context: context,
                           label: 'Sessions',
                           value: '$historyCount',
                           color: AppTheme.accentTeal,
@@ -155,11 +107,14 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       const SizedBox(width: AppTheme.spaceSM),
                       Expanded(
                         child: _summaryMetric(
+                          context: context,
                           label: 'Trend',
-                          value: trendingUp ? '+8%' : '-8%',
-                          color: trendingUp
-                              ? AppTheme.accentAmber
-                              : AppTheme.accentRed,
+                          value: trendPercent == null
+                              ? '—'
+                              : '${trendingUp! ? '+' : ''}${trendPercent.toStringAsFixed(0)}%',
+                          color: trendPercent == null || !trendingUp!
+                              ? AppTheme.accentRed
+                              : AppTheme.accentLime,
                         ),
                       ),
                     ],
@@ -174,9 +129,9 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                 vertical: AppTheme.spaceSM,
               ),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCard,
+                color: context.bgCard,
                 borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                border: Border.all(color: AppTheme.divider),
+                border: Border.all(color: context.dividerClr),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -196,7 +151,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                         decoration: BoxDecoration(
                           color: active
                               ? AppTheme.accentTeal.withValues(alpha: 0.16)
-                              : AppTheme.backgroundElevated,
+                              : context.bgElevated,
                           borderRadius: BorderRadius.circular(
                             AppTheme.radiusLG,
                           ),
@@ -206,8 +161,8 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                           textAlign: TextAlign.center,
                           style: AppTheme.bodyMedium.copyWith(
                             color: active
-                                ? AppTheme.textPrimary
-                                : AppTheme.textSecondary,
+                                ? context.txtPrimary
+                                : context.txtSecondary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -229,18 +184,19 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       Text(
                         'Pattern Analysis',
                         style: AppTheme.headingMedium.copyWith(
-                          color: AppTheme.textPrimary,
+                          color: context.txtPrimary,
                         ),
                       ),
-                      Text(
-                        trendingUp ? '+8%' : '-8%',
-                        style: AppTheme.labelSmall.copyWith(
-                          color: trendingUp
-                              ? AppTheme.accentAmber
-                              : AppTheme.accentRed,
-                          fontWeight: FontWeight.w900,
+                      if (trendPercent != null)
+                        Text(
+                          '${trendingUp! ? '+' : ''}${trendPercent.toStringAsFixed(0)}%',
+                          style: AppTheme.labelSmall.copyWith(
+                            color: trendingUp
+                                ? AppTheme.accentLime
+                                : AppTheme.accentRed,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: AppTheme.spaceMD),
@@ -248,14 +204,18 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
                       _analysisItem(
-                        'Avg. Deviation',
-                        '$deviation%',
-                        AppTheme.textSecondary,
+                        context: context,
+                        title: 'Avg. Deviation',
+                        value: avgDeviation == null
+                            ? '—'
+                            : '${(avgDeviation * 100).toStringAsFixed(0)}%',
+                        valueColor: context.txtSecondary,
                       ),
                       _analysisItem(
-                        'Balance',
-                        historyCount > 0 ? 'Stable' : 'Pending',
-                        AppTheme.textPrimary,
+                        context: context,
+                        title: 'Balance',
+                        value: historyCount > 0 ? 'Stable' : 'Pending',
+                        valueColor: context.txtPrimary,
                       ),
                     ],
                   ),
@@ -268,7 +228,21 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
     );
   }
 
+  double? _trendPercent(List history) {
+    if (history.length < 2) return null;
+    final scores = history
+        .map((s) => s.averageSymmetryIndex)
+        .whereType<double>()
+        .toList();
+    if (scores.length < 2) return null;
+    final recent = scores.first.abs();
+    final prior = scores[1].abs();
+    if (prior == 0) return 0;
+    return ((prior - recent) / prior) * 100;
+  }
+
   Widget _summaryMetric({
+    required BuildContext context,
     required String label,
     required String value,
     required Color color,
@@ -279,24 +253,35 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
         Text(
           label,
           style: AppTheme.bodyMedium.copyWith(
-            color: AppTheme.textSecondary,
+            color: context.txtSecondary,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: AppTheme.spaceXS),
-        Text(value, style: AppTheme.headingMedium.copyWith(color: color)),
+        Text(
+          value,
+          style: AppTheme.headingMedium.copyWith(
+            color: color,
+            fontSize: 24,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _analysisItem(String title, String value, Color valueColor) {
+  Widget _analysisItem({
+    required BuildContext context,
+    required String title,
+    required String value,
+    required Color valueColor,
+  }) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
             title.toUpperCase(),
-            style: AppTheme.labelSmall.copyWith(color: AppTheme.textSecondary),
+            style: AppTheme.labelSmall.copyWith(color: context.txtSecondary),
           ),
           const SizedBox(height: AppTheme.spaceSM),
           Text(
@@ -305,6 +290,35 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
               color: valueColor,
               fontWeight: FontWeight.w800,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyHeatmap extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(
+            Icons.heat_pump_outlined,
+            size: 56,
+            color: context.txtTertiary.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: AppTheme.spaceMD),
+          Text(
+            'No data yet',
+            style: AppTheme.bodyLarge.copyWith(color: context.txtSecondary),
+          ),
+          const SizedBox(height: AppTheme.spaceXS),
+          Text(
+            'Run a session to see your heatmap',
+            textAlign: TextAlign.center,
+            style: AppTheme.bodyMedium.copyWith(color: context.txtTertiary),
           ),
         ],
       ),
