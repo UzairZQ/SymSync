@@ -5,7 +5,6 @@ import '../../domain/services/signal_processor.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/section_label.dart';
 import '../widgets/session_visuals.dart';
 
 class AnatomicalViewContent extends StatelessWidget {
@@ -37,16 +36,19 @@ class AnatomicalViewContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Anatomical View',
+                        'Lower Extremity\nNeural Load',
                         style: AppTheme.headingLarge.copyWith(
-                          color: AppTheme.textPrimary,
+                          color: context.txtPrimary,
+                          fontSize: 28,
+                          height: 1.15,
                         ),
                       ),
                       const SizedBox(height: AppTheme.spaceXS),
                       Text(
-                        'Lower body activation mapping',
+                        'Real-time heatmap visualization of neuromuscular engagement across primary muscle groups on the anterior chain.',
                         style: AppTheme.bodyLarge.copyWith(
-                          color: AppTheme.textSecondary,
+                          color: context.txtSecondary,
+                          height: 1.4,
                         ),
                       ),
                     ],
@@ -57,14 +59,14 @@ class AnatomicalViewContent extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: state.isConnected
                         ? AppTheme.accentGreen.withValues(alpha: 0.16)
-                        : AppTheme.backgroundElevated,
+                        : context.bgElevated,
                     borderRadius: BorderRadius.circular(AppTheme.radiusLG),
                   ),
                   child: Icon(
                     Icons.bluetooth,
                     color: state.isConnected
-                        ? AppTheme.accentTeal
-                        : AppTheme.textTertiary,
+                        ? AppTheme.accentGreen
+                        : context.txtTertiary,
                     size: 22,
                   ),
                 ),
@@ -72,7 +74,7 @@ class AnatomicalViewContent extends StatelessWidget {
             ),
             const SizedBox(height: AppTheme.spaceLG),
             AppCard(
-              padding: const EdgeInsets.all(AppTheme.spaceMD),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
@@ -82,14 +84,14 @@ class AnatomicalViewContent extends StatelessWidget {
                       children: <Widget>[
                         Positioned.fill(
                           child: Opacity(
-                            opacity: 0.18,
+                            opacity: 0.12,
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: <Color>[
-                                    AppTheme.accentBlue,
+                                    AppTheme.accentTeal,
                                     AppTheme.accentAmber,
                                   ],
                                 ),
@@ -113,38 +115,17 @@ class AnatomicalViewContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppTheme.spaceXL),
-                  AppCard(
-                    padding: const EdgeInsets.all(AppTheme.spaceMD),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        const SectionLabel(label: 'Muscle activity'),
-                        const SizedBox(height: AppTheme.spaceSM),
-                        Container(
-                          height: 10,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            gradient: const LinearGradient(
-                              colors: [
-                                AppTheme.accentBlue,
-                                AppTheme.accentAmber,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _LegendCard(),
                   const SizedBox(height: AppTheme.spaceXL),
                   AppCard(
-                    padding: const EdgeInsets.all(AppTheme.spaceMD),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
                           imbalanceLabel,
                           style: AppTheme.bodyLarge.copyWith(
-                            color: AppTheme.textPrimary,
+                            color: context.txtPrimary,
                             fontWeight: FontWeight.w800,
                             height: 1.4,
                           ),
@@ -157,7 +138,7 @@ class AnatomicalViewContent extends StatelessWidget {
                                   state.symmetryIndex,
                                 ),
                           style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.textSecondary,
+                            color: context.txtSecondary,
                             height: 1.5,
                           ),
                         ),
@@ -173,14 +154,14 @@ class AnatomicalViewContent extends StatelessWidget {
                         vertical: AppTheme.spaceSM,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.backgroundElevated,
+                        color: context.bgElevated,
                         borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                        border: Border.all(color: AppTheme.divider),
+                        border: Border.all(color: context.dividerClr),
                       ),
                       child: Text(
                         'Vastus Lateralis',
                         style: AppTheme.bodyLarge.copyWith(
-                          color: AppTheme.accentTeal,
+                          color: AppTheme.accentGreen,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -192,6 +173,54 @@ class AnatomicalViewContent extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _LegendCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _LegendItem(color: AppTheme.accentLime, label: 'Optimal range'),
+          const SizedBox(height: 10),
+          _LegendItem(color: AppTheme.accentTeal, label: 'Hypotonic state'),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label.toUpperCase(),
+          style: AppTheme.labelSmall.copyWith(
+            color: context.txtSecondary,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
     );
   }
 }

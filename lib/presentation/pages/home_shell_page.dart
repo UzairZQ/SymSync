@@ -8,7 +8,6 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../domain/models/session_tab.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
-import 'activation_summary_page.dart';
 import 'dashboard_page.dart';
 import 'profile_page.dart';
 import 'session_page.dart';
@@ -80,7 +79,6 @@ class _HomeShellPageState extends State<HomeShellPage> {
         onCalibrate: () => _calibrate(context),
       ),
       const SessionPage(),
-      const ActivationSummaryPage(),
       const ProfilePage(),
     ];
 
@@ -94,39 +92,33 @@ class _HomeShellPageState extends State<HomeShellPage> {
       child: Scaffold(
         body: Stack(
           children: <Widget>[
-            // Theme-aware background gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [context.bgPrimary, context.bgElevated],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-            ),
+            Container(color: context.bgPrimary),
             Column(
               children: <Widget>[
                 Expanded(
                   child: SafeArea(
                     bottom: false,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: BlocBuilder<SessionBloc, SessionState>(
                         buildWhen: (prev, cur) =>
                             prev.selectedTab != cur.selectedTab,
                         builder: (context, state) {
+                          final index = state.selectedTab == SessionTab.summary
+                              ? SessionTab.session.index
+                              : state.selectedTab.index;
                           return IndexedStack(
-                            index: state.selectedTab.index,
+                            index: index > 2 ? 2 : index,
                             children: pages.asMap().entries.map((entry) {
                               return AnimatedOpacity(
                                 duration: const Duration(milliseconds: 200),
-                                opacity: state.selectedTab.index == entry.key
+                                opacity: (index > 2 ? 2 : index) == entry.key
                                     ? 1
                                     : 0,
                                 curve: Curves.easeInOut,
                                 child: IgnorePointer(
                                   ignoring:
-                                      state.selectedTab.index != entry.key,
+                                      (index > 2 ? 2 : index) != entry.key,
                                   child: entry.value,
                                 ),
                               );
@@ -174,12 +166,6 @@ class _BottomNav extends StatelessWidget {
             label: 'Session',
           ),
           _NavItemData(
-            tab: SessionTab.summary,
-            icon: Icons.bar_chart_outlined,
-            selectedIcon: Icons.bar_chart,
-            label: 'Summary',
-          ),
-          _NavItemData(
             tab: SessionTab.profile,
             icon: Icons.person_outline,
             selectedIcon: Icons.person,
@@ -187,25 +173,43 @@ class _BottomNav extends StatelessWidget {
           ),
         ];
 
+        final selectedTab = state.selectedTab == SessionTab.summary
+            ? SessionTab.session
+            : state.selectedTab;
+
         return Container(
-          height: 72 + bottomPadding,
-          padding: EdgeInsets.only(bottom: bottomPadding),
+          height: 88 + bottomPadding,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding + 10),
           decoration: BoxDecoration(
-            color: context.bgCard,
-            border: Border(top: BorderSide(color: context.dividerClr)),
+            color: context.bgElevated,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radiusXL),
+            ),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 18,
+                offset: Offset(0, -6),
+              ),
+            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: items.map((item) {
-              final selected = item.tab == state.selectedTab;
+              final selected = item.tab == selectedTab;
               return Expanded(
                 child: InkWell(
                   onTap: () => onChanged(item.tab),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                  splashColor: AppTheme.accentTeal.withValues(alpha: 0.12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppTheme.spaceSM,
+                  borderRadius: BorderRadius.circular(999),
+                  splashColor: AppTheme.accentGreen.withValues(alpha: 0.12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? context.txtPrimary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -213,28 +217,22 @@ class _BottomNav extends StatelessWidget {
                         Icon(
                           selected ? item.selectedIcon : item.icon,
                           color: selected
-                              ? AppTheme.accentTeal
+                              ? context.bgPrimary
                               : context.txtTertiary,
+                          size: 18,
                         ),
-                        if (selected) ...[
-                          const SizedBox(height: AppTheme.spaceXS),
-                          Text(
-                            item.label,
-                            style: AppTheme.bodyMedium.copyWith(
-                              color: AppTheme.accentTeal,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        const SizedBox(height: 3),
+                        Text(
+                          item.label,
+                          style: AppTheme.labelSmall.copyWith(
+                            color: selected
+                                ? context.bgPrimary
+                                : context.txtSecondary,
+                            fontSize: 10,
+                            letterSpacing: 0.2,
+                            fontWeight: FontWeight.w700,
                           ),
-                          const SizedBox(height: 1),
-                          Container(
-                            width: 24,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentTeal,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),

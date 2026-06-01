@@ -32,7 +32,8 @@ class _SessionPageState extends State<SessionPage> {
       builder: (context, state) {
         final minutes = (state.sessionSeconds / 60).floor();
         final seconds = state.sessionSeconds % 60;
-        final timerStr = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+        final timerStr =
+            '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
         final statusLabel = state.status == SessionStatus.connected
             ? 'Connected'
@@ -51,7 +52,6 @@ class _SessionPageState extends State<SessionPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            // Custom Header
             Padding(
               padding: const EdgeInsets.only(bottom: AppTheme.spaceMD),
               child: Row(
@@ -62,9 +62,10 @@ class _SessionPageState extends State<SessionPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Session Control',
+                          'SymSync',
                           style: AppTheme.headingLarge.copyWith(
-                            color: AppTheme.textPrimary,
+                            color: context.txtPrimary,
+                            fontSize: 28,
                           ),
                         ),
                         const SizedBox(height: AppTheme.spaceXS),
@@ -73,23 +74,29 @@ class _SessionPageState extends State<SessionPage> {
                             Icon(
                               Icons.timer_outlined,
                               size: 14,
-                              color: AppTheme.accentTeal.withValues(alpha: 0.8),
+                              color: AppTheme.accentGreen.withValues(
+                                alpha: 0.8,
+                              ),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               timerStr,
                               style: AppTheme.monoSmall.copyWith(
-                                color: AppTheme.accentTeal,
+                                color: AppTheme.accentGreen,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Container(width: 1, height: 10, color: AppTheme.divider),
+                            Container(
+                              width: 1,
+                              height: 10,
+                              color: context.dividerClr,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Live bilateral monitoring',
                               style: AppTheme.bodyMedium.copyWith(
-                                color: AppTheme.textSecondary,
+                                color: context.txtSecondary,
                               ),
                             ),
                           ],
@@ -97,15 +104,11 @@ class _SessionPageState extends State<SessionPage> {
                       ],
                     ),
                   ),
-                  StatusBadge(
-                    label: statusLabel,
-                    state: statusState,
-                  ),
+                  StatusBadge(label: statusLabel, state: statusState),
                 ],
               ),
             ),
 
-            // Tab Bar
             SessionTabBar(
               selectedIndex: _selectedIndex,
               onTap: (index) {
@@ -113,9 +116,8 @@ class _SessionPageState extends State<SessionPage> {
                 setState(() => _selectedIndex = index);
               },
             ),
-            const SizedBox(height: AppTheme.spaceLG),
+            const SizedBox(height: AppTheme.spaceMD),
 
-            // Tab Content
             Expanded(
               child: PageView(
                 physics: const NeverScrollableScrollPhysics(),
@@ -130,7 +132,6 @@ class _SessionPageState extends State<SessionPage> {
 
             const SizedBox(height: AppTheme.spaceMD),
 
-            // Shared Session Actions Bar
             const _SessionActionsBar(),
           ],
         );
@@ -166,11 +167,16 @@ class _SessionActionsBar extends StatelessWidget {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMD),
-                  backgroundColor: isConnected ? AppTheme.accentRed : AppTheme.accentTeal,
-                  disabledBackgroundColor: AppTheme.backgroundElevated,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.spaceMD,
+                  ),
+                  backgroundColor: isConnected
+                      ? AppTheme.accentRed
+                      : context.txtPrimary,
+                  foregroundColor: context.bgPrimary,
+                  disabledBackgroundColor: context.bgElevated,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
                 child: isConnecting
@@ -179,7 +185,9 @@ class _SessionActionsBar extends StatelessWidget {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : Text(
@@ -187,7 +195,9 @@ class _SessionActionsBar extends StatelessWidget {
                         style: AppTheme.headingMedium.copyWith(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isBusy ? context.txtTertiary : Colors.white,
+                          color: isBusy
+                              ? context.txtTertiary
+                              : context.bgPrimary,
                         ),
                       ),
               ),
@@ -202,12 +212,17 @@ class _SessionActionsBar extends StatelessWidget {
                   horizontal: AppTheme.spaceLG,
                   vertical: AppTheme.spaceMD,
                 ),
-                backgroundColor: AppTheme.backgroundElevated,
-                disabledBackgroundColor: AppTheme.backgroundElevated.withValues(alpha: 0.5),
+                backgroundColor: context.bgPrimary,
+                foregroundColor: context.txtPrimary,
+                disabledBackgroundColor: context.bgElevated.withValues(
+                  alpha: 0.5,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                  borderRadius: BorderRadius.circular(999),
                   side: BorderSide(
-                    color: isConnected ? AppTheme.accentTeal : AppTheme.divider,
+                    color: isConnected
+                        ? context.txtPrimary
+                        : context.dividerClr,
                     width: 1,
                   ),
                 ),
@@ -217,7 +232,7 @@ class _SessionActionsBar extends StatelessWidget {
                 style: AppTheme.headingMedium.copyWith(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isConnected ? AppTheme.accentTeal : context.txtTertiary,
+                  color: isConnected ? context.txtPrimary : context.txtTertiary,
                 ),
               ),
             ),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider {
-  static final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.dark);
-  
+  static final ValueNotifier<ThemeMode> themeNotifier =
+      ValueNotifier<ThemeMode>(ThemeMode.light);
+
   static const String _key = 'theme_mode';
 
   static Future<void> init() async {
@@ -17,10 +18,10 @@ class ThemeProvider {
       } else if (savedMode == 'system') {
         themeNotifier.value = ThemeMode.system;
       } else {
-        themeNotifier.value = ThemeMode.dark; // Default is dark
+        themeNotifier.value = ThemeMode.light;
       }
     } catch (_) {
-      themeNotifier.value = ThemeMode.dark;
+      themeNotifier.value = ThemeMode.light;
     }
   }
 

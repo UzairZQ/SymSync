@@ -43,21 +43,28 @@ class _GradientButtonState extends State<GradientButton> {
         onTapDown: (_) => _updatePressed(true),
         onTapUp: (_) => _updatePressed(false),
         onTapCancel: () => _updatePressed(false),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-        splashColor: AppTheme.accentTeal.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+        splashColor: AppTheme.accentGreen.withValues(alpha: 0.12),
         child: Container(
           height: widget.height,
           decoration: BoxDecoration(
-            gradient: enabled ? AppTheme.tealGradient : null,
-            color: enabled ? null : AppTheme.backgroundElevated,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-            boxShadow: enabled ? AppTheme.tealGlow : null,
+            color: enabled ? context.txtPrimary : context.bgElevated,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: enabled
+                ? const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x24000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 10),
+                    ),
+                  ]
+                : null,
           ),
           alignment: Alignment.center,
           child: Text(
             widget.label,
             style: AppTheme.bodyLarge.copyWith(
-              color: enabled ? Colors.white : AppTheme.textSecondary,
+              color: enabled ? context.bgPrimary : context.txtSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),

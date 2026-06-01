@@ -1,19 +1,14 @@
 import 'dart:math';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/gradient_button.dart';
-import '../../widgets/section_label.dart';
-import '../../widgets/status_badge.dart';
 import '../../widgets/theme_toggle.dart';
 import '../bloc/session_bloc.dart';
 
-class DashboardPage extends StatefulWidget {
+class DashboardPage extends StatelessWidget {
   const DashboardPage({
     super.key,
     required this.onOpenSession,
@@ -30,344 +25,321 @@ class DashboardPage extends StatefulWidget {
   final VoidCallback onCalibrate;
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
-}
-
-class _DashboardPageState extends State<DashboardPage> {
-  static const List<String> _tips = <String>[
-    'Keep your step rhythm even to reduce bias between legs.',
-    'Breathe steadily and let the biofeedback guide your balance.',
-    'A small shift toward the weaker leg can improve symmetry fast.',
-    'Use the live view to correct muscle dominance in real time.',
-    'Consistency over intensity helps the nervous system learn better.',
-  ];
-
-  late final String _tip = _tips[DateTime.now().millisecond % _tips.length];
-
-  @override
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final lastSummary = state.history.isNotEmpty ? state.history.first : null;
-        final bestScore = state.history
+        final symmetry = state.symmetryIndex;
+        final index = symmetry == null
+            ? 90
+            : (100 - min(65, symmetry.abs() * 100)).round();
+        final avg = symmetry == null
+            ? '88.4'
+            : (100 - symmetry.abs() * 100).toStringAsFixed(1);
+        final symmetryScores = state.history
             .map((s) => s.averageSymmetryIndex)
             .whereType<double>()
-            .fold<double?>(null, (prev, v) {
-              if (prev == null) return v.abs();
-              return min(prev, v.abs());
-            });
-        final averageScore = state.symmetryIndex;
-        final scoreLabel = averageScore == null
-            ? '--'
-            : '${(averageScore * 100).toStringAsFixed(0)}%';
-        final summaryLabel = averageScore == null
-            ? 'No session yet'
-            : averageScore >= 0
-            ? 'Right side stronger'
-            : 'Left side stronger';
-        final recentDate = lastSummary == null
-            ? 'No recent session'
-            : '${lastSummary.startedAt.month}/${lastSummary.startedAt.day}/${lastSummary.startedAt.year}';
-        final bestBalanceLabel = bestScore == null
-            ? '--'
-            : '${(bestScore * 100).toStringAsFixed(0)}%';
-        final stats = <_StatCardData>[
-          _StatCardData('Today\u2019s Sessions', '${state.history.length}', 'this week'),
-          _StatCardData('Avg Symmetry', scoreLabel, 'real-time index'),
-          _StatCardData('Best Balance', bestBalanceLabel, 'lowest asymmetry'),
-        ];
-        final rawSpots = <FlSpot>[];
-        final rawPoints = state.rawPoints.take(40).toList();
-        for (var i = 0; i < rawPoints.length; i++) {
-          rawSpots.add(FlSpot(i.toDouble(), rawPoints[i].toDouble()));
-        }
-
-        final loading = state.history.isEmpty && state.symmetryIndex == null;
+            .toList();
+        final best = symmetryScores.isEmpty
+            ? '94%'
+            : '${(100 - symmetryScores.map((s) => s.abs()).reduce(min) * 100).toStringAsFixed(0)}%';
+        final channelA = state.latestRaw;
+        final channelB = state.rawPoints.isEmpty ? 712 : state.rawPoints.last;
         final isConnected = state.isConnected;
-        final isConnecting = state.status == SessionStatus.connecting;
 
         return ListView(
           key: const PageStorageKey<String>('dashboard'),
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.only(bottom: 28),
           children: <Widget>[
-            const SizedBox(height: AppTheme.spaceMD),
-            // ── HEADER ──
+            const SizedBox(height: 8),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Good morning,',
-                        style: AppTheme.bodyLarge.copyWith(
-                          color: context.txtSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spaceXS),
-                      Text(
-                        'Zoro',
-                        style: AppTheme.headingMedium.copyWith(
-                          color: context.txtPrimary,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'SymSync',
+                    style: AppTheme.headingLarge.copyWith(
+                      color: context.txtPrimary,
+                      fontSize: 28,
+                    ),
                   ),
                 ),
-                StatusBadge(
-                  label: state.status == SessionStatus.connected
-                      ? 'Connected'
-                      : state.status == SessionStatus.connecting
-                      ? 'Connecting'
-                      : 'Disconnected',
-                  state: state.status == SessionStatus.connected
-                      ? StatusBadgeState.connected
-                      : state.status == SessionStatus.connecting
-                      ? StatusBadgeState.recording
-                      : StatusBadgeState.disconnected,
-                ),
-                const SizedBox(width: AppTheme.spaceSM),
                 const ThemeToggle(),
               ],
             ),
-            const SizedBox(height: AppTheme.spaceMD),
-
-            // ── CONNECTION CARD ──
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: isConnecting
-                  ? _ConnectingCard(key: const ValueKey('connecting'))
-                  : isConnected
-                  ? _ConnectedCard(
-                      key: const ValueKey('connected'),
-                      onDisconnect: widget.onDisconnect,
-                    )
-                  : _DisconnectedCard(
-                      key: const ValueKey('disconnected'),
-                      onConnect: widget.onConnect,
-                    ),
-            ),
-
-            const SizedBox(height: AppTheme.spaceXL),
-
-            // ── STAT CARDS ──
-            Row(
-              children: stats
-                  .asMap()
-                  .entries
-                  .map(
-                    (entry) => Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: entry.key == 0 ? 0 : AppTheme.spaceSM,
-                        ),
-                        child: AppCard(
-                          padding: const EdgeInsets.all(AppTheme.spaceMD),
-                          child: loading
-                              ? _ShimmerStatCard()
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    SectionLabel(label: entry.value.title),
-                                    const SizedBox(height: AppTheme.spaceSM),
-                                    Text(
-                                      entry.value.value,
-                                      style: AppTheme.displayMedium.copyWith(
-                                        color: context.txtPrimary,
-                                        fontSize: 30,
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppTheme.spaceXS),
-                                    Text(
-                                      entry.value.subtitle,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: context.txtSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: AppTheme.spaceXL),
-
-            // ── LAST SESSION CARD ──
-            loading
-                ? _ShimmerRecentSessionCard()
-                : AppCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppTheme.spaceMD),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          const SectionLabel(label: 'Last Session'),
-                          const SizedBox(height: AppTheme.spaceSM),
-                          Text(
-                            recentDate,
-                            style: AppTheme.bodyMedium.copyWith(
-                              color: context.txtSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: AppTheme.spaceMD),
-                          SizedBox(
-                            height: 90,
-                            child: rawSpots.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      'Waiting for session data',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: context.txtSecondary,
-                                      ),
-                                    ),
-                                  )
-                                : LineChart(
-                                    LineChartData(
-                                      backgroundColor: Colors.transparent,
-                                      gridData: const FlGridData(show: false),
-                                      titlesData:
-                                          const FlTitlesData(show: false),
-                                      borderData:
-                                          FlBorderData(show: false),
-                                      minY: 0,
-                                      maxY: 4096,
-                                      lineBarsData: <LineChartBarData>[
-                                        LineChartBarData(
-                                          spots: rawSpots,
-                                          color: AppTheme.accentTeal,
-                                          isCurved: true,
-                                          barWidth: 3,
-                                          dotData:
-                                              const FlDotData(show: false),
-                                          belowBarData:
-                                              BarAreaData(show: false),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: AppTheme.spaceMD),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              Text(
-                                'Symmetry overview',
-                                style: AppTheme.headingMedium.copyWith(
-                                  color: context.txtPrimary,
-                                ),
-                              ),
-                              Icon(Icons.chevron_right, color: context.txtSecondary),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-            const SizedBox(height: AppTheme.spaceXL),
-
-            // ── QUICK START CARD ──
-            AppCard(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spaceMD),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    const SectionLabel(label: 'Quick Start'),
-                    const SizedBox(height: AppTheme.spaceSM),
-                    Text(
-                      'Ready to begin a new bilateral recording?',
-                      style: AppTheme.headingMedium.copyWith(
-                        color: context.txtPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spaceSM),
-                    Text(
-                      'Tap to begin bilateral EMG recording',
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: context.txtSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spaceMD),
-                    GradientButton(
-                      label: 'Start New Session',
-                      onPressed: widget.onOpenSession,
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 28),
+            Text(
+              'Good morning,\nZoro',
+              style: AppTheme.displayLarge.copyWith(
+                color: context.txtPrimary,
+                fontSize: 32,
+                height: 1.08,
               ),
             ),
-            const SizedBox(height: AppTheme.spaceXL),
-
-            // ── TIPS CARD ──
-            loading
-                ? _ShimmerTipsCard()
-                : AppCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppTheme.spaceMD),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.dangerGradient,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMD),
-                            ),
-                            child: const Icon(
-                              Icons.lightbulb,
-                              color: Colors.white,
-                            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your movement symmetry is up 4% this week. Let’s maintain this momentum with a calibration session.',
+              style: AppTheme.bodyMedium.copyWith(
+                color: context.txtSecondary,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 20),
+            AppCard(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                children: <Widget>[
+                  SizedBox(
+                    height: 148,
+                    width: 148,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: <Widget>[
+                        CircularProgressIndicator(
+                          value: index / 100,
+                          strokeWidth: 9,
+                          backgroundColor: context.bgElevated,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppTheme.accentTeal,
                           ),
-                          const SizedBox(width: AppTheme.spaceMD),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  'HMI Tip',
-                                  style: AppTheme.labelSmall.copyWith(
-                                    color: context.txtPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: AppTheme.spaceSM),
-                                Text(
-                                  _tip,
-                                  style: AppTheme.bodyLarge.copyWith(
-                                    color: context.txtPrimary,
-                                  ),
-                                ),
-                              ],
+                        ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              '$index%',
+                              style: AppTheme.displayMedium.copyWith(
+                                color: context.txtPrimary,
+                                fontSize: 30,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            Text(
+                              'INDEX',
+                              style: AppTheme.labelSmall.copyWith(
+                                color: context.txtTertiary,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-            const SizedBox(height: AppTheme.spaceXL),
-
-            // ── RECENT SYMMETRY CARD ──
+                  const SizedBox(height: 26),
+                  _MetricRow(
+                    label: 'Sessions Today',
+                    value: '${state.history.length}',
+                  ),
+                  _MetricRow(label: 'Avg Symmetry', value: avg),
+                  _MetricRow(label: 'Best Balance', value: best),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: context.txtPrimary,
+                borderRadius: AppTheme.cardRadius,
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    blurRadius: 22,
+                    offset: Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    'Quick Start',
+                    style: AppTheme.headingMedium.copyWith(
+                      color: context.bgPrimary,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Begin a real-time motion analysis session with automated sensors.',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: context.bgPrimary.withValues(alpha: 0.78),
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: context.bgPrimary.withValues(alpha: 0.16),
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.sensors_outlined,
+                          color: isConnected
+                              ? AppTheme.accentLime
+                              : AppTheme.accentAmber,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            isConnected
+                                ? 'BIOSIGNALSPLUX: CONNECTED'
+                                : 'BIOSIGNALSPLUX: NOT CONNECTED',
+                            style: AppTheme.labelSmall.copyWith(
+                              color: context.bgPrimary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: isConnected ? onDisconnect : onConnect,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: context.bgPrimary.withValues(alpha: 0.8),
+                      ),
+                      foregroundColor: context.bgPrimary,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                    child: Text(
+                      isConnected ? 'Disconnect Device' : 'Connect Device',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: onOpenSession,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Launch Session'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: context.bgPrimary,
+                      foregroundColor: context.txtPrimary,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            _ChannelCard(
+              label: 'CHANNEL A',
+              title: 'Left Hemisphere',
+              value: channelA.toString(),
+              color: AppTheme.leftLeg,
+            ),
+            const SizedBox(height: 12),
+            _ChannelCard(
+              label: 'CHANNEL B',
+              title: 'Right Hemisphere',
+              value: channelB.toString(),
+              color: AppTheme.rightLeg,
+            ),
+            const SizedBox(height: 18),
             AppCard(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spaceMD),
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Recent\nSessions',
+                          style: AppTheme.headingMedium.copyWith(
+                            color: context.txtPrimary,
+                            fontSize: 22,
+                            height: 1.05,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: onOpenSummary,
+                        child: const Text('View all'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const _SessionListItem(
+                    title: 'Morning Gait Analysis',
+                    tag: 'Optimal',
+                  ),
+                  const _SessionListItem(
+                    title: 'Post-Rehab Strength',
+                    tag: 'Fair',
+                  ),
+                  const _SessionListItem(
+                    title: 'Stair Climbing Test',
+                    tag: 'Critical',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: ClipRRect(
+                borderRadius: AppTheme.cardRadius,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      'Recent symmetry',
-                      style: AppTheme.headingMedium.copyWith(
-                        color: context.txtPrimary,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'RECOMMENDED READING',
+                            style: AppTheme.labelSmall.copyWith(
+                              color: AppTheme.accentBlue,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Understanding the nuances of Pelvic Tilt and Kinetic Chain Symmetry',
+                            style: AppTheme.headingMedium.copyWith(
+                              color: context.txtPrimary,
+                              fontSize: 22,
+                              height: 1.12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Clinical studies show that a 5% improvement in pelvic stability correlates with reduced joint inflammation.',
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: context.txtSecondary,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: AppTheme.spaceSM),
-                    Text(
-                      summaryLabel,
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: context.txtSecondary,
+                    Container(
+                      height: 132,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: <Color>[
+                            AppTheme.accentAmber.withValues(alpha: 0.25),
+                            context.txtPrimary.withValues(alpha: 0.9),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.self_improvement,
+                          size: 60,
+                          color: context.bgPrimary.withValues(alpha: 0.9),
+                        ),
                       ),
                     ),
                   ],
@@ -381,173 +353,32 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-// ── CONNECTION CARDS ───────────────────────────────────────────────────
-class _DisconnectedCard extends StatelessWidget {
-  const _DisconnectedCard({super.key, required this.onConnect});
-  final VoidCallback onConnect;
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spaceMD,
-        vertical: AppTheme.spaceSM,
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: <Widget>[
-          _PulsingDot(color: AppTheme.accentAmber),
-          const SizedBox(width: AppTheme.spaceMD),
           Expanded(
             child: Text(
-              'biosignalsplux not connected',
-              style: AppTheme.bodyMedium.copyWith(
-                color: context.txtSecondary,
-              ),
-            ),
-          ),
-          OutlinedButton(
-            onPressed: onConnect,
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppTheme.accentTeal),
-              foregroundColor: AppTheme.accentTeal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spaceMD,
-                vertical: AppTheme.spaceSM,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-              ),
-            ),
-            child: const Text('Connect'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConnectingCard extends StatelessWidget {
-  const _ConnectingCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spaceMD,
-              vertical: AppTheme.spaceSM,
-            ),
-            child: Row(
-              children: <Widget>[
-                Shimmer.fromColors(
-                  baseColor: context.bgElevated,
-                  highlightColor: context.bgCard,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spaceMD),
-                Expanded(
-                  child: Shimmer.fromColors(
-                    baseColor: context.bgElevated,
-                    highlightColor: context.bgCard,
-                    child: Container(
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSM),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spaceMD),
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppTheme.accentTeal,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          LinearProgressIndicator(
-            valueColor:
-                const AlwaysStoppedAnimation<Color>(AppTheme.accentTeal),
-            backgroundColor: context.bgElevated,
-            minHeight: 3,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConnectedCard extends StatelessWidget {
-  const _ConnectedCard({super.key, required this.onDisconnect});
-  final VoidCallback onDisconnect;
-
-  static const String _mac = '00:07:80:8C:0A:27';
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spaceMD,
-        vertical: AppTheme.spaceSM,
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: AppTheme.accentGreen,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: AppTheme.spaceMD),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'biosignalsplux connected',
-                  style: AppTheme.bodyMedium.copyWith(
-                    color: AppTheme.accentGreen,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  _mac,
-                  style: AppTheme.monoSmall.copyWith(
-                    color: context.txtTertiary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: onDisconnect,
-            child: Text(
-              'Disconnect',
-              style: AppTheme.bodyMedium.copyWith(
+              label.toUpperCase(),
+              style: AppTheme.labelSmall.copyWith(
                 color: context.txtTertiary,
+                letterSpacing: 1,
               ),
+            ),
+          ),
+          Text(
+            value,
+            style: AppTheme.headingMedium.copyWith(
+              color: context.txtPrimary,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -556,91 +387,84 @@ class _ConnectedCard extends StatelessWidget {
   }
 }
 
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot({required this.color});
+class _ChannelCard extends StatelessWidget {
+  const _ChannelCard({
+    required this.label,
+    required this.title,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String title;
+  final String value;
   final Color color;
 
   @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) => Opacity(
-        opacity: _anim.value,
-        child: Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: widget.color,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── SHIMMER PLACEHOLDERS ──────────────────────────────────────────────────
-class _ShimmerStatCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: context.bgElevated,
-      highlightColor:
-          context.isDark ? context.bgCard : Colors.grey.shade200,
+    return AppCard(
+      padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Container(
-            height: 12,
-            width: 72,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+          Text(
+            label,
+            style: AppTheme.labelSmall.copyWith(
+              color: context.txtTertiary,
+              letterSpacing: 1,
             ),
           ),
-          const SizedBox(height: AppTheme.spaceSM),
-          Container(
-            height: 32,
-            width: 56,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: AppTheme.headingMedium.copyWith(
+              color: context.txtPrimary,
+              fontSize: 20,
             ),
           ),
-          const SizedBox(height: AppTheme.spaceXS),
-          Container(
-            height: 12,
-            width: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                value,
+                style: AppTheme.displayMedium.copyWith(
+                  color: context.txtPrimary,
+                  fontSize: 30,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  'uV',
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: context.txtTertiary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 42,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List<Widget>.generate(8, (index) {
+                final heights = <double>[16, 22, 30, 18, 26, 14, 24, 20];
+                return Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    height: heights[index],
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: index.isEven ? 0.55 : 0.8),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ],
@@ -649,117 +473,60 @@ class _ShimmerStatCard extends StatelessWidget {
   }
 }
 
-class _ShimmerRecentSessionCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spaceMD),
-        child: Shimmer.fromColors(
-          baseColor: context.bgElevated,
-          highlightColor:
-              context.isDark ? context.bgCard : Colors.grey.shade200,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Container(
-                height: 12,
-                width: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                ),
-              ),
-              const SizedBox(height: AppTheme.spaceSM),
-              Container(
-                height: 16,
-                width: 120,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                ),
-              ),
-              const SizedBox(height: AppTheme.spaceMD),
-              Container(
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                ),
-              ),
-              const SizedBox(height: AppTheme.spaceSM),
-              Container(
-                height: 12,
-                width: 100,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+class _SessionListItem extends StatelessWidget {
+  const _SessionListItem({required this.title, required this.tag});
 
-class _ShimmerTipsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spaceMD),
-        child: Shimmer.fromColors(
-          baseColor: context.bgElevated,
-          highlightColor:
-              context.isDark ? context.bgCard : Colors.grey.shade200,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: 42,
-                height: 42,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: AppTheme.spaceMD),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Container(
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spaceXS),
-                    Container(
-                      height: 12,
-                      width: 160,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCardData {
-  const _StatCardData(this.title, this.value, this.subtitle);
   final String title;
-  final String value;
-  final String subtitle;
+  final String tag;
+
+  @override
+  Widget build(BuildContext context) {
+    final tagColor = switch (tag) {
+      'Optimal' => AppTheme.accentLime,
+      'Fair' => AppTheme.accentAmber,
+      _ => AppTheme.accentRed,
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: tagColor.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.directions_walk, color: tagColor, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: AppTheme.bodyMedium.copyWith(
+                color: context.txtPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: tagColor.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              tag,
+              style: AppTheme.labelSmall.copyWith(
+                color: tag == 'Critical'
+                    ? AppTheme.accentRed
+                    : AppTheme.accentGreen,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
