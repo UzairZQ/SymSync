@@ -88,3 +88,5 @@ SymSync is a Flutter application for live symmetry monitoring, balance feedback,
 ## License
 
 This repository is configured as a private Flutter package. Update the `publish_to` value in `pubspec.yaml` if you plan to publish.
+
+<!-- update push -->
