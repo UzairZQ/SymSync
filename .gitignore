@@ -48,3 +48,6 @@ build/
 *.orig
 *.tmp
 *.swp
+
+# AI session context — local only, never push to remote
+CONTEXT.md

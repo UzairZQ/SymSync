@@ -43,7 +43,7 @@ class ProfilePage extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    'SymSync',
+                    'Profile',
                     style: AppTheme.headingLarge.copyWith(
                       color: context.txtPrimary,
                       fontSize: 28,

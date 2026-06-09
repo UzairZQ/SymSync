@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/session_confirmation_modal.dart';
 import '../bloc/session_bloc.dart';
 import 'anatomical_view_page.dart';
 import 'balance_monitor_page.dart';
@@ -62,7 +63,7 @@ class _SessionPageState extends State<SessionPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'SymSync',
+                          'Session',
                           style: AppTheme.headingLarge.copyWith(
                             color: context.txtPrimary,
                             fontSize: 28,
@@ -166,7 +167,7 @@ class _SessionActionsBar extends StatelessWidget {
                         if (isConnected) {
                           context.read<SessionBloc>().disconnect();
                         } else {
-                          context.read<SessionBloc>().connect(_deviceMac);
+                          _showConfirmationModal(context, state);
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -242,6 +243,23 @@ class _SessionActionsBar extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _showConfirmationModal(BuildContext context, SessionState state) {
+    showDialog(
+      context: context,
+      builder: (context) => SessionConfirmationModal(
+        channelA: state.channelMapping['A'] ?? 'left',
+        channelB: state.channelMapping['B'] ?? 'right',
+        onConfirm: () {
+          Navigator.pop(context);
+          context.read<SessionBloc>().connect(_deviceMac);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 }

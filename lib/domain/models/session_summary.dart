@@ -9,6 +9,7 @@ class SessionSummary extends Equatable {
     required this.averageActivation,
     required this.note,
     this.averageSymmetryIndex,
+    this.channelMapping,
   });
 
   final DateTime startedAt;
@@ -18,6 +19,7 @@ class SessionSummary extends Equatable {
   final double averageActivation;
   final double? averageSymmetryIndex;
   final String note;
+  final Map<String, String>? channelMapping;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -28,6 +30,7 @@ class SessionSummary extends Equatable {
       'averageActivation': averageActivation,
       'averageSymmetryIndex': averageSymmetryIndex,
       'note': note,
+      'channelMapping': channelMapping,
     };
   }
 
@@ -40,6 +43,7 @@ class SessionSummary extends Equatable {
       averageActivation: (json['averageActivation'] as num).toDouble(),
       averageSymmetryIndex: (json['averageSymmetryIndex'] as num?)?.toDouble(),
       note: (json['note'] as String?) ?? '',
+      channelMapping: (json['channelMapping'] as Map<String, dynamic>?)?.cast<String, String>(),
     );
   }
 
@@ -52,5 +56,6 @@ class SessionSummary extends Equatable {
     averageActivation,
     averageSymmetryIndex,
     note,
+    channelMapping,
   ];
 }

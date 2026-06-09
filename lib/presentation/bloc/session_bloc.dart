@@ -14,11 +14,9 @@ import '../../domain/services/signal_processor.dart';
 enum SessionStatus { disconnected, connecting, connected, signalLost, error }
 
 String greetingForHour(int hour) {
-  if (hour < 5) return 'Good night';
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
-  if (hour < 21) return 'Good evening';
-  return 'Good night';
+  return 'Good evening';
 }
 
 class SessionState extends Equatable {
@@ -39,6 +37,7 @@ class SessionState extends Equatable {
     required this.connectedAtMs,
     required this.lastFrameMs,
     required this.userName,
+    required this.channelMapping,
   });
 
   factory SessionState.initial() {
@@ -63,6 +62,7 @@ class SessionState extends Equatable {
       connectedAtMs: null,
       lastFrameMs: null,
       userName: null,
+      channelMapping: {'A': 'left', 'B': 'right'},
     );
   }
 
@@ -82,6 +82,7 @@ class SessionState extends Equatable {
   final int? connectedAtMs;
   final int? lastFrameMs;
   final String? userName;
+  final Map<String, String> channelMapping;
 
   bool get isConnected =>
       status == SessionStatus.connected || status == SessionStatus.signalLost;
@@ -115,6 +116,7 @@ class SessionState extends Equatable {
     int? connectedAtMs,
     int? lastFrameMs,
     String? userName,
+    Map<String, String>? channelMapping,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -135,6 +137,7 @@ class SessionState extends Equatable {
       connectedAtMs: connectedAtMs ?? this.connectedAtMs,
       lastFrameMs: lastFrameMs ?? this.lastFrameMs,
       userName: userName ?? this.userName,
+      channelMapping: channelMapping ?? this.channelMapping,
     );
   }
 
@@ -156,6 +159,7 @@ class SessionState extends Equatable {
     connectedAtMs,
     lastFrameMs,
     userName,
+    channelMapping,
   ];
 }
 
@@ -169,6 +173,7 @@ class SessionBloc extends Cubit<SessionState> {
        super(SessionState.initial()) {
     _loadHistory();
     _loadUserName();
+    _loadChannelMapping();
     _rebuildTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (isClosed) {
         return;
@@ -248,6 +253,7 @@ class SessionBloc extends Cubit<SessionState> {
   Future<void> start() async {
     await _loadHistory();
     await _loadUserName();
+    await _loadChannelMapping();
   }
 
   Future<void> setUserName(String name) async {
@@ -269,6 +275,34 @@ class SessionBloc extends Cubit<SessionState> {
         emit(state.copyWith(userName: stored));
       }
     }
+  }
+
+  Future<void> _loadChannelMapping() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedA = prefs.getString('channel_mapping.A');
+    final storedB = prefs.getString('channel_mapping.B');
+
+    if ((storedA != null && storedB != null) &&
+        !isClosed) {
+      final mapping = {'A': storedA, 'B': storedB};
+      if (mapping != state.channelMapping) {
+        emit(state.copyWith(channelMapping: mapping));
+      }
+    }
+  }
+
+  Future<void> setChannelMapping(String channelA, String channelB) async {
+    final mapping = {'A': channelA, 'B': channelB};
+    emit(state.copyWith(channelMapping: mapping));
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('channel_mapping.A', channelA);
+    await prefs.setString('channel_mapping.B', channelB);
+  }
+
+  bool get isChannelMappingConfigured {
+    final mapping = state.channelMapping;
+    return mapping['A'] != null && mapping['B'] != null;
   }
 
   Future<void> connect(String macAddress) async {
@@ -446,6 +480,7 @@ class SessionBloc extends Cubit<SessionState> {
       averageActivation: _activationSum / _activationCount,
       averageSymmetryIndex: null,
       note: 'Stair-climb leg activation session',
+      channelMapping: Map<String, String>.from(state.channelMapping),
     );
     _history.insert(0, summary);
     await _historyStore.save(_history.take(10).toList(growable: false));

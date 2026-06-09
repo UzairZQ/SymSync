@@ -23,6 +23,8 @@ class _OnboardingPageState extends State<OnboardingPage>
   int _currentPage = 0;
   String? _selectedUserType;
   String _name = '';
+  String _channelA = 'left';
+  String _channelB = 'right';
 
   late final AnimationController _entryCtrl;
 
@@ -49,7 +51,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 
   void _nextPage() {
-    if (_currentPage < 4) {
+    if (_currentPage < 5) {
       _pageCtrl.nextPage(
         duration: const Duration(milliseconds: 380),
         curve: Curves.easeOutCubic,
@@ -59,7 +61,7 @@ class _OnboardingPageState extends State<OnboardingPage>
 
   void _skipToLast() {
     _pageCtrl.animateToPage(
-      4,
+      5,
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeOutCubic,
     );
@@ -71,11 +73,14 @@ class _OnboardingPageState extends State<OnboardingPage>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_complete', true);
     await prefs.setString('user_name', name);
+    await prefs.setString('channel_mapping.A', _channelA);
+    await prefs.setString('channel_mapping.B', _channelB);
     if (_selectedUserType != null) {
       await prefs.setString('user_type', _selectedUserType!);
     }
     if (!mounted) return;
     context.read<SessionBloc>().setUserName(name);
+    await context.read<SessionBloc>().setChannelMapping(_channelA, _channelB);
     widget.onComplete();
   }
 
@@ -133,7 +138,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                     ],
                   ),
                   const Spacer(),
-                  if (_currentPage < 4)
+                  if (_currentPage < 5)
                     TextButton(
                       onPressed: _skipToLast,
                       style: TextButton.styleFrom(
@@ -197,6 +202,14 @@ class _OnboardingPageState extends State<OnboardingPage>
                     onSelect: (t) => setState(() => _selectedUserType = t),
                     entry: _entryCtrl,
                   ),
+                  _SlideChannelCalibration(
+                    key: const ValueKey<String>('channels'),
+                    entry: _entryCtrl,
+                    channelA: _channelA,
+                    channelB: _channelB,
+                    onChannelAChanged: (v) => setState(() => _channelA = v),
+                    onChannelBChanged: (v) => setState(() => _channelB = v),
+                  ),
                   _SlideReady(
                     key: const ValueKey<String>('ready'),
                     entry: _entryCtrl,
@@ -220,7 +233,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                 children: <Widget>[
                   SmoothPageIndicator(
                     controller: _pageCtrl,
-                    count: 5,
+                    count: 6,
                     effect: ExpandingDotsEffect(
                       dotHeight: 7,
                       dotWidth: 7,
@@ -231,7 +244,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                     ),
                   ),
                   const SizedBox(height: AppTheme.spaceLG),
-                  if (_currentPage == 4)
+                  if (_currentPage == 5)
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -744,6 +757,174 @@ class _UserTypeCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SlideChannelCalibration extends StatelessWidget {
+  final AnimationController entry;
+  final String channelA;
+  final String channelB;
+  final ValueChanged<String> onChannelAChanged;
+  final ValueChanged<String> onChannelBChanged;
+
+  const _SlideChannelCalibration({
+    super.key,
+    required this.entry,
+    required this.channelA,
+    required this.channelB,
+    required this.onChannelAChanged,
+    required this.onChannelBChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLG),
+      child: Column(
+        children: <Widget>[
+          const SizedBox(height: AppTheme.spaceLG),
+          Expanded(
+            flex: 6,
+            child: FadeTransition(
+              opacity: entry,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: <Widget>[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightBackgroundCard,
+                      borderRadius: AppTheme.cardRadius,
+                      border: Border.all(color: AppTheme.lightDivider),
+                      boxShadow: AppTheme.lightCardShadow,
+                    ),
+                    padding: const EdgeInsets.all(AppTheme.spaceLG),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Pair Your Cables',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.lightTextPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.spaceLG),
+                        _ChannelSelector(
+                          label: 'Channel A →',
+                          selected: channelA,
+                          options: const ['left', 'right'],
+                          onSelect: onChannelAChanged,
+                        ),
+                        const SizedBox(height: AppTheme.spaceMD),
+                        _ChannelSelector(
+                          label: 'Channel B →',
+                          selected: channelB,
+                          options: const ['left', 'right'],
+                          onSelect: onChannelBChanged,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceXL),
+          Text(
+            'Cable Assignment',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.lightTextPrimary,
+              height: 1.2,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceSM),
+          Text(
+            'Which leg is each cable connected to?\nYou can recalibrate anytime in settings.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.lightTextSecondary,
+              height: 1.55,
+            ),
+          ),
+          const Spacer(flex: 1),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChannelSelector extends StatelessWidget {
+  final String label;
+  final String selected;
+  final List<String> options;
+  final ValueChanged<String> onSelect;
+
+  const _ChannelSelector({
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.lightTextSecondary,
+          ),
+        ),
+        const SizedBox(width: AppTheme.spaceMD),
+        ...options.map(
+          (option) => Padding(
+            padding: const EdgeInsets.only(right: AppTheme.spaceSM),
+            child: GestureDetector(
+              onTap: () => onSelect(option),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spaceMD,
+                  vertical: AppTheme.spaceSM,
+                ),
+                decoration: BoxDecoration(
+                  color: selected == option
+                      ? AppTheme.lightTextPrimary
+                      : AppTheme.lightBackgroundElevated,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                  border: Border.all(
+                    color: selected == option
+                        ? AppTheme.lightTextPrimary
+                        : AppTheme.lightDivider,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  option[0].toUpperCase() + option.substring(1),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: selected == option
+                        ? AppTheme.lightBackgroundPrimary
+                        : AppTheme.lightTextSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
