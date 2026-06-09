@@ -5,7 +5,8 @@ import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
-import '../widgets/session_visuals.dart';
+import '../widgets/historical_heatmap.dart';
+import '../../domain/services/session_aggregator.dart';
 
 class ActivationSummaryPage extends StatefulWidget {
   const ActivationSummaryPage({super.key});
@@ -21,8 +22,6 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final symmetry = state.symmetryIndex;
-        final hasSymmetry = symmetry != null;
         final historyCount = state.history.length;
 
         final symmetryScores = state.history
@@ -37,13 +36,8 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
         final trendingUp = trendPercent == null
             ? null
             : trendPercent >= 0;
-        final leftActivation = state.liveActivation;
-        final rightActivation = hasSymmetry
-            ? (state.liveActivation * (1 - symmetry))
-            : null;
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
-        final hasData = historyCount > 0 || hasSymmetry;
 
         return ListView(
           key: const PageStorageKey<String>('summary'),
@@ -86,12 +80,32 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                   const SizedBox(height: AppTheme.spaceMD),
                   SizedBox(
                     height: 280,
-                    child: hasData
-                        ? LegPairSilhouette(
-                            leftActivation: leftActivation.clamp(0.0, 1.0),
-                            rightActivation: rightActivation?.clamp(0.0, 1.0),
-                          )
-                        : _EmptyHeatmap(),
+                    child: FutureBuilder<SessionHeatmapData>(
+                      future:
+                          SessionAggregator.aggregateSessionHistory(state.history),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return HistoricalLegHeatmap(
+                            data: snapshot.data!,
+                          );
+                        } else if (snapshot.hasError) {
+                          return _EmptyHeatmap();
+                        } else {
+                          return Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  context.txtTertiary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ),
                   const SizedBox(height: AppTheme.spaceXL),
                   Row(
