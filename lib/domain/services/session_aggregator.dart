@@ -42,7 +42,9 @@ class SessionAggregator {
     if (sessions.isEmpty) return grid;
 
     for (final session in sessions) {
-      final activation = session.averageActivation;
+      final activation = leg == 'left'
+          ? (session.averageLeftActivation ?? session.averageActivation)
+          : (session.averageRightActivation ?? session.averageActivation);
       _addActivationToGrid(grid, activation);
     }
 

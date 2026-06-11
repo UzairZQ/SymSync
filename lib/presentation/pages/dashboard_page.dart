@@ -50,7 +50,7 @@ class DashboardPage extends StatelessWidget {
                       symmetryScores.map((s) => s.abs()).reduce(min) * 100)
                   .toStringAsFixed(0);
         final channelA = state.latestRaw;
-        final channelB = state.rawPoints.isEmpty ? 712 : state.rawPoints.last;
+        final channelB = state.rawPoints3.isEmpty ? 712 : state.rawPoints3.last;
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
         final hasAnyData = state.history.isNotEmpty || hasSymmetry;
@@ -109,7 +109,6 @@ class DashboardPage extends StatelessWidget {
               padding: const EdgeInsets.all(28),
               child: Column(
                 children: <Widget>[
-                  Spacer(flex: 0),
                   SizedBox(
                     height: 148,
                     width: 148,
@@ -323,18 +322,39 @@ class DashboardPage extends StatelessWidget {
             const SizedBox(height: 18),
             _ChannelCard(
               label: 'CHANNEL 1',
-              title: 'L — Trapezius',
+              title: 'R — Trapezius',
               value: hasSymmetry || isConnected ? channelA.toString() : '—',
-              color: AppTheme.leftTrap,
+              color: AppTheme.rightTrap,
               hasData: hasSymmetry || isConnected,
             ),
             const SizedBox(height: 12),
             _ChannelCard(
               label: 'CHANNEL 2',
-              title: 'R — Trapezius',
+              title: 'L — Trapezius',
               value: hasSymmetry || isConnected ? channelB.toString() : '—',
-              color: AppTheme.rightTrap,
+              color: AppTheme.leftTrap,
               hasData: hasSymmetry || isConnected,
+            ),
+            const SizedBox(height: 14),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: context.bgCard,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: context.dividerClr),
+                ),
+                child: Text(
+                  'Port 1 → Right  /  Port 3 → Left',
+                  style: AppTheme.labelSmall.copyWith(
+                    color: context.txtTertiary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 18),
             AppCard(

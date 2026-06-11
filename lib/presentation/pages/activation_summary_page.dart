@@ -123,7 +123,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                         ? HeatmapSilhouetteWidget(
                             leftActivation: leftAvg.clamp(0.0, 1.0),
                             rightActivation: rightAvg.clamp(0.0, 1.0),
-                            width: 180,
+                            width: 240,
                           )
                         : const _EmptyHeatmap(),
                   ),

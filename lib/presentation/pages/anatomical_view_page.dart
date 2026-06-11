@@ -18,8 +18,8 @@ class AnatomicalViewContent extends StatelessWidget {
         final imbalanceLabel = state.symmetryIndex == null
             ? 'Awaiting second channel to compare sides.'
             : state.symmetryIndex! < 0
-            ? 'Left side is ${(state.symmetryIndex!.abs() * 100).toStringAsFixed(0)}% more active.'
-            : 'Right side is ${(state.symmetryIndex! * 100).toStringAsFixed(0)}% more active.';
+            ? 'Right side is ${(state.symmetryIndex!.abs() * 100).toStringAsFixed(0)}% more active.'
+            : 'Left side is ${(state.symmetryIndex! * 100).toStringAsFixed(0)}% more active.';
 
         return ListView(
           key: const PageStorageKey<String>('anatomical'),
@@ -98,14 +98,12 @@ class AnatomicalViewContent extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Center(
-                          child: SizedBox(
-                            height: 300,
-                            child: HeatmapSilhouetteWidget(
-                              leftActivation: state.normalisedLeftActivation,
-                              rightActivation: state.normalisedRightActivation,
-                              width: 180,
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: HeatmapSilhouetteWidget(
+                            leftActivation: state.normalisedLeftActivation,
+                            rightActivation: state.normalisedRightActivation,
+                            width: 260,
                           ),
                         ),
                       ],

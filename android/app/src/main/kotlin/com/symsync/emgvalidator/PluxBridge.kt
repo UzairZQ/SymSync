@@ -257,27 +257,36 @@ class PluxBridge(
         return if (channels.isEmpty()) listOf(1) else channels
     }
 
-    // Every incoming frame gets reduced to the one raw channel this screen cares about.
-    private fun emitSample(ch1: Int) {
+    // Forwards both channels to the Dart side. When only one source is configured
+    // the second value gracefully defaults to 0.
+    private fun emitSample(ch1: Int, ch3: Int) {
         val sink = eventSink ?: return
         val timestamp = System.currentTimeMillis()
         mainHandler.post {
-            Log.d(tag, "Frame ch1=$ch1")
+            Log.d(tag, "Frame ch1=$ch1 ch3=$ch3")
             sink.success(
                 mapOf(
                     "timestamp" to timestamp,
                     "ch1" to ch1,
+                    "ch3" to ch3,
                 ),
             )
         }
     }
 
     override fun onBiopluxDataAvailable(frame: BiopluxFrame) {
-        emitSample(frame.getAnalogData().firstOrNull() ?: 0)
+        val data = frame.getAnalogData()
+        emitSample(
+            data.getOrElse(0) { 0 },
+            data.getOrElse(1) { 0 },
+        )
     }
 
     override fun onBiopluxDataAvailable(identifier: String, data: IntArray) {
-        emitSample(data.firstOrNull() ?: 0)
+        emitSample(
+            data.getOrElse(0) { 0 },
+            data.getOrElse(1) { 0 },
+        )
     }
 
     private companion object {

@@ -30,9 +30,9 @@ class SignalProcessor {
       return 'Nice and even. Keep the stair rhythm steady.';
     }
     if (symmetryIndex > 0) {
-      return 'Right side is doing more work. Let the left leg catch up.';
+      return 'Left side is more active. Let the right side catch up.';
     }
-    return 'Left side is doing more work. Smooth out the load on the right.';
+    return 'Right side is more active. Let the left side catch up.';
   }
 
   String trendLabel(double? symmetryIndex) {

@@ -73,7 +73,7 @@ class SessionState extends Equatable {
       errorMessage: null,
       connectedAtMs: null,
       lastFrameMs: null,
-      channelMapping: {'A': 'left', 'B': 'right'},
+      channelMapping: {'A': 'right', 'B': 'left'},
       leftTrapRms: 0.0,
       rightTrapRms: 0.0,
       normalisedLeftActivation: 0.0,
@@ -485,11 +485,11 @@ class SessionBloc extends Cubit<SessionState> {
       _activationPoints.removeRange(0, _activationPoints.length - 3000);
     }
 
-    if (_liveActivation > _sessionPeakLeft) {
-      _sessionPeakLeft = _liveActivation;
+    if (rightAct > _sessionPeakLeft) {
+      _sessionPeakLeft = rightAct;
     }
-    if (rightAct > _sessionPeakRight) {
-      _sessionPeakRight = rightAct;
+    if (_liveActivation > _sessionPeakRight) {
+      _sessionPeakRight = _liveActivation;
     }
 
     if (state.status == SessionStatus.signalLost) {
@@ -601,11 +601,11 @@ class SessionBloc extends Cubit<SessionState> {
     final ch3Active = (max3 - min3) > 50;
 
     if (ch1Active && ch3Active) {
-      final leftActivation = _liveActivation;
-      final rightActivation = _signalProcessor.activationFromRaw(
+      final leftActivation = _signalProcessor.activationFromRaw(
         (_rawPoints3.isNotEmpty ? _rawPoints3.last : SignalProcessor.adcMidpoint) - 
         _calibrationMidpoint + SignalProcessor.adcMidpoint,
       );
+      final rightActivation = _liveActivation;
       return _signalProcessor.symmetryIndexFromLevels(
         leftActivation,
         rightActivation,
@@ -620,11 +620,11 @@ class SessionBloc extends Cubit<SessionState> {
         ? 0
         : DateTime.now().difference(startedAt).inSeconds;
 
-    final double leftAct = _liveActivation;
-    final double rightAct = _signalProcessor.activationFromRaw(
+    final double leftAct = _signalProcessor.activationFromRaw(
       (_rawPoints3.isNotEmpty ? _rawPoints3.last : SignalProcessor.adcMidpoint) - 
       _calibrationMidpoint + SignalProcessor.adcMidpoint,
     );
+    final double rightAct = _liveActivation;
 
     final peakLeft = _sessionPeakLeft > 0 ? _sessionPeakLeft : 1.0;
     final peakRight = _sessionPeakRight > 0 ? _sessionPeakRight : 1.0;
