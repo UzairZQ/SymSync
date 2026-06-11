@@ -15,34 +15,90 @@ class BalanceMonitorContent extends StatelessWidget {
     final processor = const SignalProcessor();
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final symmetry = state.symmetryIndex;
-        final tiltDegrees = symmetry == null
-            ? 0
-            : (symmetry / 3.0).clamp(-20.0, 20.0).toStringAsFixed(0);
+        final lastSession = state.history.isNotEmpty
+            ? state.history.first
+            : null;
+        final isRecording = state.sessionSeconds > 0;
+
+        final displaySymmetry = lastSession?.averageSymmetryIndex;
+        final leftAct = (lastSession?.averageLeftActivation ?? 0.0).clamp(0.0, 1.0);
+        final rightAct = (lastSession?.averageRightActivation ?? 0.0).clamp(0.0, 1.0);
+
+        final tiltDegrees = displaySymmetry == null
+            ? null
+            : (displaySymmetry / 3.0).clamp(-20.0, 20.0);
+
+        final hasData = lastSession != null;
+
+        String activityLabel(double activation) {
+          if (activation < 0.05) return 'Inactive';
+          if (activation < 0.25) return 'Low';
+          if (activation < 0.50) return 'Moderate';
+          return 'High';
+        }
 
         return ListView(
           key: const PageStorageKey<String>('balance'),
           padding: const EdgeInsets.only(bottom: AppTheme.spaceXXL),
           children: <Widget>[
-            Text(
-              'LIVE SESSION METRICS',
-              style: AppTheme.labelSmall.copyWith(
-                color: context.txtTertiary,
-                letterSpacing: 1.1,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spaceXS),
-            Text(
-              'Balance Monitor',
-              style: AppTheme.headingLarge.copyWith(
-                color: context.txtPrimary,
-                fontSize: 30,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spaceXS),
-            Text(
-              'Muscle activation balance',
-              style: AppTheme.bodyLarge.copyWith(color: context.txtSecondary),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Balance Monitor',
+                        style: AppTheme.headingLarge.copyWith(
+                          color: context.txtPrimary,
+                          fontSize: 30,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceXS),
+                      Text(
+                        hasData
+                            ? 'Last session results'
+                            : 'Complete a session to see results',
+                        style: AppTheme.bodyLarge.copyWith(
+                          color: context.txtSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isRecording)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spaceSM,
+                      vertical: AppTheme.spaceXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentAmber.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.accentAmber,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Recording',
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: AppTheme.accentAmber,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: AppTheme.spaceLG),
             AppCard(
@@ -50,10 +106,10 @@ class BalanceMonitorContent extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  TiltMeter(symmetryIndex: symmetry),
+                  TiltMeter(symmetryIndex: displaySymmetry),
                   const SizedBox(height: 20),
                   Text(
-                    symmetry == null ? '- -°' : '$tiltDegrees°',
+                    tiltDegrees == null ? '- -°' : '${tiltDegrees.toStringAsFixed(0)}°',
                     style: AppTheme.displayMedium.copyWith(
                       fontWeight: FontWeight.w900,
                       color: context.txtPrimary,
@@ -63,7 +119,9 @@ class BalanceMonitorContent extends StatelessWidget {
                   ),
                   const SizedBox(height: AppTheme.spaceSM),
                   Text(
-                    'Activation tilt from center',
+                    hasData
+                        ? 'Tilt from bilateral symmetry'
+                        : 'Awaiting session data',
                     style: AppTheme.bodyLarge.copyWith(
                       color: context.txtSecondary,
                       fontWeight: FontWeight.w700,
@@ -92,78 +150,196 @@ class BalanceMonitorContent extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppTheme.spaceLG),
-            AppCard(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            if (isRecording && !hasData)
+              AppCard(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: <Widget>[
+                    Icon(
+                      Icons.fiber_manual_record,
+                      size: 48,
+                      color: AppTheme.accentAmber.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(height: AppTheme.spaceMD),
+                    Text(
+                      'Recording in progress',
+                      style: AppTheme.headingMedium.copyWith(
+                        color: context.txtPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spaceSM),
+                    Text(
+                      'Results will appear here when the session ends.',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.bodyLarge.copyWith(
+                        color: context.txtSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Row(
                 children: <Widget>[
-                  Text(
-                    'CHANNEL A',
-                    style: AppTheme.labelSmall.copyWith(
-                      color: context.txtTertiary,
-                      letterSpacing: 1,
+                  Expanded(
+                    child: _ChannelCard(
+                      label: 'Left Trap',
+                      activation: leftAct,
+                      activity: activityLabel(leftAct),
+                      color: AppTheme.leftTrap,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Left Hemisphere',
-                    style: AppTheme.headingMedium.copyWith(
-                      color: context.txtPrimary,
-                      fontSize: 20,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      Text(
-                        '${state.latestRaw}',
-                        style: AppTheme.displayMedium.copyWith(
-                          color: context.txtPrimary,
-                          fontSize: 32,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 7),
-                        child: Text(
-                          'uV',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: context.txtTertiary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const _MiniBars(color: AppTheme.leftTrap),
-                  const SizedBox(height: 24),
-                  Text(
-                    symmetry == null
-                        ? 'Awaiting bilateral feed.'
-                        : symmetry < 0
-                        ? 'Left trapezius is more active.'
-                        : 'Right trapezius is more active.',
-                    style: AppTheme.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                      color: context.txtPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.spaceMD),
-                  Text(
-                    processor.correctiveInstruction(symmetry),
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: context.txtSecondary,
-                      height: 1.5,
+                  const SizedBox(width: AppTheme.spaceMD),
+                  Expanded(
+                    child: _ChannelCard(
+                      label: 'Right Trap',
+                      activation: rightAct,
+                      activity: activityLabel(rightAct),
+                      color: AppTheme.rightTrap,
                     ),
                   ),
                 ],
               ),
-            ),
+            if (hasData) ...[
+              const SizedBox(height: AppTheme.spaceLG),
+              AppCard(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      displaySymmetry == null
+                          ? 'Single-channel mode'
+                          : displaySymmetry < 0
+                          ? 'Left Trap dominance'
+                          : 'Right Trap dominance',
+                      style: AppTheme.headingMedium.copyWith(
+                        color: context.txtPrimary,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spaceSM),
+                    Text(
+                      displaySymmetry == null
+                          ? 'Complete a bilateral session to get corrective feedback.'
+                          : processor.correctiveInstruction(displaySymmetry),
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: context.txtSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         );
       },
+    );
+  }
+}
+
+class _ChannelCard extends StatelessWidget {
+  final String label;
+  final double activation;
+  final String activity;
+  final Color color;
+
+  const _ChannelCard({
+    required this.label,
+    required this.activation,
+    required this.activity,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (activation * 100).round();
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: AppTheme.headingMedium.copyWith(
+              color: context.txtPrimary,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceMD),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                '$pct',
+                style: AppTheme.displayMedium.copyWith(
+                  color: context.txtPrimary,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '%',
+                  style: AppTheme.bodyLarge.copyWith(
+                    color: context.txtTertiary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _ActivityBadge(level: activity, color: color),
+          const SizedBox(height: AppTheme.spaceMD),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: activation,
+              backgroundColor: context.bgElevated,
+              color: color,
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceSM),
+          _MiniBars(
+            color: color,
+            activation: activation,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityBadge extends StatelessWidget {
+  final String level;
+  final Color color;
+
+  const _ActivityBadge({required this.level, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        level,
+        style: AppTheme.labelSmall.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
     );
   }
 }
@@ -198,26 +374,30 @@ class _MuscleChip extends StatelessWidget {
 }
 
 class _MiniBars extends StatelessWidget {
-  const _MiniBars({required this.color});
-
   final Color color;
+  final double activation;
+
+  const _MiniBars({required this.color, required this.activation});
 
   @override
   Widget build(BuildContext context) {
-    const heights = <double>[18, 24, 32, 20, 26, 16, 28, 22];
     return SizedBox(
-      height: 48,
+      height: 36,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: List<Widget>.generate(heights.length, (index) {
+        children: List<Widget>.generate(8, (index) {
+          final barHeight = (activation * (12 + (index * 4).toDouble()))
+              .clamp(4.0, 40.0);
           return Expanded(
             child: Container(
-              height: heights[index],
-              margin: const EdgeInsets.symmetric(horizontal: 3),
+              height: barHeight,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: index.isEven ? 0.5 : 0.78),
+                color: color.withValues(
+                  alpha: index.isEven ? 0.35 : 0.65,
+                ),
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(8),
+                  top: Radius.circular(6),
                 ),
               ),
             ),

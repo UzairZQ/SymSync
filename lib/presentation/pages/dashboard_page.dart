@@ -115,26 +115,32 @@ class DashboardPage extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
-                        CircularProgressIndicator(
-                          value: (indexScore ?? 0) / 100,
-                          strokeWidth: 9,
-                          backgroundColor: context.bgElevated,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            indexScore == null
-                                ? context.txtTertiary
-                                : AppTheme.accentTeal,
+                        SizedBox(
+                          height: 148,
+                          width: 148,
+                          child: CircularProgressIndicator(
+                            value: (indexScore ?? 0) / 100,
+                            strokeWidth: 9,
+                            backgroundColor: context.bgElevated,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              indexScore == null
+                                  ? context.txtTertiary
+                                  : AppTheme.accentTeal,
+                            ),
                           ),
                         ),
                         Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
                             Text(
                               indexScore == null ? '—' : '$indexScore%',
                               style: AppTheme.displayMedium.copyWith(
                                 color: context.txtPrimary,
-                                fontSize: 30,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
+                            const SizedBox(height: 2),
                             Text(
                               'INDEX',
                               style: AppTheme.labelSmall.copyWith(
@@ -329,7 +335,7 @@ class DashboardPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _ChannelCard(
-              label: 'CHANNEL 2',
+              label: 'CHANNEL 3',
               title: 'L — Trapezius',
               value: hasSymmetry || isConnected ? channelB.toString() : '—',
               color: AppTheme.leftTrap,

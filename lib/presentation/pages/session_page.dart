@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../screens/calibration_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
 import '../../widgets/status_badge.dart';
@@ -28,7 +29,7 @@ class SessionScreen extends StatelessWidget {
         backgroundColor: context.bgPrimary,
         body: const SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, AppTheme.spaceXL),
             child: SessionPage(),
           ),
         ),
@@ -164,6 +165,7 @@ class _SessionPageState extends State<SessionPage> {
             const SizedBox(height: AppTheme.spaceMD),
 
             const _SessionActionsBar(),
+            const SizedBox(height: AppTheme.spaceLG),
           ],
         );
       },
@@ -239,7 +241,12 @@ class _SessionActionsBar extends StatelessWidget {
             const SizedBox(width: AppTheme.spaceMD),
             ElevatedButton(
               onPressed: (isConnected && !isBusy)
-                  ? () => context.read<SessionBloc>().calibrate()
+                  ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CalibrationScreen(),
+                        ),
+                      )
                   : null,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(

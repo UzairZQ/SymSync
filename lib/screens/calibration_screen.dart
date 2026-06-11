@@ -165,17 +165,17 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F6FB),
+      backgroundColor: context.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: context.bgPrimary,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: context.txtPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Device Setup',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(color: context.txtPrimary, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -189,7 +189,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                 _phase == CalibrationPhase.connecting
                     ? 'Connecting to biosignalsplux…'
                     : 'Live signal monitoring — begin your session when ready',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                style: TextStyle(color: context.txtSecondary, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppTheme.spaceLG),
@@ -224,25 +224,25 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.bluetooth_searching_rounded,
             size: 64,
-            color: Color(0xFF2563EB),
+            color: context.txtPrimary,
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Connecting to Device…',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.txtPrimary),
           ),
           const SizedBox(height: 8),
           Text(
             'biosignalsplux\nMAC: $_deviceMac',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey),
+            style: TextStyle(color: context.txtTertiary),
           ),
           const SizedBox(height: 24),
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(context.txtPrimary),
           ),
         ],
       ),
@@ -271,7 +271,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
         ),
         const SizedBox(height: 16),
         _buildChannelRow(
-          channelLabel: 'CH2 — Left Trapezius',
+          channelLabel: 'CH3 — Left Trapezius',
           status: _ch3Status,
           noiseUv: _ch3NoiseUv,
           samples: ch3Samples,
@@ -303,12 +303,16 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
             children: [
               Text(
                 channelLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: context.txtPrimary,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.12),
+                  color: badgeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -325,7 +329,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           const SizedBox(height: 4),
           Text(
             'Noise floor: ${noiseUv.toStringAsFixed(1)} µV',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            style: TextStyle(color: context.txtTertiary, fontSize: 12),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -349,24 +353,32 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           ElevatedButton(
             onPressed: _beginSession,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
+              backgroundColor: context.txtPrimary,
+              foregroundColor: context.bgPrimary,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(999),
               ),
+              elevation: 0,
             ),
-            child: const Text(
+            child: Text(
               'Begin Session',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: context.bgPrimary,
+              ),
             ),
           ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: _startConnecting,
-            child: const Text(
+            child: Text(
               'Reconnect',
-              style: TextStyle(color: Color(0xFF2563EB)),
+              style: TextStyle(
+                color: context.txtSecondary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -378,10 +390,18 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        side: BorderSide(color: context.dividerClr),
+        foregroundColor: context.txtSecondary,
+      ),
+      child: Text(
+        'Cancel',
+        style: TextStyle(
+          color: context.txtSecondary,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      child: const Text('Cancel'),
     );
   }
 }
