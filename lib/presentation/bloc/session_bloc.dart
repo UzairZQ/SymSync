@@ -31,13 +31,20 @@ class SessionState extends Equatable {
     required this.liveActivation,
     required this.symmetryIndex,
     required this.rawPoints,
+    required this.rawPoints3,
     required this.history,
     required this.notice,
     required this.errorMessage,
     required this.connectedAtMs,
     required this.lastFrameMs,
-    required this.userName,
     required this.channelMapping,
+    required this.leftTrapRms,
+    required this.rightTrapRms,
+    required this.normalisedLeftActivation,
+    required this.normalisedRightActivation,
+    required this.baselineRmsLeft,
+    required this.baselineRmsRight,
+    this.calibratedAt,
   });
 
   factory SessionState.initial() {
@@ -56,13 +63,24 @@ class SessionState extends Equatable {
         SignalProcessor.adcMidpoint,
         growable: true,
       ),
+      rawPoints3: List<int>.filled(
+        3000,
+        SignalProcessor.adcMidpoint,
+        growable: true,
+      ),
       history: const <SessionSummary>[],
       notice: null,
       errorMessage: null,
       connectedAtMs: null,
       lastFrameMs: null,
-      userName: null,
       channelMapping: {'A': 'left', 'B': 'right'},
+      leftTrapRms: 0.0,
+      rightTrapRms: 0.0,
+      normalisedLeftActivation: 0.0,
+      normalisedRightActivation: 0.0,
+      baselineRmsLeft: 0.0,
+      baselineRmsRight: 0.0,
+      calibratedAt: null,
     );
   }
 
@@ -76,13 +94,21 @@ class SessionState extends Equatable {
   final double liveActivation;
   final double? symmetryIndex;
   final List<int> rawPoints;
+  final List<int> rawPoints3;
   final List<SessionSummary> history;
   final String? notice;
   final String? errorMessage;
   final int? connectedAtMs;
   final int? lastFrameMs;
-  final String? userName;
   final Map<String, String> channelMapping;
+
+  final double leftTrapRms;
+  final double rightTrapRms;
+  final double normalisedLeftActivation;
+  final double normalisedRightActivation;
+  final double baselineRmsLeft;
+  final double baselineRmsRight;
+  final DateTime? calibratedAt;
 
   bool get isConnected =>
       status == SessionStatus.connected || status == SessionStatus.signalLost;
@@ -91,10 +117,14 @@ class SessionState extends Equatable {
 
   String get greeting => greetingForHour(DateTime.now().hour);
 
-  String get displayName {
-    final n = userName?.trim();
-    if (n == null || n.isEmpty) return 'there';
-    return n.split(' ').first;
+  String get displayName => 'Participant';
+
+  double get baselineCorrectedSI {
+    final l = leftTrapRms - baselineRmsLeft;
+    final r = rightTrapRms - baselineRmsRight;
+    final denom = l.abs() + r.abs();
+    if (denom == 0) return 0.0;
+    return ((r - l) / denom) * 100.0;
   }
 
   SessionState copyWith({
@@ -108,6 +138,7 @@ class SessionState extends Equatable {
     double? liveActivation,
     double? symmetryIndex,
     List<int>? rawPoints,
+    List<int>? rawPoints3,
     List<SessionSummary>? history,
     String? notice,
     bool clearNotice = false,
@@ -115,8 +146,15 @@ class SessionState extends Equatable {
     bool clearErrorMessage = false,
     int? connectedAtMs,
     int? lastFrameMs,
-    String? userName,
     Map<String, String>? channelMapping,
+    double? leftTrapRms,
+    double? rightTrapRms,
+    double? normalisedLeftActivation,
+    double? normalisedRightActivation,
+    double? baselineRmsLeft,
+    double? baselineRmsRight,
+    DateTime? calibratedAt,
+    bool clearCalibratedAt = false,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -129,6 +167,7 @@ class SessionState extends Equatable {
       liveActivation: liveActivation ?? this.liveActivation,
       symmetryIndex: symmetryIndex ?? this.symmetryIndex,
       rawPoints: rawPoints ?? this.rawPoints,
+      rawPoints3: rawPoints3 ?? this.rawPoints3,
       history: history ?? this.history,
       notice: clearNotice ? null : (notice ?? this.notice),
       errorMessage: clearErrorMessage
@@ -136,8 +175,14 @@ class SessionState extends Equatable {
           : (errorMessage ?? this.errorMessage),
       connectedAtMs: connectedAtMs ?? this.connectedAtMs,
       lastFrameMs: lastFrameMs ?? this.lastFrameMs,
-      userName: userName ?? this.userName,
       channelMapping: channelMapping ?? this.channelMapping,
+      leftTrapRms: leftTrapRms ?? this.leftTrapRms,
+      rightTrapRms: rightTrapRms ?? this.rightTrapRms,
+      normalisedLeftActivation: normalisedLeftActivation ?? this.normalisedLeftActivation,
+      normalisedRightActivation: normalisedRightActivation ?? this.normalisedRightActivation,
+      baselineRmsLeft: baselineRmsLeft ?? this.baselineRmsLeft,
+      baselineRmsRight: baselineRmsRight ?? this.baselineRmsRight,
+      calibratedAt: clearCalibratedAt ? null : (calibratedAt ?? this.calibratedAt),
     );
   }
 
@@ -153,13 +198,20 @@ class SessionState extends Equatable {
     liveActivation,
     symmetryIndex,
     rawPoints,
+    rawPoints3,
     history,
     notice,
     errorMessage,
     connectedAtMs,
     lastFrameMs,
-    userName,
     channelMapping,
+    leftTrapRms,
+    rightTrapRms,
+    normalisedLeftActivation,
+    normalisedRightActivation,
+    baselineRmsLeft,
+    baselineRmsRight,
+    calibratedAt,
   ];
 }
 
@@ -172,7 +224,6 @@ class SessionBloc extends Cubit<SessionState> {
        _signalProcessor = const SignalProcessor(),
        super(SessionState.initial()) {
     _loadHistory();
-    _loadUserName();
     _loadChannelMapping();
     _rebuildTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (isClosed) {
@@ -246,35 +297,17 @@ class SessionBloc extends Cubit<SessionState> {
   int _calibrationMidpoint = SignalProcessor.adcMidpoint;
   double _liveActivation = 0;
   double _activationSum = 0;
+  double _activationSumRight = 0;
   int _activationCount = 0;
   int _peakRaw = SignalProcessor.adcMidpoint;
   bool _busy = false;
 
+  double _sessionPeakLeft = 0.0;
+  double _sessionPeakRight = 0.0;
+
   Future<void> start() async {
     await _loadHistory();
-    await _loadUserName();
     await _loadChannelMapping();
-  }
-
-  Future<void> setUserName(String name) async {
-    final cleaned = name.trim();
-    emit(state.copyWith(userName: cleaned.isEmpty ? null : cleaned));
-    final prefs = await SharedPreferences.getInstance();
-    if (cleaned.isEmpty) {
-      await prefs.remove('user_name');
-    } else {
-      await prefs.setString('user_name', cleaned);
-    }
-  }
-
-  Future<void> _loadUserName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString('user_name');
-    if (stored != null && stored.isNotEmpty && stored != state.userName) {
-      if (!isClosed) {
-        emit(state.copyWith(userName: stored));
-      }
-    }
   }
 
   Future<void> _loadChannelMapping() async {
@@ -333,6 +366,8 @@ class SessionBloc extends Cubit<SessionState> {
       _activationSum = 0;
       _activationCount = 0;
       _peakRaw = SignalProcessor.adcMidpoint;
+      _sessionPeakLeft = 0.0;
+      _sessionPeakRight = 0.0;
       await _frameSubscription?.cancel();
       _frameSubscription = _hardware.frames.listen(
         _onFrame,
@@ -408,6 +443,17 @@ class SessionBloc extends Cubit<SessionState> {
     );
   }
 
+  void saveCalibration({
+    required double baselineLeft,
+    required double baselineRight,
+  }) {
+    emit(state.copyWith(
+      baselineRmsLeft: baselineLeft,
+      baselineRmsRight: baselineRight,
+      calibratedAt: DateTime.now(),
+    ));
+  }
+
   void selectTab(SessionTab tab) {
     emit(state.copyWith(selectedTab: tab));
   }
@@ -420,7 +466,11 @@ class SessionBloc extends Cubit<SessionState> {
     _liveActivation = _signalProcessor.activationFromRaw(
       frame.ch1 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
     );
+    final double rightAct = _signalProcessor.activationFromRaw(
+      frame.ch3 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
+    );
     _activationSum += _liveActivation;
+    _activationSumRight += rightAct;
     _activationCount++;
     _rawPoints.add(frame.ch1);
     if (_rawPoints.length > 3000) {
@@ -434,6 +484,14 @@ class SessionBloc extends Cubit<SessionState> {
     if (_activationPoints.length > 3000) {
       _activationPoints.removeRange(0, _activationPoints.length - 3000);
     }
+
+    if (_liveActivation > _sessionPeakLeft) {
+      _sessionPeakLeft = _liveActivation;
+    }
+    if (rightAct > _sessionPeakRight) {
+      _sessionPeakRight = rightAct;
+    }
+
     if (state.status == SessionStatus.signalLost) {
       emit(
         state.copyWith(
@@ -472,14 +530,22 @@ class SessionBloc extends Cubit<SessionState> {
     }
     final now = DateTime.now();
     final duration = now.difference(_sessionStartedAt!).inSeconds;
+
+    final double leftAvg = _activationSum / _activationCount;
+    final double rightAvg = _activationSumRight / _activationCount;
+    // Calculate right activation average by using final session corrected SI if possible
+    final double? finalSymmetryIndex = _calculateSymmetryIndex();
+
     final summary = SessionSummary(
       startedAt: _sessionStartedAt!,
       endedAt: now,
       durationSeconds: duration,
       peakRaw: _peakRaw,
-      averageActivation: _activationSum / _activationCount,
-      averageSymmetryIndex: null,
-      note: 'Stair-climb leg activation session',
+      averageActivation: leftAvg,
+      averageSymmetryIndex: finalSymmetryIndex,
+      averageLeftActivation: leftAvg,
+      averageRightActivation: rightAvg,
+      note: 'Upper back trapezius session',
       channelMapping: Map<String, String>.from(state.channelMapping),
     );
     _history.insert(0, summary);
@@ -495,8 +561,11 @@ class SessionBloc extends Cubit<SessionState> {
     _calibrationMidpoint = SignalProcessor.adcMidpoint;
     _liveActivation = 0;
     _activationSum = 0;
+    _activationSumRight = 0;
     _activationCount = 0;
     _peakRaw = SignalProcessor.adcMidpoint;
+    _sessionPeakLeft = 0.0;
+    _sessionPeakRight = 0.0;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
   }
@@ -551,6 +620,15 @@ class SessionBloc extends Cubit<SessionState> {
         ? 0
         : DateTime.now().difference(startedAt).inSeconds;
 
+    final double leftAct = _liveActivation;
+    final double rightAct = _signalProcessor.activationFromRaw(
+      (_rawPoints3.isNotEmpty ? _rawPoints3.last : SignalProcessor.adcMidpoint) - 
+      _calibrationMidpoint + SignalProcessor.adcMidpoint,
+    );
+
+    final peakLeft = _sessionPeakLeft > 0 ? _sessionPeakLeft : 1.0;
+    final peakRight = _sessionPeakRight > 0 ? _sessionPeakRight : 1.0;
+
     emit(
       state.copyWith(
         status:
@@ -567,9 +645,14 @@ class SessionBloc extends Cubit<SessionState> {
         liveActivation: _liveActivation,
         symmetryIndex: _calculateSymmetryIndex(),
         rawPoints: List<int>.unmodifiable(_rawPoints),
+        rawPoints3: List<int>.unmodifiable(_rawPoints3),
         history: List<SessionSummary>.unmodifiable(_history),
         connectedAtMs: startedAt?.millisecondsSinceEpoch,
         lastFrameMs: _lastFrameAt?.millisecondsSinceEpoch,
+        leftTrapRms: leftAct,
+        rightTrapRms: rightAct,
+        normalisedLeftActivation: (leftAct / peakLeft).clamp(0.0, 1.0),
+        normalisedRightActivation: (rightAct / peakRight).clamp(0.0, 1.0),
       ),
     );
   }
@@ -585,3 +668,4 @@ class SessionBloc extends Cubit<SessionState> {
     return super.close();
   }
 }
+

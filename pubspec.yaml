@@ -38,6 +38,7 @@ dependencies:
   google_fonts: ^8.1.0
   smooth_page_indicator: ^1.1.0
   bodychart_heatmap: ^1.1.0
+  flutter_svg: ^2.0.10
 
 dev_dependencies:
   flutter_test:
@@ -55,8 +56,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/leg.png
-    - assets/images/leg_silhouette.png
+    - assets/images/upper_body_silhouette.svg
     - assets/images/onboarding/welcome.png
     - assets/images/onboarding/emg.png
     - assets/images/onboarding/stairs.png

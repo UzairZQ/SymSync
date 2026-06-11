@@ -27,8 +27,8 @@ abstract class AppTheme {
   static const Color accentRed = Color(0xFFBA1A1A);
   static const Color accentGreen = Color(0xFF2E6C00);
   static const Color accentLime = Color(0xFFADF67F);
-  static const Color leftLeg = Color(0xFFC56D5D);
-  static const Color rightLeg = Color(0xFF8BAEA3);
+  static const Color leftTrap = Color(0xFFC56D5D);
+  static const Color rightTrap = Color(0xFF8BAEA3);
 
   static const LinearGradient tealGradient = LinearGradient(
     colors: [Color(0xFF00E5CC), Color(0xFF4A9EFF)],

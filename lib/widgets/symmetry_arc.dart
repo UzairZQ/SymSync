@@ -45,13 +45,13 @@ class _SymmetryArcPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final leftPaint = Paint()
-      ..color = AppTheme.leftLeg
+      ..color = AppTheme.leftTrap
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     final rightPaint = Paint()
-      ..color = AppTheme.rightLeg
+      ..color = AppTheme.rightTrap
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;

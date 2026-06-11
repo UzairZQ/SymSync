@@ -5,8 +5,7 @@ import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
-import '../widgets/historical_heatmap.dart';
-import '../../domain/services/session_aggregator.dart';
+import '../../widgets/heatmap_silhouette_widget.dart';
 
 class ActivationSummaryPage extends StatefulWidget {
   const ActivationSummaryPage({super.key});
@@ -22,22 +21,62 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final historyCount = state.history.length;
+        final now = DateTime.now();
+        final periods = <Duration>[
+          const Duration(days: 1),
+          const Duration(days: 7),
+          const Duration(days: 30),
+        ];
+        final cutoff = now.subtract(periods[_periodIndex]);
+        final filteredHistory = state.history
+            .where((s) => s.startedAt.isAfter(cutoff))
+            .toList();
 
-        final symmetryScores = state.history
+        final historyCount = filteredHistory.length;
+
+        final symmetryScores = filteredHistory
             .map((s) => s.averageSymmetryIndex)
             .whereType<double>()
             .toList();
-        final avgDeviation = symmetryScores.isEmpty
+        final avgSI = symmetryScores.isEmpty
             ? null
-            : symmetryScores.map((s) => s.abs()).reduce((a, b) => a + b) /
-                  symmetryScores.length;
-        final trendPercent = _trendPercent(state.history);
-        final trendingUp = trendPercent == null
-            ? null
-            : trendPercent >= 0;
+            : symmetryScores.reduce((a, b) => a + b) / symmetryScores.length;
+        final avgDeviation = avgSI == null ? null : avgSI.abs();
+
+        final trendPercent = _trendPercent(filteredHistory);
+        final trendingUp = trendPercent == null ? null : trendPercent >= 0;
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
+
+        // Compute time-averaged left / right activations from filtered history
+        double leftAvg = 0.0;
+        double rightAvg = 0.0;
+        if (filteredHistory.isNotEmpty) {
+          final leftVals = filteredHistory
+              .map((s) => s.averageLeftActivation)
+              .whereType<double>();
+          final rightVals = filteredHistory
+              .map((s) => s.averageRightActivation)
+              .whereType<double>();
+          if (leftVals.isNotEmpty) {
+            leftAvg = leftVals.reduce((a, b) => a + b) / leftVals.length;
+          }
+          if (rightVals.isNotEmpty) {
+            rightAvg = rightVals.reduce((a, b) => a + b) / rightVals.length;
+          }
+        }
+
+        // Primary imbalance label
+        String primaryImbalance;
+        if (avgSI == null) {
+          primaryImbalance = 'Pending';
+        } else if (avgSI < -15) {
+          primaryImbalance = 'Left Trap Dominance';
+        } else if (avgSI > 15) {
+          primaryImbalance = 'Right Trap Dominance';
+        } else {
+          primaryImbalance = 'Balanced';
+        }
 
         return ListView(
           key: const PageStorageKey<String>('summary'),
@@ -80,32 +119,33 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                   const SizedBox(height: AppTheme.spaceMD),
                   SizedBox(
                     height: 280,
-                    child: FutureBuilder<SessionHeatmapData>(
-                      future:
-                          SessionAggregator.aggregateSessionHistory(state.history),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return HistoricalLegHeatmap(
-                            data: snapshot.data!,
-                          );
-                        } else if (snapshot.hasError) {
-                          return _EmptyHeatmap();
-                        } else {
-                          return Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  context.txtTertiary,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
+                    child: historyCount > 0
+                        ? HeatmapSilhouetteWidget(
+                            leftActivation: leftAvg.clamp(0.0, 1.0),
+                            rightActivation: rightAvg.clamp(0.0, 1.0),
+                            width: 180,
+                          )
+                        : const _EmptyHeatmap(),
+                  ),
+                  const SizedBox(height: AppTheme.spaceMD),
+                  // Muscle chip row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      _MuscleChip(label: 'Trapezius', isActive: true),
+                      const SizedBox(width: AppTheme.spaceSM),
+                      Tooltip(
+                        message: 'Coming soon',
+                        triggerMode: TooltipTriggerMode.tap,
+                        child: _MuscleChip(label: 'Deltoid', isActive: false),
+                      ),
+                      const SizedBox(width: AppTheme.spaceSM),
+                      Tooltip(
+                        message: 'Coming soon',
+                        triggerMode: TooltipTriggerMode.tap,
+                        child: _MuscleChip(label: 'Lat', isActive: false),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppTheme.spaceXL),
                   Row(
@@ -227,9 +267,11 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       ),
                       _analysisItem(
                         context: context,
-                        title: 'Balance',
-                        value: historyCount > 0 ? 'Stable' : 'Pending',
-                        valueColor: context.txtPrimary,
+                        title: 'Primary Imbalance',
+                        value: primaryImbalance,
+                        valueColor: primaryImbalance == 'Balanced'
+                            ? AppTheme.accentLime
+                            : AppTheme.accentAmber,
                       ),
                     ],
                   ),
@@ -311,7 +353,43 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
   }
 }
 
+class _MuscleChip extends StatelessWidget {
+  final String label;
+  final bool isActive;
+
+  const _MuscleChip({required this.label, required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceMD,
+        vertical: AppTheme.spaceXS,
+      ),
+      decoration: BoxDecoration(
+        color: isActive
+            ? AppTheme.accentTeal.withValues(alpha: 0.16)
+            : context.bgElevated,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        border: Border.all(
+          color: isActive ? AppTheme.accentTeal : context.dividerClr,
+        ),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.bodyMedium.copyWith(
+          color: isActive ? AppTheme.accentTeal : context.txtTertiary,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyHeatmap extends StatelessWidget {
+  const _EmptyHeatmap();
+
   @override
   Widget build(BuildContext context) {
     return Center(

@@ -10,6 +10,33 @@ import 'anatomical_view_page.dart';
 import 'balance_monitor_page.dart';
 import 'signal_view_content.dart';
 
+class SessionScreen extends StatelessWidget {
+  const SessionScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      onPopInvoked: (didPop) {
+        if (didPop) {
+          final bloc = context.read<SessionBloc>();
+          if (bloc.state.isConnected) {
+            bloc.disconnect();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: context.bgPrimary,
+        body: const SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: SessionPage(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class SessionPage extends StatefulWidget {
   const SessionPage({super.key});
 
@@ -163,9 +190,12 @@ class _SessionActionsBar extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: isBusy
                     ? null
-                    : () {
+                    : () async {
                         if (isConnected) {
-                          context.read<SessionBloc>().disconnect();
+                          await context.read<SessionBloc>().disconnect();
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
                         } else {
                           _showConfirmationModal(context, state);
                         }
@@ -263,3 +293,4 @@ class _SessionActionsBar extends StatelessWidget {
     );
   }
 }
+

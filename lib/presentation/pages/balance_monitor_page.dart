@@ -86,9 +86,9 @@ class BalanceMonitorContent extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: const <Widget>[
-                _MuscleChip(label: 'Vastus Lat.', selected: true),
-                _MuscleChip(label: 'Rectus Fem.'),
-                _MuscleChip(label: 'Glutes'),
+                _MuscleChip(label: 'Trapezius', selected: true),
+                _MuscleChip(label: 'Deltoid'),
+                _MuscleChip(label: 'Lat'),
               ],
             ),
             const SizedBox(height: AppTheme.spaceLG),
@@ -136,14 +136,14 @@ class BalanceMonitorContent extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const _MiniBars(color: AppTheme.leftLeg),
+                  const _MiniBars(color: AppTheme.leftTrap),
                   const SizedBox(height: 24),
                   Text(
                     symmetry == null
                         ? 'Awaiting bilateral feed.'
                         : symmetry < 0
-                        ? 'Left vastus lateralis is more active.'
-                        : 'Right vastus lateralis is more active.',
+                        ? 'Left trapezius is more active.'
+                        : 'Right trapezius is more active.',
                     style: AppTheme.bodyLarge.copyWith(
                       fontWeight: FontWeight.w800,
                       height: 1.4,

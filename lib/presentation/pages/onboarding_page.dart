@@ -19,10 +19,8 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage>
     with TickerProviderStateMixin {
   final PageController _pageCtrl = PageController();
-  final TextEditingController _nameCtrl = TextEditingController();
   int _currentPage = 0;
   String? _selectedUserType;
-  String _name = '';
   String _channelA = 'left';
   String _channelB = 'right';
 
@@ -35,17 +33,11 @@ class _OnboardingPageState extends State<OnboardingPage>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
-    _nameCtrl.addListener(() {
-      if (_nameCtrl.text != _name) {
-        setState(() => _name = _nameCtrl.text);
-      }
-    });
   }
 
   @override
   void dispose() {
     _pageCtrl.dispose();
-    _nameCtrl.dispose();
     _entryCtrl.dispose();
     super.dispose();
   }
@@ -68,26 +60,20 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 
   Future<void> _complete() async {
-    final name = _name.trim();
-    if (name.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_complete', true);
-    await prefs.setString('user_name', name);
     await prefs.setString('channel_mapping.A', _channelA);
     await prefs.setString('channel_mapping.B', _channelB);
     if (_selectedUserType != null) {
       await prefs.setString('user_type', _selectedUserType!);
     }
     if (!mounted) return;
-    context.read<SessionBloc>().setUserName(name);
     await context.read<SessionBloc>().setChannelMapping(_channelA, _channelB);
     widget.onComplete();
   }
 
   bool get _canProceedSlide4 =>
       _currentPage != 3 || _selectedUserType != null;
-
-  bool get _canComplete => _name.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -213,8 +199,6 @@ class _OnboardingPageState extends State<OnboardingPage>
                   _SlideReady(
                     key: const ValueKey<String>('ready'),
                     entry: _entryCtrl,
-                    nameCtrl: _nameCtrl,
-                    onNameChanged: (v) => setState(() => _name = v),
                   ),
                 ],
               ),
@@ -249,7 +233,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                       width: double.infinity,
                       height: 56,
                       child: FilledButton(
-                        onPressed: _canComplete ? _complete : null,
+                        onPressed: _complete,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.lightTextPrimary,
                           foregroundColor: AppTheme.lightBackgroundPrimary,
@@ -423,17 +407,13 @@ class _SlideImage extends StatelessWidget {
   }
 }
 
-// ─── Slide 5: Ready (name input) ─────────────────────────────────────────
+// ─── Slide 5: Ready ───────────────────────────────────────────────────────
 class _SlideReady extends StatelessWidget {
   final AnimationController entry;
-  final TextEditingController nameCtrl;
-  final ValueChanged<String> onNameChanged;
 
   const _SlideReady({
     super.key,
     required this.entry,
-    required this.nameCtrl,
-    required this.onNameChanged,
   });
 
   @override
@@ -470,9 +450,9 @@ class _SlideReady extends StatelessWidget {
                       filterQuality: FilterQuality.medium,
                       errorBuilder: (context, error, stack) => Center(
                         child: Icon(
-                          Icons.image_outlined,
-                          size: 48,
-                          color: AppTheme.lightTextTertiary,
+                          Icons.check_circle_outline_rounded,
+                          size: 80,
+                          color: AppTheme.accentTeal,
                         ),
                       ),
                     ),
@@ -495,55 +475,13 @@ class _SlideReady extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spaceSM),
           Text(
-            'What should we call you?',
+            'SymSync is ready to measure your upper\nback symmetry during stair climbing.',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w400,
               color: AppTheme.lightTextSecondary,
               height: 1.55,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spaceLG),
-          TextField(
-            controller: nameCtrl,
-            onChanged: onNameChanged,
-            textInputAction: TextInputAction.done,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.lightTextPrimary,
-            ),
-            cursorColor: AppTheme.lightTextPrimary,
-            decoration: InputDecoration(
-              hintText: 'Your name',
-              hintStyle: GoogleFonts.inter(
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.lightTextTertiary,
-              ),
-              filled: true,
-              fillColor: AppTheme.lightBackgroundCard,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spaceMD,
-                vertical: 18,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                borderSide: BorderSide(color: AppTheme.lightDivider),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                borderSide: BorderSide(color: AppTheme.lightDivider),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                borderSide: BorderSide(
-                  color: AppTheme.lightTextPrimary,
-                  width: 1.5,
-                ),
-              ),
             ),
           ),
           const Spacer(flex: 1),
@@ -846,7 +784,7 @@ class _SlideChannelCalibration extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spaceSM),
           Text(
-            'Which leg is each cable connected to?\nYou can recalibrate anytime in settings.',
+            'Which side is each cable connected to?\nYou can recalibrate anytime in settings.',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 15,

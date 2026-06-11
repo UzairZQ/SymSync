@@ -9,6 +9,8 @@ import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/theme_toggle.dart';
 import '../bloc/session_bloc.dart';
+import '../../screens/calibration_screen.dart';
+import 'session_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({
@@ -53,6 +55,11 @@ class DashboardPage extends StatelessWidget {
         final isConnecting = state.status == SessionStatus.connecting;
         final hasAnyData = state.history.isNotEmpty || hasSymmetry;
         final recent = state.history.take(3).toList();
+
+        final now = DateTime.now();
+        final calibratedAt = state.calibratedAt;
+        final isCalibratedRecently = calibratedAt != null &&
+            now.difference(calibratedAt).inMinutes < 2;
 
         return ListView(
           key: const PageStorageKey<String>('dashboard'),
@@ -102,6 +109,7 @@ class DashboardPage extends StatelessWidget {
               padding: const EdgeInsets.all(28),
               child: Column(
                 children: <Widget>[
+                  Spacer(flex: 0),
                   SizedBox(
                     height: 148,
                     width: 148,
@@ -243,40 +251,89 @@ class DashboardPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  FilledButton.icon(
-                    onPressed: isConnected ? onOpenSession : null,
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Launch Session'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: context.bgPrimary,
-                      foregroundColor: context.txtPrimary,
-                      disabledBackgroundColor: context.bgPrimary.withValues(
-                        alpha: 0.45,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            if (isConnected && isCalibratedRecently) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SessionScreen(),
+                                ),
+                              );
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CalibrationScreen(),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('Start Session'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: context.bgPrimary,
+                            foregroundColor: context.txtPrimary,
+                            shape: const StadiumBorder(),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                          ),
+                        ),
                       ),
-                      disabledForegroundColor: context.txtPrimary.withValues(
-                        alpha: 0.6,
-                      ),
-                      shape: const StadiumBorder(),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                    ),
+                      if (isConnected && isCalibratedRecently) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentGreen.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.accentGreen, width: 1.5),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: AppTheme.accentGreen,
+                                size: 14,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Calibrated ✓",
+                                style: TextStyle(
+                                  color: AppTheme.accentGreen,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 18),
             _ChannelCard(
-              label: 'CHANNEL A',
-              title: 'Left Hemisphere',
+              label: 'CHANNEL 1',
+              title: 'L — Trapezius',
               value: hasSymmetry || isConnected ? channelA.toString() : '—',
-              color: AppTheme.leftLeg,
+              color: AppTheme.leftTrap,
               hasData: hasSymmetry || isConnected,
             ),
             const SizedBox(height: 12),
             _ChannelCard(
-              label: 'CHANNEL B',
-              title: 'Right Hemisphere',
+              label: 'CHANNEL 2',
+              title: 'R — Trapezius',
               value: hasSymmetry || isConnected ? channelB.toString() : '—',
-              color: AppTheme.rightLeg,
+              color: AppTheme.rightTrap,
               hasData: hasSymmetry || isConnected,
             ),
             const SizedBox(height: 18),

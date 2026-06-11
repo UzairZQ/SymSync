@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
+  <!-- Spine Midline -->
+  <line id="spine_midline" x1="100" y1="60" x2="100" y2="245" stroke="#B0BAC8" stroke-dasharray="3 3" stroke-width="1" />
+
+  <!-- Base Body Silhouette -->
+  <path id="body_base" fill="#D0D8E8" d="M 100,15 C 88,15 80,25 80,38 C 80,50 86,58 92,62 L 92,72 C 85,74 72,78 60,88 C 53,94 50,102 47,112 L 35,175 C 33,185 38,193 45,193 C 49,193 52,190 54,182 L 64,128 L 65,125 C 68,125 72,128 73,132 L 77,215 C 78,225 83,240 90,240 L 110,240 C 117,240 122,225 123,215 L 127,132 C 128,128 132,125 135,125 L 136,128 L 146,182 C 148,190 151,193 155,193 C 162,193 167,185 165,175 L 153,112 C 150,102 147,94 140,88 C 128,78 115,74 108,72 L 108,62 C 114,58 120,50 120,38 C 120,25 112,15 100,15 Z" />
+
+  <!-- Left Trapezius Upper -->
+  <path id="left_trapezius_upper" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 100,60 L 92,60 L 92,70 C 85,73 78,78 75,84 L 100,80 Z" />
+
+  <!-- Right Trapezius Upper -->
+  <path id="right_trapezius_upper" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 100,60 L 108,60 L 108,70 C 115,73 122,78 125,84 L 100,80 Z" />
+
+  <!-- Left Trapezius Mid -->
+  <path id="left_trapezius_mid" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 100,80 L 75,84 C 76,92 76,98 77,105 L 100,115 Z" />
+
+  <!-- Right Trapezius Mid -->
+  <path id="right_trapezius_mid" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 100,80 L 125,84 C 124,92 124,98 123,105 L 100,115 Z" />
+
+  <!-- Left Deltoid -->
+  <path id="left_deltoid" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 75,84 C 65,86 55,100 48,125 C 56,128 62,126 68,118 C 72,108 74,98 75,84 Z" />
+
+  <!-- Right Deltoid -->
+  <path id="right_deltoid" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 125,84 C 135,86 145,100 152,125 C 144,128 138,126 132,118 C 128,108 126,98 125,84 Z" />
+
+  <!-- Left Lat -->
+  <path id="left_lat" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 100,115 L 68,118 C 70,145 74,185 80,220 L 100,220 Z" />
+
+  <!-- Right Lat -->
+  <path id="right_lat" fill="transparent" opacity="0.0" stroke="#8899BB" stroke-width="0.8" d="M 100,115 L 132,118 C 130,145 126,185 120,220 L 100,220 Z" />
+
+  <!-- Electrode Markers -->
+  <circle id="electrode_left" cx="92" cy="75" r="5" fill="#2563EB" stroke="white" stroke-width="1.5" />
+  <circle id="electrode_right" cx="108" cy="75" r="5" fill="#2563EB" stroke="white" stroke-width="1.5" />
+</svg>
