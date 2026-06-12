@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/models/session_summary.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/heatmap_utils.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/theme_toggle.dart';
@@ -39,18 +40,16 @@ class DashboardPage extends StatelessWidget {
             .whereType<double>()
             .toList();
         final indexScore = hasSymmetry
-            ? (100 - min(65, symmetry.abs() * 100)).round()
+            ? (100 - min(65, symmetry.abs())).round()
             : null;
         final avgSymmetry = hasSymmetry
-            ? (100 - symmetry.abs() * 100).toStringAsFixed(1)
+            ? (100 - symmetry.abs()).clamp(0, 100).toStringAsFixed(1)
             : null;
         final bestSymmetry = symmetryScores.isEmpty
             ? null
-            : (100 -
-                      symmetryScores.map((s) => s.abs()).reduce(min) * 100)
+            : (100 - symmetryScores.map((s) => s.abs()).reduce(min))
+                  .clamp(0, 100)
                   .toStringAsFixed(0);
-        final channelA = state.latestRaw;
-        final channelB = state.rawPoints3.isEmpty ? 712 : state.rawPoints3.last;
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
         final hasAnyData = state.history.isNotEmpty || hasSymmetry;
@@ -58,8 +57,8 @@ class DashboardPage extends StatelessWidget {
 
         final now = DateTime.now();
         final calibratedAt = state.calibratedAt;
-        final isCalibratedRecently = calibratedAt != null &&
-            now.difference(calibratedAt).inMinutes < 2;
+        final isCalibratedRecently =
+            calibratedAt != null && now.difference(calibratedAt).inMinutes < 2;
 
         return ListView(
           key: const PageStorageKey<String>('dashboard'),
@@ -158,10 +157,7 @@ class DashboardPage extends StatelessWidget {
                     label: 'Sessions Today',
                     value: '${state.history.length}',
                   ),
-                  _MetricRow(
-                    label: 'Avg Symmetry',
-                    value: avgSymmetry ?? '—',
-                  ),
+                  _MetricRow(label: 'Avg Symmetry', value: avgSymmetry ?? '—'),
                   _MetricRow(
                     label: 'Best Balance',
                     value: bestSymmetry == null ? '—' : '$bestSymmetry%',
@@ -295,9 +291,12 @@ class DashboardPage extends StatelessWidget {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.accentGreen.withOpacity(0.16),
+                            color: AppTheme.accentGreen.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.accentGreen, width: 1.5),
+                            border: Border.all(
+                              color: AppTheme.accentGreen,
+                              width: 1.5,
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -326,41 +325,12 @@ class DashboardPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            _ChannelCard(
-              label: 'CHANNEL 1',
-              title: 'R — Trapezius',
-              value: hasSymmetry || isConnected ? channelA.toString() : '—',
-              color: AppTheme.rightTrap,
-              hasData: hasSymmetry || isConnected,
-            ),
-            const SizedBox(height: 12),
-            _ChannelCard(
-              label: 'CHANNEL 3',
-              title: 'L — Trapezius',
-              value: hasSymmetry || isConnected ? channelB.toString() : '—',
-              color: AppTheme.leftTrap,
-              hasData: hasSymmetry || isConnected,
-            ),
-            const SizedBox(height: 14),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: context.bgCard,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: context.dividerClr),
-                ),
-                child: Text(
-                  'Port 1 → Right  /  Port 3 → Left',
-                  style: AppTheme.labelSmall.copyWith(
-                    color: context.txtTertiary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
+            _LiveChannelStatusCard(
+              leftActivation: state.normalisedLeftActivation,
+              rightActivation: state.normalisedRightActivation,
+              leftActive: isConnected && state.normalisedLeftActivation > 0.03,
+              rightActive:
+                  isConnected && state.normalisedRightActivation > 0.03,
             ),
             const SizedBox(height: 18),
             AppCard(
@@ -416,17 +386,28 @@ class DashboardPage extends StatelessWidget {
   }
 
   String _defaultTitle(SessionSummary s) {
-    final h = s.startedAt.hour;
-    if (h < 12) return 'Morning Session';
-    if (h < 17) return 'Afternoon Session';
-    if (h < 21) return 'Evening Session';
-    return 'Night Session';
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final day = s.startedAt.day.toString().padLeft(2, '0');
+    return 'Upper back symmetry - $day ${months[s.startedAt.month - 1]} ${s.startedAt.year}';
   }
 
   String _tagFor(SessionSummary s) {
     final v = s.averageSymmetryIndex;
     if (v == null) return 'Recorded';
-    final score = 100 - v.abs() * 100;
+    final score = 100 - v.abs();
     if (score >= 90) return 'Optimal';
     if (score >= 75) return 'Fair';
     return 'Critical';
@@ -467,20 +448,18 @@ class _MetricRow extends StatelessWidget {
   }
 }
 
-class _ChannelCard extends StatelessWidget {
-  const _ChannelCard({
-    required this.label,
-    required this.title,
-    required this.value,
-    required this.color,
-    required this.hasData,
+class _LiveChannelStatusCard extends StatelessWidget {
+  const _LiveChannelStatusCard({
+    required this.leftActivation,
+    required this.rightActivation,
+    required this.leftActive,
+    required this.rightActive,
   });
 
-  final String label;
-  final String title;
-  final String value;
-  final Color color;
-  final bool hasData;
+  final double leftActivation;
+  final double rightActivation;
+  final bool leftActive;
+  final bool rightActive;
 
   @override
   Widget build(BuildContext context) {
@@ -490,78 +469,112 @@ class _ChannelCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            label,
-            style: AppTheme.labelSmall.copyWith(
-              color: context.txtTertiary,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
+            'Live Channel Status',
             style: AppTheme.headingMedium.copyWith(
               color: context.txtPrimary,
               fontSize: 20,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Text(
-                value,
-                style: AppTheme.displayMedium.copyWith(
-                  color: context.txtPrimary,
-                  fontSize: 30,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  'uV',
-                  style: AppTheme.bodyMedium.copyWith(
-                    color: context.txtTertiary,
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(height: 18),
+          _ActivationStatusRow(
+            label: 'LEFT TRAPEZIUS',
+            activation: leftActivation,
+            active: leftActive,
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 42,
-            child: hasData
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: List<Widget>.generate(8, (index) {
-                      final heights = <double>[16, 22, 30, 18, 26, 14, 24, 20];
-                      return Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          height: heights[index],
-                          decoration: BoxDecoration(
-                            color: color.withValues(
-                              alpha: index.isEven ? 0.55 : 0.8,
-                            ),
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(8),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  )
-                : Center(
-                    child: Text(
-                      'No data yet',
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: context.txtTertiary,
-                      ),
-                    ),
-                  ),
+          const SizedBox(height: 18),
+          _ActivationStatusRow(
+            label: 'RIGHT TRAPEZIUS',
+            activation: rightActivation,
+            active: rightActive,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ActivationStatusRow extends StatelessWidget {
+  const _ActivationStatusRow({
+    required this.label,
+    required this.activation,
+    required this.active,
+  });
+
+  final String label;
+  final double activation;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayActivation = active ? activation.clamp(0.0, 1.0) : 0.0;
+    final color = active
+        ? HeatmapUtils.activationColour(displayActivation)
+        : const Color(0xFF9CA3AF);
+    final pct = (displayActivation * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                label,
+                style: AppTheme.labelSmall.copyWith(
+                  color: context.txtTertiary,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: active
+                    ? const Color(0xFF22C55E)
+                    : const Color(0xFF9CA3AF),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              active ? 'Active' : 'Inactive',
+              style: AppTheme.bodyMedium.copyWith(
+                color: active ? context.txtPrimary : context.txtTertiary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: displayActivation,
+                  minHeight: 8,
+                  backgroundColor: context.bgElevated,
+                  color: color,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 92,
+              child: Text(
+                '$pct% activation',
+                textAlign: TextAlign.end,
+                style: AppTheme.bodyMedium.copyWith(
+                  color: active ? context.txtSecondary : context.txtTertiary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

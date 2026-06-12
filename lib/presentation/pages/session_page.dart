@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../config/app_config.dart';
 import '../../screens/calibration_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
@@ -17,7 +18,7 @@ class SessionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           final bloc = context.read<SessionBloc>();
           if (bloc.state.isConnected) {
@@ -57,6 +58,17 @@ class _SessionPageState extends State<SessionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tabs = <String>[
+      'Anatomical',
+      'Balance',
+      if (AppConfig.showResearcherTools) 'Signal',
+    ];
+    final pages = <Widget>[
+      const AnatomicalViewContent(),
+      const BalanceMonitorContent(),
+      if (AppConfig.showResearcherTools) const SignalViewContent(),
+    ];
+
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
         final minutes = (state.sessionSeconds / 60).floor();
@@ -143,6 +155,7 @@ class _SessionPageState extends State<SessionPage> {
 
             SessionTabBar(
               selectedIndex: _selectedIndex,
+              labels: tabs,
               onTap: (index) {
                 _pageController.jumpToPage(index);
                 setState(() => _selectedIndex = index);
@@ -154,11 +167,7 @@ class _SessionPageState extends State<SessionPage> {
               child: PageView(
                 physics: const NeverScrollableScrollPhysics(),
                 controller: _pageController,
-                children: const <Widget>[
-                  AnatomicalViewContent(),
-                  BalanceMonitorContent(),
-                  SignalViewContent(),
-                ],
+                children: pages,
               ),
             ),
 
@@ -242,11 +251,11 @@ class _SessionActionsBar extends StatelessWidget {
             ElevatedButton(
               onPressed: (isConnected && !isBusy)
                   ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CalibrationScreen(),
-                        ),
-                      )
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CalibrationScreen(),
+                      ),
+                    )
                   : null,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
@@ -300,4 +309,3 @@ class _SessionActionsBar extends StatelessWidget {
     );
   }
 }
-

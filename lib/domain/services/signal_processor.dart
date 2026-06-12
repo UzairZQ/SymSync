@@ -10,11 +10,11 @@ class SignalProcessor {
   }
 
   double symmetryIndexFromLevels(double left, double right) {
-    final denominator = (left + right) / 2.0;
+    final denominator = left + right;
     if (denominator == 0) {
       return 0;
     }
-    return ((left - right) / denominator) * 100.0;
+    return ((right - left) / denominator) * 100.0;
   }
 
   double tiltDegreesFromSymmetry(double symmetryIndex) {
@@ -23,16 +23,16 @@ class SignalProcessor {
 
   String correctiveInstruction(double? symmetryIndex) {
     if (symmetryIndex == null) {
-      return 'Connect the second leg channel to unlock bilateral symmetry feedback.';
+      return 'Connect the second EMG cable to begin bilateral tracking';
     }
     final value = symmetryIndex.abs();
     if (value < 8) {
-      return 'Nice and even. Keep the stair rhythm steady.';
+      return 'Balanced activation. Keep your shoulder and upper back movement steady.';
     }
     if (symmetryIndex > 0) {
-      return 'Left side is more active. Let the right side catch up.';
+      return 'Right side is more active. Let the left side catch up.';
     }
-    return 'Right side is more active. Let the left side catch up.';
+    return 'Left side is more active. Let the right side catch up.';
   }
 
   String trendLabel(double? symmetryIndex) {
@@ -94,4 +94,3 @@ class SignalFilterState {
     return (rms / 300.0).clamp(0.0, 1.0);
   }
 }
-

@@ -18,17 +18,30 @@ class BalanceMonitorContent extends StatelessWidget {
         final lastSession = state.history.isNotEmpty
             ? state.history.first
             : null;
-        final isRecording = state.sessionSeconds > 0;
+        final isRecording = state.isConnected && state.sessionSeconds > 0;
+        final hasSessionData = lastSession != null;
 
-        final displaySymmetry = lastSession?.averageSymmetryIndex;
-        final leftAct = (lastSession?.averageLeftActivation ?? 0.0).clamp(0.0, 1.0);
-        final rightAct = (lastSession?.averageRightActivation ?? 0.0).clamp(0.0, 1.0);
+        final displaySymmetry = isRecording
+            ? state.symmetryIndex
+            : lastSession?.averageSymmetryIndex;
+        final leftAct =
+            (isRecording
+                    ? state.normalisedLeftActivation
+                    : (lastSession?.averageLeftActivation ?? 0.0))
+                .clamp(0.0, 1.0);
+        final rightAct =
+            (isRecording
+                    ? state.normalisedRightActivation
+                    : (lastSession?.averageRightActivation ?? 0.0))
+                .clamp(0.0, 1.0);
 
-        final tiltDegrees = displaySymmetry == null
-            ? null
-            : (displaySymmetry / 3.0).clamp(-20.0, 20.0);
-
-        final hasData = lastSession != null;
+        final hasData = displaySymmetry != null;
+        final balanceSubtitle = isRecording
+            ? 'Live bilateral symmetry'
+            : (hasSessionData
+                  ? 'Last session results'
+                  : 'Start a session to see your balance');
+        final balanceLabel = _balanceLabel(displaySymmetry);
 
         String activityLabel(double activation) {
           if (activation < 0.05) return 'Inactive';
@@ -56,9 +69,7 @@ class BalanceMonitorContent extends StatelessWidget {
                       ),
                       const SizedBox(height: AppTheme.spaceXS),
                       Text(
-                        hasData
-                            ? 'Last session results'
-                            : 'Complete a session to see results',
+                        balanceSubtitle,
                         style: AppTheme.bodyLarge.copyWith(
                           color: context.txtSecondary,
                         ),
@@ -106,22 +117,15 @@ class BalanceMonitorContent extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  TiltMeter(symmetryIndex: displaySymmetry),
+                  TiltMeter(
+                    symmetryIndex: displaySymmetry,
+                    label: balanceLabel,
+                  ),
                   const SizedBox(height: 20),
                   Text(
-                    tiltDegrees == null ? '- -°' : '${tiltDegrees.toStringAsFixed(0)}°',
-                    style: AppTheme.displayMedium.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: context.txtPrimary,
-                      fontSize: 34,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppTheme.spaceSM),
-                  Text(
                     hasData
-                        ? 'Tilt from bilateral symmetry'
-                        : 'Awaiting session data',
+                        ? 'Use the slider position to keep both sides balanced.'
+                        : 'Connect both EMG cables to begin bilateral tracking.',
                     style: AppTheme.bodyLarge.copyWith(
                       color: context.txtSecondary,
                       fontWeight: FontWeight.w700,
@@ -208,11 +212,11 @@ class BalanceMonitorContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      displaySymmetry == null
-                          ? 'Single-channel mode'
-                          : displaySymmetry < 0
-                          ? 'Left Trap dominance'
-                          : 'Right Trap dominance',
+                      displaySymmetry < 0
+                          ? 'Left trapezius dominance'
+                          : displaySymmetry > 0
+                          ? 'Right trapezius dominance'
+                          : 'Balanced activation',
                       style: AppTheme.headingMedium.copyWith(
                         color: context.txtPrimary,
                         fontSize: 20,
@@ -220,9 +224,7 @@ class BalanceMonitorContent extends StatelessWidget {
                     ),
                     const SizedBox(height: AppTheme.spaceSM),
                     Text(
-                      displaySymmetry == null
-                          ? 'Complete a bilateral session to get corrective feedback.'
-                          : processor.correctiveInstruction(displaySymmetry),
+                      processor.correctiveInstruction(displaySymmetry),
                       style: AppTheme.bodyMedium.copyWith(
                         color: context.txtSecondary,
                         height: 1.5,
@@ -236,6 +238,31 @@ class BalanceMonitorContent extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _balanceLabel(double? smoothedSI) {
+    if (smoothedSI == null) {
+      return 'Connect the second EMG cable to begin bilateral tracking';
+    }
+    if (smoothedSI >= -5 && smoothedSI <= 5) {
+      return 'Balanced';
+    }
+    if (smoothedSI >= -15 && smoothedSI <= -6) {
+      return 'Slightly left dominant';
+    }
+    if (smoothedSI >= -30 && smoothedSI <= -16) {
+      return 'Left dominant';
+    }
+    if (smoothedSI < -30) {
+      return 'Significantly left dominant';
+    }
+    if (smoothedSI >= 6 && smoothedSI <= 15) {
+      return 'Slightly right dominant';
+    }
+    if (smoothedSI >= 16 && smoothedSI <= 30) {
+      return 'Right dominant';
+    }
+    return 'Significantly right dominant';
   }
 }
 
@@ -305,10 +332,7 @@ class _ChannelCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppTheme.spaceSM),
-          _MiniBars(
-            color: color,
-            activation: activation,
-          ),
+          _MiniBars(color: color, activation: activation),
         ],
       ),
     );
@@ -324,10 +348,7 @@ class _ActivityBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
@@ -386,16 +407,16 @@ class _MiniBars extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List<Widget>.generate(8, (index) {
-          final barHeight = (activation * (12 + (index * 4).toDouble()))
-              .clamp(4.0, 40.0);
+          final barHeight = (activation * (12 + (index * 4).toDouble())).clamp(
+            4.0,
+            40.0,
+          );
           return Expanded(
             child: Container(
               height: barHeight,
               margin: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
-                color: color.withValues(
-                  alpha: index.isEven ? 0.35 : 0.65,
-                ),
+                color: color.withValues(alpha: index.isEven ? 0.35 : 0.65),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(6),
                 ),

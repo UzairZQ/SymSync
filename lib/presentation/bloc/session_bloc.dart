@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -137,6 +138,7 @@ class SessionState extends Equatable {
     int? calibrationMidpoint,
     double? liveActivation,
     double? symmetryIndex,
+    bool clearSymmetryIndex = false,
     List<int>? rawPoints,
     List<int>? rawPoints3,
     List<SessionSummary>? history,
@@ -165,7 +167,9 @@ class SessionState extends Equatable {
       sessionSeconds: sessionSeconds ?? this.sessionSeconds,
       calibrationMidpoint: calibrationMidpoint ?? this.calibrationMidpoint,
       liveActivation: liveActivation ?? this.liveActivation,
-      symmetryIndex: symmetryIndex ?? this.symmetryIndex,
+      symmetryIndex: clearSymmetryIndex
+          ? null
+          : (symmetryIndex ?? this.symmetryIndex),
       rawPoints: rawPoints ?? this.rawPoints,
       rawPoints3: rawPoints3 ?? this.rawPoints3,
       history: history ?? this.history,
@@ -178,11 +182,15 @@ class SessionState extends Equatable {
       channelMapping: channelMapping ?? this.channelMapping,
       leftTrapRms: leftTrapRms ?? this.leftTrapRms,
       rightTrapRms: rightTrapRms ?? this.rightTrapRms,
-      normalisedLeftActivation: normalisedLeftActivation ?? this.normalisedLeftActivation,
-      normalisedRightActivation: normalisedRightActivation ?? this.normalisedRightActivation,
+      normalisedLeftActivation:
+          normalisedLeftActivation ?? this.normalisedLeftActivation,
+      normalisedRightActivation:
+          normalisedRightActivation ?? this.normalisedRightActivation,
       baselineRmsLeft: baselineRmsLeft ?? this.baselineRmsLeft,
       baselineRmsRight: baselineRmsRight ?? this.baselineRmsRight,
-      calibratedAt: clearCalibratedAt ? null : (calibratedAt ?? this.calibratedAt),
+      calibratedAt: clearCalibratedAt
+          ? null
+          : (calibratedAt ?? this.calibratedAt),
     );
   }
 
@@ -225,7 +233,7 @@ class SessionBloc extends Cubit<SessionState> {
        super(SessionState.initial()) {
     _loadHistory();
     _loadChannelMapping();
-    _rebuildTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+    _rebuildTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (isClosed) {
         return;
       }
@@ -304,6 +312,8 @@ class SessionBloc extends Cubit<SessionState> {
 
   double _sessionPeakLeft = 0.0;
   double _sessionPeakRight = 0.0;
+  final Queue<double> _siBuffer = Queue<double>();
+  static const int _siBufferSize = 20;
 
   Future<void> start() async {
     await _loadHistory();
@@ -315,8 +325,7 @@ class SessionBloc extends Cubit<SessionState> {
     final storedA = prefs.getString('channel_mapping.A');
     final storedB = prefs.getString('channel_mapping.B');
 
-    if ((storedA != null && storedB != null) &&
-        !isClosed) {
+    if ((storedA != null && storedB != null) && !isClosed) {
       final mapping = {'A': storedA, 'B': storedB};
       if (mapping != state.channelMapping) {
         emit(state.copyWith(channelMapping: mapping));
@@ -364,10 +373,12 @@ class SessionBloc extends Cubit<SessionState> {
       _samplesThisSecond = 0;
       _samplesPerSecond = 0;
       _activationSum = 0;
+      _activationSumRight = 0;
       _activationCount = 0;
       _peakRaw = SignalProcessor.adcMidpoint;
       _sessionPeakLeft = 0.0;
       _sessionPeakRight = 0.0;
+      _siBuffer.clear();
       await _frameSubscription?.cancel();
       _frameSubscription = _hardware.frames.listen(
         _onFrame,
@@ -447,11 +458,13 @@ class SessionBloc extends Cubit<SessionState> {
     required double baselineLeft,
     required double baselineRight,
   }) {
-    emit(state.copyWith(
-      baselineRmsLeft: baselineLeft,
-      baselineRmsRight: baselineRight,
-      calibratedAt: DateTime.now(),
-    ));
+    emit(
+      state.copyWith(
+        baselineRmsLeft: baselineLeft,
+        baselineRmsRight: baselineRight,
+        calibratedAt: DateTime.now(),
+      ),
+    );
   }
 
   void selectTab(SessionTab tab) {
@@ -463,14 +476,15 @@ class SessionBloc extends Cubit<SessionState> {
     _peakRaw = frame.ch1 > _peakRaw ? frame.ch1 : _peakRaw;
     _lastFrameAt = DateTime.now();
     _samplesThisSecond++;
-    _liveActivation = _signalProcessor.activationFromRaw(
+    final double rightActivation = _signalProcessor.activationFromRaw(
       frame.ch1 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
     );
-    final double rightAct = _signalProcessor.activationFromRaw(
+    final double leftActivation = _signalProcessor.activationFromRaw(
       frame.ch3 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
     );
-    _activationSum += _liveActivation;
-    _activationSumRight += rightAct;
+    _liveActivation = rightActivation;
+    _activationSum += leftActivation;
+    _activationSumRight += rightActivation;
     _activationCount++;
     _rawPoints.add(frame.ch1);
     if (_rawPoints.length > 3000) {
@@ -485,11 +499,18 @@ class SessionBloc extends Cubit<SessionState> {
       _activationPoints.removeRange(0, _activationPoints.length - 3000);
     }
 
-    if (rightAct > _sessionPeakLeft) {
-      _sessionPeakLeft = rightAct;
+    if (leftActivation > _sessionPeakLeft) {
+      _sessionPeakLeft = leftActivation;
     }
-    if (_liveActivation > _sessionPeakRight) {
-      _sessionPeakRight = _liveActivation;
+    if (rightActivation > _sessionPeakRight) {
+      _sessionPeakRight = rightActivation;
+    }
+
+    final symmetryIndex = _calculateSymmetryIndex();
+    if (symmetryIndex != null) {
+      _addSymmetryIndex(symmetryIndex);
+    } else {
+      _siBuffer.clear();
     }
 
     if (state.status == SessionStatus.signalLost) {
@@ -545,7 +566,7 @@ class SessionBloc extends Cubit<SessionState> {
       averageSymmetryIndex: finalSymmetryIndex,
       averageLeftActivation: leftAvg,
       averageRightActivation: rightAvg,
-      note: 'Upper back trapezius session',
+      note: _sessionNote(_sessionStartedAt!),
       channelMapping: Map<String, String>.from(state.channelMapping),
     );
     _history.insert(0, summary);
@@ -566,8 +587,43 @@ class SessionBloc extends Cubit<SessionState> {
     _peakRaw = SignalProcessor.adcMidpoint;
     _sessionPeakLeft = 0.0;
     _sessionPeakRight = 0.0;
+    _siBuffer.clear();
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
+  }
+
+  String _sessionNote(DateTime startedAt) {
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final day = startedAt.day.toString().padLeft(2, '0');
+    final month = months[startedAt.month - 1];
+    return 'Upper back symmetry - $day $month ${startedAt.year}';
+  }
+
+  void _addSymmetryIndex(double newSI) {
+    _siBuffer.addLast(newSI);
+    if (_siBuffer.length > _siBufferSize) {
+      _siBuffer.removeFirst();
+    }
+  }
+
+  double? get _smoothedSI {
+    if (_siBuffer.isEmpty) {
+      return null;
+    }
+    return _siBuffer.reduce((a, b) => a + b) / _siBuffer.length;
   }
 
   double? _calculateSymmetryIndex() {
@@ -579,7 +635,7 @@ class SessionBloc extends Cubit<SessionState> {
       return null;
     }
     final startIndex = sampleCount > 2000 ? sampleCount - 2000 : 0;
-    
+
     int min1 = 999999;
     int max1 = -999999;
     for (int i = startIndex; i < sampleCount; i++) {
@@ -602,8 +658,11 @@ class SessionBloc extends Cubit<SessionState> {
 
     if (ch1Active && ch3Active) {
       final leftActivation = _signalProcessor.activationFromRaw(
-        (_rawPoints3.isNotEmpty ? _rawPoints3.last : SignalProcessor.adcMidpoint) - 
-        _calibrationMidpoint + SignalProcessor.adcMidpoint,
+        (_rawPoints3.isNotEmpty
+                ? _rawPoints3.last
+                : SignalProcessor.adcMidpoint) -
+            _calibrationMidpoint +
+            SignalProcessor.adcMidpoint,
       );
       final rightActivation = _liveActivation;
       return _signalProcessor.symmetryIndexFromLevels(
@@ -621,13 +680,18 @@ class SessionBloc extends Cubit<SessionState> {
         : DateTime.now().difference(startedAt).inSeconds;
 
     final double leftAct = _signalProcessor.activationFromRaw(
-      (_rawPoints3.isNotEmpty ? _rawPoints3.last : SignalProcessor.adcMidpoint) - 
-      _calibrationMidpoint + SignalProcessor.adcMidpoint,
+      (_rawPoints3.isNotEmpty
+              ? _rawPoints3.last
+              : SignalProcessor.adcMidpoint) -
+          _calibrationMidpoint +
+          SignalProcessor.adcMidpoint,
     );
     final double rightAct = _liveActivation;
 
     final peakLeft = _sessionPeakLeft > 0 ? _sessionPeakLeft : 1.0;
     final peakRight = _sessionPeakRight > 0 ? _sessionPeakRight : 1.0;
+
+    final smoothedSI = _smoothedSI;
 
     emit(
       state.copyWith(
@@ -643,7 +707,8 @@ class SessionBloc extends Cubit<SessionState> {
         sessionSeconds: sessionSeconds,
         calibrationMidpoint: _calibrationMidpoint,
         liveActivation: _liveActivation,
-        symmetryIndex: _calculateSymmetryIndex(),
+        symmetryIndex: smoothedSI,
+        clearSymmetryIndex: smoothedSI == null,
         rawPoints: List<int>.unmodifiable(_rawPoints),
         rawPoints3: List<int>.unmodifiable(_rawPoints3),
         history: List<SessionSummary>.unmodifiable(_history),
@@ -668,4 +733,3 @@ class SessionBloc extends Cubit<SessionState> {
     return super.close();
   }
 }
-

@@ -26,8 +26,8 @@ class ProfilePage extends StatelessWidget {
         final balanceLabel = state.symmetryIndex == null
             ? 'Awaiting data'
             : (100 - state.symmetryIndex!.abs() * 100) >= 90
-                  ? 'Optimal'
-                  : 'Tracking';
+            ? 'Optimal'
+            : 'Tracking';
         final displayName = state.displayName;
         final initials = _initials(displayName);
         final isConnected = state.isConnected;
@@ -134,37 +134,26 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                FilledButton(
-                  onPressed: () {},
-                  style: FilledButton.styleFrom(
-                    backgroundColor: context.txtPrimary,
-                    foregroundColor: context.bgPrimary,
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 26,
-                      vertical: 13,
-                    ),
-                  ),
-                  child: const Text('Edit Profile'),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
                 ),
-                const SizedBox(width: 12),
-                OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: context.txtPrimary,
-                    side: BorderSide(color: context.txtPrimary),
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 26,
-                      vertical: 13,
-                    ),
-                  ),
-                  child: const Text('Share Stats'),
+                decoration: BoxDecoration(
+                  color: context.bgCard,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: context.dividerClr),
                 ),
-              ],
+                child: Text(
+                  'Data stored locally',
+                  style: AppTheme.labelSmall.copyWith(
+                    color: context.txtSecondary,
+                    letterSpacing: 0,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 34),
             _ProfileStatCard(
@@ -190,11 +179,6 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 34),
             const _SectionTitle('Account'),
-            _SettingsRow(
-              title: 'Personal Information',
-              body: 'Manage your biometric profile and identifiers.',
-              onTap: () {},
-            ),
             _SettingsRow(
               title: 'Connected Devices',
               body: state.isConnected

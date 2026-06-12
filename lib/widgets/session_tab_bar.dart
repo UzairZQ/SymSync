@@ -6,19 +6,19 @@ class SessionTabBar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onTap,
+    required this.labels,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTap;
-
-  static const List<String> _labels = ['Anatomical', 'Balance', 'Signal'];
+  final List<String> labels;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double availableWidth = constraints.maxWidth;
-        final double tabWidth = availableWidth / 3;
+        final double tabWidth = availableWidth / labels.length;
 
         return SizedBox(
           height: 43,
@@ -41,7 +41,7 @@ class SessionTabBar extends StatelessWidget {
                 ),
               ),
               Row(
-                children: List.generate(3, (index) {
+                children: List.generate(labels.length, (index) {
                   final isSelected = selectedIndex == index;
                   return Expanded(
                     child: GestureDetector(
@@ -51,7 +51,7 @@ class SessionTabBar extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            _labels[index],
+                            labels[index],
                             style: AppTheme.labelSmall.copyWith(
                               fontSize: 12,
                               letterSpacing: 0,

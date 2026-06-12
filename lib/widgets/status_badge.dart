@@ -13,13 +13,13 @@ class StatusBadge extends StatelessWidget {
   Color get _backgroundColor {
     switch (state) {
       case StatusBadgeState.connected:
-        return AppTheme.accentGreen.withOpacity(0.14);
+        return AppTheme.accentGreen.withValues(alpha: 0.14);
       case StatusBadgeState.recording:
-        return AppTheme.accentRed.withOpacity(0.14);
+        return AppTheme.accentRed.withValues(alpha: 0.14);
       case StatusBadgeState.disconnected:
-        return AppTheme.textTertiary.withOpacity(0.12);
+        return AppTheme.textTertiary.withValues(alpha: 0.12);
       case StatusBadgeState.idle:
-        return AppTheme.textTertiary.withOpacity(0.12);
+        return AppTheme.textTertiary.withValues(alpha: 0.12);
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,7 +22,7 @@ class _OnboardingPageState extends State<OnboardingPage>
     with TickerProviderStateMixin {
   final PageController _pageCtrl = PageController();
   int _currentPage = 0;
-  String? _selectedUserType;
+  String? _selectedUserType = 'athlete';
   String _channelA = 'left';
   String _channelB = 'right';
 
@@ -72,8 +74,7 @@ class _OnboardingPageState extends State<OnboardingPage>
     widget.onComplete();
   }
 
-  bool get _canProceedSlide4 =>
-      _currentPage != 3 || _selectedUserType != null;
+  bool get _canProceedSlide4 => true;
 
   @override
   Widget build(BuildContext context) {
@@ -171,8 +172,9 @@ class _OnboardingPageState extends State<OnboardingPage>
                     asset: 'assets/images/onboarding/emg.png',
                     title: 'EMG Made Simple',
                     body:
-                        'Pair your biosignalsplux sensors over\nBluetooth and watch your muscle\nbalance update in real time.',
+                        'Connect your biosignalsplux device over\nBluetooth. SymSync reads both EMG\nchannels and shows you which side of\nyour upper back is working harder.',
                     entry: _entryCtrl,
+                    illustration: const _BluetoothConnectionIllustration(),
                   ),
                   _SlideImage(
                     key: const ValueKey<String>('stairs'),
@@ -181,6 +183,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                     body:
                         'During stair climbing and bilateral work,\nSymSync detects which side is working\nharder and helps you balance the load.',
                     entry: _entryCtrl,
+                    illustration: const _UpperBackStairIllustration(),
                   ),
                   _SlideUserType(
                     key: const ValueKey<String>('usertype'),
@@ -239,8 +242,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                           foregroundColor: AppTheme.lightBackgroundPrimary,
                           disabledBackgroundColor:
                               AppTheme.lightBackgroundElevated,
-                          disabledForegroundColor:
-                              AppTheme.lightTextTertiary,
+                          disabledForegroundColor: AppTheme.lightTextTertiary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(
                               AppTheme.radiusMD,
@@ -268,8 +270,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                           foregroundColor: AppTheme.lightBackgroundPrimary,
                           disabledBackgroundColor:
                               AppTheme.lightBackgroundElevated,
-                          disabledForegroundColor:
-                              AppTheme.lightTextTertiary,
+                          disabledForegroundColor: AppTheme.lightTextTertiary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(
                               AppTheme.radiusMD,
@@ -288,10 +289,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 18,
-                            ),
+                            const Icon(Icons.arrow_forward_rounded, size: 18),
                           ],
                         ),
                       ),
@@ -312,6 +310,7 @@ class _SlideImage extends StatelessWidget {
   final String title;
   final String body;
   final AnimationController entry;
+  final Widget? illustration;
 
   const _SlideImage({
     super.key,
@@ -319,6 +318,7 @@ class _SlideImage extends StatelessWidget {
     required this.title,
     required this.body,
     required this.entry,
+    this.illustration,
   });
 
   @override
@@ -331,17 +331,18 @@ class _SlideImage extends StatelessWidget {
           Expanded(
             flex: 6,
             child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: entry,
-                curve: Curves.easeOut,
-              ),
+              opacity: CurvedAnimation(parent: entry, curve: Curves.easeOut),
               child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.06),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(parent: entry, curve: Curves.easeOutCubic),
-                ),
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.06),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: entry,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppTheme.lightBackgroundCard,
@@ -352,18 +353,20 @@ class _SlideImage extends StatelessWidget {
                   padding: const EdgeInsets.all(AppTheme.spaceLG),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                    child: Image.asset(
-                      asset,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (context, error, stack) => Center(
-                        child: Icon(
-                          Icons.image_outlined,
-                          size: 48,
-                          color: AppTheme.lightTextTertiary,
+                    child:
+                        illustration ??
+                        Image.asset(
+                          asset,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                          errorBuilder: (context, error, stack) => Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 48,
+                              color: AppTheme.lightTextTertiary,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -411,10 +414,7 @@ class _SlideImage extends StatelessWidget {
 class _SlideReady extends StatelessWidget {
   final AnimationController entry;
 
-  const _SlideReady({
-    super.key,
-    required this.entry,
-  });
+  const _SlideReady({super.key, required this.entry});
 
   @override
   Widget build(BuildContext context) {
@@ -428,12 +428,16 @@ class _SlideReady extends StatelessWidget {
             child: FadeTransition(
               opacity: entry,
               child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.06),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(parent: entry, curve: Curves.easeOutCubic),
-                ),
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.06),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: entry,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppTheme.lightBackgroundCard,
@@ -489,6 +493,241 @@ class _SlideReady extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BluetoothConnectionIllustration extends StatelessWidget {
+  const _BluetoothConnectionIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        CustomPaint(painter: _BluetoothConnectionPainter()),
+        const Align(
+          alignment: Alignment(-0.55, -0.1),
+          child: Icon(Icons.bluetooth, color: Color(0xFF2563EB), size: 32),
+        ),
+      ],
+    );
+  }
+}
+
+class _BluetoothConnectionPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF2563EB);
+    final fill = Paint()..color = const Color(0xFFF8FAFC);
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFFCBD5E1);
+
+    final phoneRect = Rect.fromCenter(
+      center: Offset(size.width * 0.30, size.height * 0.50),
+      width: size.width * 0.23,
+      height: size.height * 0.58,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(phoneRect, const Radius.circular(18)),
+      fill,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(phoneRect.deflate(2), const Radius.circular(16)),
+      outline,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(phoneRect.deflate(15), const Radius.circular(10)),
+      Paint()..color = Colors.white,
+    );
+
+    for (var i = 0; i < 3; i++) {
+      final rect = Rect.fromCenter(
+        center: Offset(size.width * 0.49, size.height * 0.50),
+        width: size.width * (0.18 + i * 0.12),
+        height: size.height * (0.28 + i * 0.18),
+      );
+      canvas.drawArc(
+        rect,
+        -math.pi / 3,
+        math.pi * 2 / 3,
+        false,
+        stroke
+          ..color = const Color(0xFF2563EB).withValues(alpha: 0.55 - i * 0.14),
+      );
+    }
+
+    final sensorRect = Rect.fromCenter(
+      center: Offset(size.width * 0.72, size.height * 0.50),
+      width: size.width * 0.24,
+      height: size.height * 0.23,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(sensorRect, const Radius.circular(14)),
+      Paint()..color = const Color(0xFFEFF6FF),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(sensorRect, const Radius.circular(14)),
+      outline,
+    );
+    canvas.drawCircle(
+      sensorRect.centerLeft + Offset(sensorRect.width * 0.22, 0),
+      5,
+      Paint()..color = const Color(0xFF22C55E),
+    );
+    canvas.drawLine(
+      sensorRect.topRight + const Offset(-18, 2),
+      sensorRect.topRight + const Offset(4, -24),
+      stroke..color = const Color(0xFF2563EB),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _UpperBackStairIllustration extends StatelessWidget {
+  const _UpperBackStairIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _UpperBackStairPainter());
+  }
+}
+
+class _UpperBackStairPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final body = Paint()..color = const Color(0xFFD0D8E8);
+    final amber = Paint()..color = const Color(0xFFF59E0B);
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF94A3B8);
+
+    canvas.drawRect(
+      Rect.fromLTWH(
+        size.width * 0.18,
+        size.height * 0.76,
+        size.width * 0.28,
+        size.height * 0.08,
+      ),
+      Paint()..color = const Color(0xFFE2E8F0),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(
+        size.width * 0.46,
+        size.height * 0.68,
+        size.width * 0.28,
+        size.height * 0.16,
+      ),
+      Paint()..color = const Color(0xFFE2E8F0),
+    );
+
+    final center = Offset(size.width * 0.52, size.height * 0.34);
+    canvas.drawCircle(
+      Offset(center.dx, size.height * 0.18),
+      size.width * 0.055,
+      body,
+    );
+
+    final torso = Path()
+      ..moveTo(center.dx - size.width * 0.10, size.height * 0.27)
+      ..quadraticBezierTo(
+        center.dx,
+        size.height * 0.23,
+        center.dx + size.width * 0.10,
+        size.height * 0.27,
+      )
+      ..lineTo(center.dx + size.width * 0.13, size.height * 0.52)
+      ..quadraticBezierTo(
+        center.dx,
+        size.height * 0.58,
+        center.dx - size.width * 0.13,
+        size.height * 0.52,
+      )
+      ..close();
+    canvas.drawPath(torso, body);
+    canvas.drawPath(torso, outline);
+
+    final leftTrap = Path()
+      ..moveTo(center.dx - size.width * 0.02, size.height * 0.27)
+      ..lineTo(center.dx - size.width * 0.13, size.height * 0.32)
+      ..quadraticBezierTo(
+        center.dx - size.width * 0.10,
+        size.height * 0.40,
+        center.dx - size.width * 0.03,
+        size.height * 0.43,
+      )
+      ..close();
+    final rightTrap = Path()
+      ..moveTo(center.dx + size.width * 0.02, size.height * 0.27)
+      ..lineTo(center.dx + size.width * 0.13, size.height * 0.32)
+      ..quadraticBezierTo(
+        center.dx + size.width * 0.10,
+        size.height * 0.40,
+        center.dx + size.width * 0.03,
+        size.height * 0.43,
+      )
+      ..close();
+    canvas.drawPath(leftTrap, amber);
+    canvas.drawPath(rightTrap, amber);
+
+    canvas.drawLine(
+      Offset(center.dx - size.width * 0.12, size.height * 0.35),
+      Offset(center.dx - size.width * 0.26, size.height * 0.48),
+      outline,
+    );
+    canvas.drawLine(
+      Offset(center.dx + size.width * 0.12, size.height * 0.35),
+      Offset(center.dx + size.width * 0.24, size.height * 0.45),
+      outline,
+    );
+    canvas.drawLine(
+      Offset(center.dx - size.width * 0.06, size.height * 0.55),
+      Offset(center.dx - size.width * 0.17, size.height * 0.76),
+      outline,
+    );
+    canvas.drawLine(
+      Offset(center.dx + size.width * 0.06, size.height * 0.55),
+      Offset(center.dx + size.width * 0.20, size.height * 0.68),
+      outline,
+    );
+
+    _drawBolt(
+      canvas,
+      Offset(center.dx - size.width * 0.18, size.height * 0.27),
+    );
+    _drawBolt(
+      canvas,
+      Offset(center.dx + size.width * 0.16, size.height * 0.25),
+    );
+  }
+
+  void _drawBolt(Canvas canvas, Offset origin) {
+    final path = Path()
+      ..moveTo(origin.dx, origin.dy)
+      ..lineTo(origin.dx - 8, origin.dy + 18)
+      ..lineTo(origin.dx + 2, origin.dy + 16)
+      ..lineTo(origin.dx - 6, origin.dy + 34);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..color = const Color(0xFFF59E0B),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─── Slide 4: User type selection ─────────────────────────────────────────
@@ -600,9 +839,7 @@ class _UserTypeCard extends StatelessWidget {
               : AppTheme.lightBackgroundCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusMD),
           border: Border.all(
-            color: isSelected
-                ? AppTheme.lightTextPrimary
-                : AppTheme.lightDivider,
+            color: isSelected ? const Color(0xFF2563EB) : AppTheme.lightDivider,
             width: 1.5,
           ),
           boxShadow: isSelected
@@ -659,8 +896,9 @@ class _UserTypeCard extends StatelessWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                       color: isSelected
-                          ? AppTheme.lightBackgroundPrimary
-                              .withValues(alpha: 0.72)
+                          ? AppTheme.lightBackgroundPrimary.withValues(
+                              alpha: 0.72,
+                            )
                           : AppTheme.lightTextSecondary,
                       height: 1.4,
                     ),

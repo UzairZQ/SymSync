@@ -12,8 +12,8 @@ class HistoricalLegHeatmap extends StatelessWidget {
   const HistoricalLegHeatmap({
     super.key,
     required this.data,
-    this.leftLabel = 'Left leg',
-    this.rightLabel = 'Right leg',
+    this.leftLabel = 'Left trapezius',
+    this.rightLabel = 'Right trapezius',
   });
 
   @override
@@ -78,9 +78,7 @@ class _GradientLegend extends StatelessWidget {
       children: <Widget>[
         Text(
           'Activation Intensity',
-          style: AppTheme.labelSmall.copyWith(
-            color: context.txtTertiary,
-          ),
+          style: AppTheme.labelSmall.copyWith(color: context.txtTertiary),
         ),
         const SizedBox(height: AppTheme.spaceSM),
         Container(
@@ -88,10 +86,7 @@ class _GradientLegend extends StatelessWidget {
           height: 16,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [
-                Color(0xFF355CFF),
-                Color(0xFFFF7A59),
-              ],
+              colors: [Color(0xFF355CFF), Color(0xFFFF7A59)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
@@ -162,7 +157,8 @@ class _HeatmapLegend extends StatelessWidget {
               ),
               _LegendStat(
                 label: 'L / R Balance',
-                value: '${(leftAvg * 100).toStringAsFixed(0)}% / ${(rightAvg * 100).toStringAsFixed(0)}%',
+                value:
+                    '${(leftAvg * 100).toStringAsFixed(0)}% / ${(rightAvg * 100).toStringAsFixed(0)}%',
                 color: AppTheme.accentAmber,
               ),
             ],
@@ -223,11 +219,7 @@ class _EmptyHeatmapPlaceholder extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Icon(
-            Icons.analytics_outlined,
-            size: 48,
-            color: context.txtTertiary,
-          ),
+          Icon(Icons.analytics_outlined, size: 48, color: context.txtTertiary),
           const SizedBox(height: AppTheme.spaceMD),
           Text(
             message,

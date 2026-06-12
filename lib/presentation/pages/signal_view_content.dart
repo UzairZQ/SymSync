@@ -23,7 +23,9 @@ class _SignalViewContentState extends State<SignalViewContent> {
   bool _ch1Active = false;
   bool _ch3Active = false;
 
-  final ValueNotifier<String> _modeNotifier = ValueNotifier<String>('RMS Envelope');
+  final ValueNotifier<String> _modeNotifier = ValueNotifier<String>(
+    'RMS Envelope',
+  );
 
   @override
   void initState() {
@@ -33,10 +35,10 @@ class _SignalViewContentState extends State<SignalViewContent> {
       final now = DateTime.now();
 
       _recentCh1.add((time: now, value: frame.ch1.toDouble()));
-      _recentCh1.removeWhere((item) => now.difference(item.time).inSeconds > 2);
+      _recentCh1.removeWhere((item) => now.difference(item.time).inSeconds > 3);
 
       _recentCh3.add((time: now, value: frame.ch3.toDouble()));
-      _recentCh3.removeWhere((item) => now.difference(item.time).inSeconds > 2);
+      _recentCh3.removeWhere((item) => now.difference(item.time).inSeconds > 3);
 
       bool ch1Active = false;
       if (_recentCh1.isNotEmpty) {
@@ -91,26 +93,37 @@ class _SignalViewContentState extends State<SignalViewContent> {
             children: [
               Expanded(
                 child: EMGChart(
-                  key: const ValueKey('ch1_dual'),
+                  key: const ValueKey('ch3_dual'),
                   frameStream: context.read<EmgHardware>().frames,
-                  channelIndex: 0,
+                  channelIndex: 1,
                   lineColor: AppTheme.leftTrap,
-                  channelLabel: 'LEFT TRAP — CH1',
+                  channelLabel: 'Left Trapezius',
                   mode: mode,
                 ),
               ),
               const SizedBox(height: 12),
               Expanded(
                 child: EMGChart(
-                  key: const ValueKey('ch3_dual'),
+                  key: const ValueKey('ch1_dual'),
                   frameStream: context.read<EmgHardware>().frames,
-                  channelIndex: 1,
+                  channelIndex: 0,
                   lineColor: AppTheme.rightTrap,
-                  channelLabel: 'RIGHT TRAP — CH3',
+                  channelLabel: 'Right Trapezius',
                   mode: mode,
                 ),
               ),
             ],
+          );
+        } else if (activeCount == 0) {
+          chartsArea = Center(
+            child: Text(
+              'No signal — connect biosignalsplux to see waveforms',
+              textAlign: TextAlign.center,
+              style: AppTheme.bodyLarge.copyWith(
+                color: context.txtSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           );
         } else {
           final bool showCh3 = _ch3Active && !_ch1Active;
@@ -122,8 +135,8 @@ class _SignalViewContentState extends State<SignalViewContent> {
                   key: ValueKey(showCh3 ? 'ch3_single' : 'ch1_single'),
                   frameStream: context.read<EmgHardware>().frames,
                   channelIndex: showCh3 ? 1 : 0,
-                  lineColor: showCh3 ? AppTheme.rightTrap : AppTheme.leftTrap,
-                  channelLabel: showCh3 ? 'RIGHT TRAP — CH3' : 'LEFT TRAP — CH1',
+                  lineColor: showCh3 ? AppTheme.leftTrap : AppTheme.rightTrap,
+                  channelLabel: showCh3 ? 'Left Trapezius' : 'Right Trapezius',
                   mode: mode,
                 ),
               ),
@@ -184,7 +197,10 @@ class _SignalViewContentState extends State<SignalViewContent> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppTheme.accentAmber, width: 1.2),
@@ -202,9 +218,7 @@ class _SignalViewContentState extends State<SignalViewContent> {
               ],
             ),
             const SizedBox(height: AppTheme.spaceLG),
-            Expanded(
-              child: chartsArea,
-            ),
+            Expanded(child: chartsArea),
             const SizedBox(height: AppTheme.spaceMD),
             Container(
               height: 40,
@@ -225,15 +239,21 @@ class _SignalViewContentState extends State<SignalViewContent> {
                       child: Container(
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: isSelected ? context.bgCard : Colors.transparent,
+                          color: isSelected
+                              ? context.bgCard
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(17),
                         ),
                         child: Text(
                           option,
                           style: GoogleFonts.dmSans(
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? AppTheme.accentTeal : context.txtTertiary,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? AppTheme.accentTeal
+                                : context.txtTertiary,
                           ),
                         ),
                       ),

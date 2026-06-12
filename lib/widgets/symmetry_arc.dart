@@ -69,7 +69,7 @@ class _SymmetryArcPainter extends CustomPainter {
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: <Color>[
-          AppTheme.accentTeal.withOpacity(0.35),
+          AppTheme.accentTeal.withValues(alpha: 0.35),
           Colors.transparent,
         ],
       ).createShader(Rect.fromCircle(center: dot, radius: 28));

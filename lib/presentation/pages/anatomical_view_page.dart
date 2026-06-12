@@ -18,18 +18,29 @@ class AnatomicalViewContent extends StatelessWidget {
         final lastSession = state.history.isNotEmpty
             ? state.history.first
             : null;
+        final isLive = state.isConnected;
 
-        final displaySymmetryIndex = lastSession?.averageSymmetryIndex;
+        final displaySymmetryIndex = isLive
+            ? state.symmetryIndex
+            : lastSession?.averageSymmetryIndex;
         final displayLeftActivation =
-            (lastSession?.averageLeftActivation ?? 0.0).clamp(0.0, 1.0);
+            (isLive
+                    ? state.normalisedLeftActivation
+                    : (lastSession?.averageLeftActivation ?? 0.0))
+                .clamp(0.0, 1.0);
         final displayRightActivation =
-            (lastSession?.averageRightActivation ?? 0.0).clamp(0.0, 1.0);
+            (isLive
+                    ? state.normalisedRightActivation
+                    : (lastSession?.averageRightActivation ?? 0.0))
+                .clamp(0.0, 1.0);
 
         final imbalanceLabel = displaySymmetryIndex == null
-            ? 'No completed session yet — run a session to see results.'
+            ? 'Connect both EMG cables to see bilateral muscle activation.'
             : displaySymmetryIndex < 0
-            ? 'Right side is ${(displaySymmetryIndex.abs() * 100).toStringAsFixed(0)}% more active.'
-            : 'Left side is ${(displaySymmetryIndex * 100).toStringAsFixed(0)}% more active.';
+            ? 'Left side is ${displaySymmetryIndex.abs().toStringAsFixed(0)}% more active.'
+            : displaySymmetryIndex > 0
+            ? 'Right side is ${displaySymmetryIndex.toStringAsFixed(0)}% more active.'
+            : 'Both sides are balanced.';
 
         return ListView(
           key: const PageStorageKey<String>('anatomical'),
@@ -42,7 +53,7 @@ class AnatomicalViewContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Upper Back\nNeural Load',
+                        'Muscle\nActivation',
                         style: AppTheme.headingLarge.copyWith(
                           color: context.txtPrimary,
                           fontSize: 28,
@@ -51,7 +62,7 @@ class AnatomicalViewContent extends StatelessWidget {
                       ),
                       const SizedBox(height: AppTheme.spaceXS),
                       Text(
-                        'Real-time heatmap visualization of neuromuscular engagement across primary muscle groups on the upper back.',
+                        'Live symmetry map of your upper back during movement.',
                         style: AppTheme.bodyLarge.copyWith(
                           color: context.txtSecondary,
                           height: 1.4,
@@ -79,44 +90,26 @@ class AnatomicalViewContent extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppTheme.spaceLG),
-            AppCard(
+            Container(
               padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F4F8),
+                borderRadius: AppTheme.cardRadius,
+                border: Border.all(color: context.dividerClr),
+                boxShadow: context.cardShadow,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   SizedBox(
                     height: 340,
-                    child: Stack(
-                      children: <Widget>[
-                        Positioned.fill(
-                          child: Opacity(
-                            opacity: 0.12,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: <Color>[
-                                    AppTheme.accentTeal,
-                                    AppTheme.accentAmber,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusXL,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: HeatmapSilhouetteWidget(
-                            leftActivation: displayLeftActivation,
-                            rightActivation: displayRightActivation,
-                            width: 260,
-                          ),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: HeatmapSilhouetteWidget(
+                        leftActivation: displayLeftActivation,
+                        rightActivation: displayRightActivation,
+                        width: 260,
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppTheme.spaceXL),
@@ -136,7 +129,7 @@ class AnatomicalViewContent extends StatelessWidget {
                         const SizedBox(height: AppTheme.spaceMD),
                         Text(
                           displaySymmetryIndex == null
-                              ? 'Complete a session to see corrective guidance.'
+                              ? 'Start recording with both channels connected to see corrective guidance.'
                               : processor.correctiveInstruction(
                                   displaySymmetryIndex,
                                 ),
@@ -204,4 +197,3 @@ class _MuscleChip extends StatelessWidget {
     );
   }
 }
-

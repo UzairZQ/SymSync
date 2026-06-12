@@ -63,8 +63,8 @@ class LegPairSilhouette extends StatelessWidget {
     super.key,
     required this.leftActivation,
     this.rightActivation,
-    this.leftLabel = 'Left leg',
-    this.rightLabel = 'Right leg',
+    this.leftLabel = 'Left trapezius',
+    this.rightLabel = 'Right trapezius',
   });
 
   final double leftActivation;
@@ -134,9 +134,7 @@ class _LegActivationPainter extends CustomPainter {
     final spacingY = area.height / (rows + 1);
     final dotRadius = (spacingX * 0.35).clamp(2.0, 6.0);
 
-    final base = active
-        ? _heatColor(activation)
-        : const Color(0xFFB7BED4);
+    final base = active ? _heatColor(activation) : const Color(0xFFB7BED4);
 
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
@@ -145,15 +143,13 @@ class _LegActivationPainter extends CustomPainter {
 
         final vertical = (r / (rows - 1)).clamp(0.0, 1.0);
         final horizontal = (c / (cols - 1) - 0.5).abs() * 2.0;
-        final intensity = (1.0 - (vertical * 0.6 + horizontal * 0.4)) *
-            (active ? 1.0 : 0.35);
+        final intensity =
+            (1.0 - (vertical * 0.6 + horizontal * 0.4)) * (active ? 1.0 : 0.35);
 
         final color = active
             ? _heatColor(activation * intensity.clamp(0.0, 1.0))
             : base;
-        final alpha = active
-            ? (0.30 + intensity.clamp(0.0, 1.0) * 0.70)
-            : 0.25;
+        final alpha = active ? (0.30 + intensity.clamp(0.0, 1.0) * 0.70) : 0.25;
 
         final paint = Paint()..color = color.withValues(alpha: alpha);
         canvas.drawCircle(Offset(x, y), dotRadius, paint);
@@ -222,9 +218,14 @@ class _LegActivationPainter extends CustomPainter {
 }
 
 class TiltMeter extends StatelessWidget {
-  const TiltMeter({super.key, required this.symmetryIndex});
+  const TiltMeter({
+    super.key,
+    required this.symmetryIndex,
+    required this.label,
+  });
 
   final double? symmetryIndex;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -233,36 +234,45 @@ class TiltMeter extends StatelessWidget {
         : (symmetryIndex! / 3.0).clamp(-20.0, 20.0);
     final hasData = symmetryIndex != null;
     final position = (tiltDegrees + 20.0) / 40.0;
-    return Column(
-      children: <Widget>[
-        SizedBox(
-          height: 180,
-          child: CustomPaint(
-            painter: _TiltMeterPainter(
-              normalizedPosition: hasData ? position : 0.5,
-              active: hasData,
-            ),
-            child: Center(
-              child: Text(
-                hasData ? '${tiltDegrees.toStringAsFixed(0)}°' : '—',
-                style: Theme.of(
-                  context,
-                ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900),
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.5, end: hasData ? position : 0.5),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedPosition, child) {
+        return Column(
+          children: <Widget>[
+            SizedBox(
+              height: 180,
+              child: CustomPaint(
+                painter: _TiltMeterPainter(
+                  normalizedPosition: animatedPosition,
+                  active: hasData,
+                ),
+                child: Center(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          hasData
-              ? 'tilt from bilateral symmetry'
-              : 'awaiting second leg channel',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: const Color(0xFF5A6478),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
+            const SizedBox(height: 8),
+            Text(
+              hasData
+                  ? 'Live bilateral symmetry'
+                  : 'Connect the second EMG cable to begin bilateral tracking',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: const Color(0xFF5A6478),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
