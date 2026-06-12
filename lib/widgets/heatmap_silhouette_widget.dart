@@ -26,12 +26,24 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
         child: RepaintBoundary(
           child: SizedBox(
             width: width,
-            height: width * 1.28,
-            child: CustomPaint(
-              painter: _HeatmapPainter(
-                leftActivation: leftActivation.clamp(0.0, 1.0),
-                rightActivation: rightActivation.clamp(0.0, 1.0),
-              ),
+            height: width * 1.5,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/upper_body.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _HeatmapPainter(
+                      leftActivation: leftActivation.clamp(0.0, 1.0),
+                      rightActivation: rightActivation.clamp(0.0, 1.0),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -52,87 +64,37 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final centerX = size.width / 2;
-    final silhouettePaint = Paint()..color = const Color(0xFFD0D8E8);
-    final outlinePaint = Paint()
-      ..color = const Color(0xFF94A3B8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    canvas.drawCircle(
-      Offset(centerX, size.height * 0.14),
-      size.width * 0.105,
-      silhouettePaint,
-    );
-
-    final torso = Path()
-      ..moveTo(centerX - size.width * 0.18, size.height * 0.24)
-      ..quadraticBezierTo(
-        centerX,
-        size.height * 0.19,
-        centerX + size.width * 0.18,
-        size.height * 0.24,
-      )
-      ..lineTo(centerX + size.width * 0.25, size.height * 0.72)
-      ..quadraticBezierTo(
-        centerX,
-        size.height * 0.82,
-        centerX - size.width * 0.25,
-        size.height * 0.72,
-      )
-      ..close();
-    canvas.drawPath(torso, silhouettePaint);
-    canvas.drawPath(torso, outlinePaint);
-
-    final leftArm = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        centerX - size.width * 0.38,
-        size.height * 0.28,
-        size.width * 0.13,
-        size.height * 0.42,
-      ),
-      Radius.circular(size.width * 0.06),
-    );
-    final rightArm = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        centerX + size.width * 0.25,
-        size.height * 0.28,
-        size.width * 0.13,
-        size.height * 0.42,
-      ),
-      Radius.circular(size.width * 0.06),
-    );
-    canvas.drawRRect(leftArm, silhouettePaint);
-    canvas.drawRRect(rightArm, silhouettePaint);
 
     final leftTrap = Path()
-      ..moveTo(centerX - size.width * 0.04, size.height * 0.23)
-      ..lineTo(centerX - size.width * 0.23, size.height * 0.31)
+      ..moveTo(centerX - size.width * 0.04, size.height * 0.18)
+      ..lineTo(centerX - size.width * 0.26, size.height * 0.27)
       ..quadraticBezierTo(
-        centerX - size.width * 0.18,
-        size.height * 0.43,
-        centerX - size.width * 0.07,
-        size.height * 0.47,
+        centerX - size.width * 0.22,
+        size.height * 0.42,
+        centerX - size.width * 0.08,
+        size.height * 0.48,
       )
       ..quadraticBezierTo(
-        centerX - size.width * 0.02,
+        centerX - size.width * 0.03,
         size.height * 0.36,
         centerX - size.width * 0.04,
-        size.height * 0.23,
+        size.height * 0.18,
       );
+
     final rightTrap = Path()
-      ..moveTo(centerX + size.width * 0.04, size.height * 0.23)
-      ..lineTo(centerX + size.width * 0.23, size.height * 0.31)
+      ..moveTo(centerX + size.width * 0.04, size.height * 0.18)
+      ..lineTo(centerX + size.width * 0.26, size.height * 0.27)
       ..quadraticBezierTo(
-        centerX + size.width * 0.18,
-        size.height * 0.43,
-        centerX + size.width * 0.07,
-        size.height * 0.47,
+        centerX + size.width * 0.22,
+        size.height * 0.42,
+        centerX + size.width * 0.08,
+        size.height * 0.48,
       )
       ..quadraticBezierTo(
-        centerX + size.width * 0.02,
+        centerX + size.width * 0.03,
         size.height * 0.36,
         centerX + size.width * 0.04,
-        size.height * 0.23,
+        size.height * 0.18,
       );
 
     canvas.drawPath(
@@ -155,19 +117,19 @@ class _HeatmapPainter extends CustomPainter {
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(
-      Offset(centerX, size.height * 0.28),
-      Offset(centerX, size.height * 0.70),
+      Offset(centerX, size.height * 0.22),
+      Offset(centerX, size.height * 0.60),
       spinePaint,
     );
 
     final electrodePaint = Paint()..color = const Color(0xFF2563EB);
     canvas.drawCircle(
-      Offset(centerX - size.width * 0.14, size.height * 0.34),
+      Offset(centerX - size.width * 0.15, size.height * 0.34),
       size.width * 0.018,
       electrodePaint,
     );
     canvas.drawCircle(
-      Offset(centerX + size.width * 0.14, size.height * 0.34),
+      Offset(centerX + size.width * 0.15, size.height * 0.34),
       size.width * 0.018,
       electrodePaint,
     );

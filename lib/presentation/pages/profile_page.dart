@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../theme/app_theme.dart';
+import '../../theme/theme_provider.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/theme_toggle.dart';
@@ -190,20 +191,15 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             const _SectionTitle('Preferences'),
-            const _ToggleRow(
+            _ToggleRow(
               title: 'Dark Theme',
               body: 'Adjust interface luminosity for low-light environments.',
-              value: false,
-            ),
-            const _ToggleRow(
-              title: 'Audio Feedback',
-              body: 'Auditory cues for session transition and targets.',
-              value: true,
-            ),
-            const _ToggleRow(
-              title: 'Haptic Alerts',
-              body: 'Tactile notifications for goal reaching.',
-              value: true,
+              value: context.isDark,
+              onChanged: (isDark) {
+                ThemeProvider.setThemeMode(
+                  isDark ? ThemeMode.dark : ThemeMode.light,
+                );
+              },
             ),
             const SizedBox(height: 28),
             AppCard(
@@ -414,11 +410,13 @@ class _ToggleRow extends StatelessWidget {
     required this.title,
     required this.body,
     required this.value,
+    required this.onChanged,
   });
 
   final String title;
   final String body;
   final bool value;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -449,7 +447,7 @@ class _ToggleRow extends StatelessWidget {
           ),
           Switch(
             value: value,
-            onChanged: (_) {},
+            onChanged: onChanged,
             activeThumbColor: AppTheme.accentGreen,
           ),
         ],
