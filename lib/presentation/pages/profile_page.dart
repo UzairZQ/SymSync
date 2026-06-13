@@ -20,13 +20,21 @@ class ProfilePage extends StatelessWidget {
           0,
           (sum, item) => sum + item.durationSeconds,
         );
+        final totalMinutes = (totalSeconds / 60).round();
         final totalHours = (totalSeconds / 3600).round();
-        final balance = state.symmetryIndex == null
+        final symmetryScores = state.history
+            .map((s) => s.averageSymmetryIndex)
+            .whereType<double>()
+            .toList();
+        final avgSI = symmetryScores.isEmpty
+            ? null
+            : symmetryScores.reduce((a, b) => a + b) / symmetryScores.length;
+        final balance = avgSI == null
             ? '—'
-            : (100 - state.symmetryIndex!.abs() * 100).toStringAsFixed(1);
-        final balanceLabel = state.symmetryIndex == null
+            : (100 - avgSI.abs()).toStringAsFixed(1);
+        final balanceLabel = avgSI == null
             ? 'Awaiting data'
-            : (100 - state.symmetryIndex!.abs() * 100) >= 90
+            : (100 - avgSI.abs()) >= 90
             ? 'Optimal'
             : 'Tracking';
         final displayName = state.displayName;
@@ -167,8 +175,12 @@ class ProfilePage extends StatelessWidget {
             _ProfileStatCard(
               icon: Icons.timer_outlined,
               title: 'Time',
-              value: totalSeconds == 0 ? '0' : '$totalHours',
-              suffix: totalSeconds == 0 ? 'h Total' : 'h Tracked',
+              value: totalSeconds == 0
+                  ? '0'
+                  : (totalHours >= 1 ? '$totalHours' : '$totalMinutes'),
+              suffix: totalSeconds == 0
+                  ? 'h Total'
+                  : (totalHours >= 1 ? 'h Tracked' : 'min Tracked'),
             ),
             const SizedBox(height: 14),
             _ProfileStatCard(
@@ -179,17 +191,6 @@ class ProfilePage extends StatelessWidget {
               inverted: true,
             ),
             const SizedBox(height: 34),
-            const _SectionTitle('Account'),
-            _SettingsRow(
-              title: 'Connected Devices',
-              body: state.isConnected
-                  ? 'biosignalsplux device is active.'
-                  : (isConnecting
-                        ? 'Connecting to biosignalsplux…'
-                        : 'No active device connection.'),
-              onTap: () {},
-            ),
-            const SizedBox(height: 28),
             const _SectionTitle('Preferences'),
             _ToggleRow(
               title: 'Dark Theme',
@@ -351,54 +352,6 @@ class _SectionTitle extends StatelessWidget {
         style: AppTheme.headingLarge.copyWith(
           color: context.txtPrimary,
           fontSize: 30,
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    required this.title,
-    required this.body,
-    required this.onTap,
-  });
-
-  final String title;
-  final String body;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 22),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    title,
-                    style: AppTheme.headingMedium.copyWith(
-                      color: context.txtPrimary,
-                      fontSize: 20,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    body,
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: context.txtSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: context.txtTertiary, size: 18),
-          ],
         ),
       ),
     );

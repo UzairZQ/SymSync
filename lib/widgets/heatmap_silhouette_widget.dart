@@ -24,27 +24,35 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
       image: true,
       child: Center(
         child: RepaintBoundary(
-          child: SizedBox(
-            width: width,
-            height: width * 1.5,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/upper_body.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _HeatmapPainter(
-                      leftActivation: leftActivation.clamp(0.0, 1.0),
-                      rightActivation: rightActivation.clamp(0.0, 1.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: width,
+                height: width * 1.5,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        'assets/images/upper_body.png',
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                  ),
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _HeatmapPainter(
+                          leftActivation: leftActivation.clamp(0.0, 1.0),
+                          rightActivation: rightActivation.clamp(0.0, 1.0),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 4),
+              _VerticalLegend(height: width * 1.5 / 2),
+            ],
           ),
         ),
       ),
@@ -61,44 +69,27 @@ class _HeatmapPainter extends CustomPainter {
   final double leftActivation;
   final double rightActivation;
 
-  void _drawActivationBlob(
-    Canvas canvas,
-    Offset centre,
-    double activation,
-    Size size,
-  ) {
-    final radius = size.width * 0.18;
-    final opacity = (activation * 0.72).clamp(0.0, 0.72);
-    final centreColour = HeatmapUtils.activationColour(activation)
-        .withValues(alpha: opacity);
+  void _drawGlow(Canvas canvas, Offset centre, double activation, Size size) {
+    if (activation < 0.10) return;
+
+    final radius = size.width * 0.50;
 
     final gradient = RadialGradient(
       center: Alignment.center,
       radius: 1.0,
       colors: [
-        centreColour,
-        centreColour.withValues(alpha: opacity * 0.5),
+        HeatmapGradient.at(activation).withValues(alpha: 0.85),
+        HeatmapGradient.at(activation).withValues(alpha: 0.30),
         Colors.transparent,
       ],
-      stops: const [0.0, 0.5, 1.0],
+      stops: const [0.0, 0.4, 1.0],
     );
 
     final rect = Rect.fromCircle(center: centre, radius: radius);
     final paint = Paint()
       ..shader = gradient.createShader(rect)
       ..blendMode = BlendMode.srcOver;
-
     canvas.drawCircle(centre, radius, paint);
-  }
-
-  void _drawElectrodeDot(Canvas canvas, Offset centre) {
-    final dotPaint = Paint()..color = const Color(0xFF2563EB);
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    canvas.drawCircle(centre, 6, dotPaint);
-    canvas.drawCircle(centre, 6, borderPaint);
   }
 
   @override
@@ -106,16 +97,60 @@ class _HeatmapPainter extends CustomPainter {
     final leftCentre = Offset(size.width * 0.34, size.height * 0.454);
     final rightCentre = Offset(size.width * 0.66, size.height * 0.454);
 
-    _drawActivationBlob(canvas, leftCentre, leftActivation, size);
-    _drawActivationBlob(canvas, rightCentre, rightActivation, size);
-
-    _drawElectrodeDot(canvas, leftCentre);
-    _drawElectrodeDot(canvas, rightCentre);
+    _drawGlow(canvas, leftCentre, leftActivation, size);
+    _drawGlow(canvas, rightCentre, rightActivation, size);
   }
 
   @override
   bool shouldRepaint(covariant _HeatmapPainter oldDelegate) {
     return oldDelegate.leftActivation != leftActivation ||
         oldDelegate.rightActivation != rightActivation;
+  }
+}
+
+class _VerticalLegend extends StatelessWidget {
+  const _VerticalLegend({this.height = 200});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          'High',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.55),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 14,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            gradient: HeatmapGradient.vertical(),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Low',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.55),
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -24,7 +24,7 @@ class ConnectionBadge extends StatelessWidget {
       label = 'Connected';
     } else {
       color = context.txtTertiary;
-      label = 'Disconnected';
+      label = 'Not Connected';
     }
 
     return Container(

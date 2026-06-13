@@ -118,12 +118,12 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                   ),
                   const SizedBox(height: AppTheme.spaceMD),
                   SizedBox(
-                    height: 280,
+                    height: 340,
                     child: historyCount > 0
                         ? HeatmapSilhouetteWidget(
                             leftActivation: leftAvg.clamp(0.0, 1.0),
                             rightActivation: rightAvg.clamp(0.0, 1.0),
-                            width: 240,
+                            width: 280,
                           )
                         : const _EmptyHeatmap(),
                   ),
@@ -262,7 +262,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                         title: 'Avg. Deviation',
                         value: avgDeviation == null
                             ? '—'
-                            : '${(avgDeviation * 100).toStringAsFixed(0)}%',
+                            : '${avgDeviation.toStringAsFixed(0)}%',
                         valueColor: context.txtSecondary,
                       ),
                       _analysisItem(

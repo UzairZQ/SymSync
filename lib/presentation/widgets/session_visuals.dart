@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/services/signal_processor.dart';
+import '../../utils/heatmap_utils.dart';
 
 class EmgWaveformChart extends StatelessWidget {
   const EmgWaveformChart({super.key, required this.samples});
@@ -76,28 +77,37 @@ class LegPairSilhouette extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return SizedBox(
-          width: constraints.maxWidth,
-          height: constraints.maxHeight,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              Image.asset(
-                'assets/images/upper_body.png',
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.medium,
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
+        final legendWidth = 20.0;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            SizedBox(
+              width: constraints.maxWidth - legendWidth,
+              height: constraints.maxHeight,
+              child: Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  Image.asset(
+                    'assets/images/upper_body.png',
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    width: constraints.maxWidth - legendWidth,
+                    height: constraints.maxHeight,
+                  ),
+                  CustomPaint(
+                    size: Size(constraints.maxWidth - legendWidth, constraints.maxHeight),
+                    painter: _LegActivationPainter(
+                      leftActivation: leftActivation,
+                      rightActivation: rightActivation,
+                    ),
+                  ),
+                ],
               ),
-              CustomPaint(
-                size: Size(constraints.maxWidth, constraints.maxHeight),
-                painter: _LegActivationPainter(
-                  leftActivation: leftActivation,
-                  rightActivation: rightActivation,
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 4),
+            _GradientLegend(height: constraints.maxHeight / 2),
+          ],
         );
       },
     );
@@ -113,28 +123,18 @@ class _LegActivationPainter extends CustomPainter {
   final double leftActivation;
   final double? rightActivation;
 
-  Color _heatColor(double value) {
-    final clamped = value.clamp(0.0, 1.0);
-    return Color.lerp(
-      const Color(0xFF355CFF),
-      const Color(0xFFFF7A59),
-      clamped,
-    )!;
-  }
-
   void _drawLegHeatmap(
     Canvas canvas,
     Rect area,
     double activation, {
     required bool active,
   }) {
+    if (!active) return;
     const cols = 4;
     const rows = 14;
     final spacingX = area.width / (cols + 1);
     final spacingY = area.height / (rows + 1);
     final dotRadius = (spacingX * 0.35).clamp(2.0, 6.0);
-
-    final base = active ? _heatColor(activation) : const Color(0xFFB7BED4);
 
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
@@ -144,12 +144,11 @@ class _LegActivationPainter extends CustomPainter {
         final vertical = (r / (rows - 1)).clamp(0.0, 1.0);
         final horizontal = (c / (cols - 1) - 0.5).abs() * 2.0;
         final intensity =
-            (1.0 - (vertical * 0.6 + horizontal * 0.4)) * (active ? 1.0 : 0.35);
+            0.3 + (1.0 - (vertical * 0.5 + horizontal * 0.3)) * 0.7;
 
-        final color = active
-            ? _heatColor(activation * intensity.clamp(0.0, 1.0))
-            : base;
-        final alpha = active ? (0.30 + intensity.clamp(0.0, 1.0) * 0.70) : 0.25;
+        final color =
+            HeatmapGradient.at((activation * intensity).clamp(0.0, 1.0));
+        final alpha = 0.50 + intensity.clamp(0.0, 1.0) * 0.50;
 
         final paint = Paint()..color = color.withValues(alpha: alpha);
         canvas.drawCircle(Offset(x, y), dotRadius, paint);
@@ -227,6 +226,10 @@ class TiltMeter extends StatelessWidget {
   final double? symmetryIndex;
   final String label;
 
+  static const _degreeLabels = <String>[
+    '-20°', '-10°', '0°', '+10°', '+20°',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final tiltDegrees = symmetryIndex == null
@@ -241,29 +244,121 @@ class TiltMeter extends StatelessWidget {
       builder: (context, animatedPosition, child) {
         return Column(
           children: <Widget>[
-            SizedBox(
-              height: 180,
-              child: CustomPaint(
-                painter: _TiltMeterPainter(
-                  normalizedPosition: animatedPosition,
-                  active: hasData,
-                ),
-                child: Center(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Text(
+                  'Left',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
                   ),
                 ),
+                Text(
+                  'Center',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+                Text(
+                  'Right',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 60,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final trackWidth = constraints.maxWidth * 0.92;
+                  final trackLeft = (constraints.maxWidth - trackWidth) / 2;
+                  final trackTop = (constraints.maxHeight - 18) / 2;
+                  final markerX =
+                      trackLeft + (trackWidth * animatedPosition.clamp(0.0, 1.0));
+                  return Stack(
+                    children: <Widget>[
+                      Positioned(
+                        left: trackLeft,
+                        top: trackTop,
+                        child: Container(
+                          width: trackWidth,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: const Color(0xCCE0E0E0),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: const Color(0x66C0C0C0),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: markerX - 14,
+                        top: trackTop + 18 / 2 - 14,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: hasData
+                                ? const Color(0xFF355CFF)
+                                : const Color(0xFFB7BED4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _degreeLabels.map((d) {
+                return Text(
+                  d,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.45),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
             Text(
-              hasData
-                  ? 'Live bilateral symmetry'
-                  : 'No signal detected',
+              hasData ? 'Live bilateral symmetry' : 'No signal detected',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: const Color(0xFF5A6478),
@@ -277,65 +372,50 @@ class TiltMeter extends StatelessWidget {
   }
 }
 
-class _TiltMeterPainter extends CustomPainter {
-  _TiltMeterPainter({required this.normalizedPosition, required this.active});
+class _GradientLegend extends StatelessWidget {
+  const _GradientLegend({this.height = 200});
 
-  final double normalizedPosition;
-  final bool active;
+  final double height;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.62);
-    final trackRect = Rect.fromCenter(
-      center: center,
-      width: size.width * 0.78,
-      height: 18,
-    );
-    final trackPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: <Color>[
-          Color(0xFF355CFF),
-          Color(0xFF8BC6FF),
-          Color(0xFFA7F3D0),
-          Color(0xFFFFD166),
-          Color(0xFFFF7A59),
-        ],
-      ).createShader(trackRect);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(trackRect, const Radius.circular(999)),
-      trackPaint,
-    );
-
-    final railPaint = Paint()
-      ..color = const Color(0xFF1D2433).withValues(alpha: 0.07);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: center.translate(0, 34),
-          width: size.width * 0.84,
-          height: 4,
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          'High',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.55),
+          ),
         ),
-        const Radius.circular(999),
-      ),
-      railPaint,
+        const SizedBox(height: 4),
+        Container(
+          width: 14,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            gradient: HeatmapGradient.vertical(),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Low',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.55),
+          ),
+        ),
+      ],
     );
-
-    final markerX =
-        trackRect.left + (trackRect.width * normalizedPosition.clamp(0.0, 1.0));
-    final markerPaint = Paint()
-      ..color = active ? const Color(0xFF355CFF) : const Color(0xFFB7BED4);
-    canvas.drawCircle(Offset(markerX, trackRect.center.dy), 14, markerPaint);
-    canvas.drawCircle(
-      Offset(markerX, trackRect.center.dy),
-      6,
-      Paint()..color = Colors.white,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _TiltMeterPainter oldDelegate) {
-    return oldDelegate.normalizedPosition != normalizedPosition ||
-        oldDelegate.active != active;
   }
 }
 

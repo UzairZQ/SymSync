@@ -5,7 +5,7 @@ import '../../config/app_config.dart';
 import '../../screens/calibration_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
-import '../../widgets/status_badge.dart';
+import '../../widgets/connection_badge.dart';
 import '../../widgets/session_confirmation_modal.dart';
 import '../bloc/session_bloc.dart';
 import 'anatomical_view_page.dart';
@@ -76,19 +76,8 @@ class _SessionPageState extends State<SessionPage> {
         final timerStr =
             '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
-        final statusLabel = state.status == SessionStatus.connected
-            ? 'Connected'
-            : state.status == SessionStatus.connecting
-            ? 'Connecting'
-            : state.status == SessionStatus.signalLost
-            ? 'Signal Lost'
-            : 'Disconnected';
-
-        final statusState = state.status == SessionStatus.connected
-            ? StatusBadgeState.connected
-            : state.status == SessionStatus.connecting
-            ? StatusBadgeState.recording
-            : StatusBadgeState.disconnected;
+        final isConnected = state.isConnected;
+        final isConnecting = state.status == SessionStatus.connecting;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,7 +137,10 @@ class _SessionPageState extends State<SessionPage> {
                       ],
                     ),
                   ),
-                  StatusBadge(label: statusLabel, state: statusState),
+                  ConnectionBadge(
+                    isConnected: isConnected,
+                    isConnecting: isConnecting,
+                  ),
                 ],
               ),
             ),
@@ -203,7 +195,11 @@ class _SessionActionsBar extends StatelessWidget {
                     ? null
                     : () async {
                         if (isConnected) {
-                          await context.read<SessionBloc>().disconnect();
+                          try {
+                            await context.read<SessionBloc>().disconnect();
+                          } catch (_) {
+                            return;
+                          }
                           if (context.mounted) {
                             Navigator.of(context).pop();
                           }
@@ -295,15 +291,15 @@ class _SessionActionsBar extends StatelessWidget {
   void _showConfirmationModal(BuildContext context, SessionState state) {
     showDialog(
       context: context,
-      builder: (context) => SessionConfirmationModal(
+      builder: (dialogContext) => SessionConfirmationModal(
         channelA: state.channelMapping['A'] ?? 'left',
         channelB: state.channelMapping['B'] ?? 'right',
         onConfirm: () {
-          Navigator.pop(context);
+          Navigator.of(dialogContext).pop();
           context.read<SessionBloc>().connect(_deviceMac);
         },
         onCancel: () {
-          Navigator.pop(context);
+          Navigator.of(dialogContext).pop();
         },
       ),
     );
