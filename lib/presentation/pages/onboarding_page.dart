@@ -179,9 +179,9 @@ class _OnboardingPageState extends State<OnboardingPage>
                   _SlideImage(
                     key: const ValueKey<String>('stairs'),
                     asset: 'assets/images/onboarding/stairs.png',
-                    title: 'Track Every Rep',
+                    title: 'Feel the Difference',
                     body:
-                        'During stair climbing and bilateral work,\nSymSync detects which side is working\nharder and helps you balance the load.',
+                        'As you climb stairs, SymSync reads both sides of your upper back and shows you which trapezius is working harder — so you can move with better balance every day.',
                     entry: _entryCtrl,
                     illustration: const _UpperBackStairIllustration(),
                   ),

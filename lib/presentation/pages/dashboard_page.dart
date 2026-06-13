@@ -604,7 +604,7 @@ class _SessionListItem extends StatelessWidget {
               color: tagColor.withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.directions_walk, color: tagColor, size: 16),
+            child: Icon(Icons.accessibility_new_rounded, color: tagColor, size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(

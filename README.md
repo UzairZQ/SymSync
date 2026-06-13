@@ -1,92 +1,166 @@
 # SymSync
 
-SymSync is a Flutter application for live symmetry monitoring, balance feedback, and session analytics. It connects to a compatible EMG/Bluetooth device on Android and provides real-time symmetry scoring, session controls, activation summaries, and visual balance feedback.
+**Real-time bilateral muscle symmetry monitoring for athletes, rehabilitation, and clinical use.**
+
+SymSync connects to a biosignalsplux sEMG hub over Bluetooth, streams two synchronized EMG channels, computes a real-time symmetry index (0–100 scale), and surfaces it through a radial gauge, anatomical heatmap, session history, and trend analysis.
+
+---
 
 ## Features
 
-- Live dashboard with symmetry index, session count, and balance overview
-- Bluetooth EMG device support on Android via a PLUX integration channel
-- Live session monitoring with anatomical and balance views
-- Activation summary page with historical trend metrics and period filters
-- Simple profile and session navigation using a bottom navigation bar
-- Responsive UI with custom theme, animated cards, and data visualizations
+- **Live Dashboard** — Time-of-day greeting, symmetry index radial gauge, quick-start session controls, channel status bars, and recent session history with performance tags
+- **Live Session** — Tabbed interface (Anatomical / Balance) with EMG heatmap overlay, tilt-meter balance gauge, channel-level metrics, and a research-grade signal monitor
+- **Activation Summary** — Imbalance heatmap with period filtering (Today / 7 Days / 30 Days), pattern analysis, average deviation, primary imbalance, and trend computation
+- **Profile** — User card with initials, session/tracking stats, dark theme toggle, and data management
+- **Onboarding** — 6-slide walkthrough covering EMG basics, user type selection, and cable assignment
+- **Calibration Screen** — Two-phase device calibration with noise-floor monitoring, signal quality badges, and sparkline previews
+- **Dark & Light Themes** — Full design system with theme-aware context extension
+- **Landing Page** — Self-contained `index3.html` with phone mockups, feature showcase, and inline heatmap visualization
+
+---
 
 ## Technology
 
-- Flutter
-- flutter_bloc
-- fl_chart
-- permission_handler
-- shared_preferences
-- google_fonts
-- shimmer
+| Layer | Choice |
+|---|---|
+| Framework | Flutter 3.x (Dart) |
+| State management | flutter_bloc (Cubit) |
+| Charts | fl_chart |
+| Persistence | shared_preferences (JSON) |
+| Fonts | Google Fonts (Inter, JetBrains Mono) |
+| Hardware | biosignalsplux sEMG Hub via PLUX BLE SDK |
+| Onboarding | smooth_page_indicator |
+| Permissions | permission_handler |
+| Launcher icons | flutter_launcher_icons |
 
-## Requirements
+---
 
-- Flutter SDK 3.11.4 or newer
-- Android device/emulator for Bluetooth EMG device features
-- macOS / iOS / desktop platforms are supported, but internal hardware falls back to simulated EMG data when Android-only Bluetooth hardware is unavailable
+## Hardware
+
+**Primary device:** biosignalsplux sEMG Hub
+- 2 synchronized channels at 1000 Hz
+- 16-bit ADC (0–65535 range, 32768 midpoint)
+- Bluetooth BLE connection
+
+**Android:** Native BLE via `pluxapi-0.2.0.jar` through Flutter MethodChannel  
+**iOS / Simulator:** Falls back to simulated EMG (sine-wave + noise at 50 Hz with configurable asymmetry)
+
+> The device MAC address is hardcoded in `lib/presentation/pages/home_shell_page.dart`. Update it to match your device.
+
+---
+
+## Architecture
+
+```
+lib/
+├── main.dart                     # Entry point
+├── plux_service.dart             # MethodChannel bridge to native BLE SDK
+├── app/
+│   └── sym_sync_app.dart         # Root widget, providers, theme, routing
+├── config/
+│   └── app_config.dart           # Feature flags (showResearcherTools)
+├── data/
+│   ├── emg/                      # Hardware abstraction + implementations
+│   └── history/                  # Session persistence (JSON via SharedPreferences)
+├── domain/
+│   ├── models/                   # EmgFrame, SessionSummary, SessionTab
+│   └── services/                 # SignalProcessor, SignalFilterState, SessionAggregator
+├── presentation/
+│   ├── bloc/
+│   │   └── session_bloc.dart     # Single Cubit managing all app state
+│   └── pages/                    # Onboarding, Dashboard, Session, Summary, Profile, etc.
+├── screens/
+│   └── calibration_screen.dart   # Device setup + signal quality check
+├── theme/
+│   ├── app_theme.dart            # Full design system + ThemeContext extension
+│   └── theme_provider.dart       # ThemeMode persistence
+├── utils/
+│   └── heatmap_utils.dart        # Activation colour mapping
+└── widgets/                      # Reusable components (cards, charts, badges, nav)
+```
+
+---
+
+## Design System
+
+### Colours
+
+| Token | Dark | Light |
+|---|---|---|
+| Background primary | `#171916` | `#FDF9EC` |
+| Card | `#22241F` | `#FFFFFF` |
+| Elevated | `#2C2E2A` | `#F8F3E6` |
+| Text primary | `#FDF9EC` | `#171916` |
+| Divider | `#3A3D36` | `#E9E2D0` |
+
+**Accents:** Teal `#5C8F88`, Blue `#2F80ED`, Amber `#D99058`, Red `#BA1A1A`, Green `#2E6C00`, Lime `#ADF67F`
+
+Theme-aware colours via `context.bgPrimary`, `context.txtPrimary`, etc. — never hardcode dark values in widgets.
+
+### Typography
+- **Inter** for all UI text
+- **JetBrains Mono** for numeric/monospace values
+- Weights: 400–900
+
+### Spacing & Radii
+- Spacing: 4 / 8 / 16 / 24 / 32 / 48 px
+- Radii: 8 / 20 / 28 / 32 px (cards use 32 px)
+
+---
 
 ## Getting Started
 
-1. Clone the repository:
+```bash
+# Clone
+git clone https://github.com/UzairZQ/SymSync.git
+cd SymSync
 
-   ```bash
-   git clone https://github.com/UzairZQ/SymSync.git
-   cd SymSync
-   ```
+# Install dependencies
+flutter pub get
 
-2. Install dependencies:
+# Generate launcher icons
+dart run flutter_launcher_icons
 
-   ```bash
-   flutter pub get
-   ```
+# Run (Android — BLE supported)
+flutter run -d android
 
-3. Run the app:
-
-   ```bash
-   flutter run
-   ```
-
-   For Android specifically:
-
-   ```bash
-   flutter run -d android
-   ```
+# Run (iOS — simulated hardware)
+flutter run -d ios
+```
 
 ## Build
 
-- Build Android APK:
+```bash
+# Android APK
+flutter build apk
 
-  ```bash
-  flutter build apk
-  ```
+# iOS
+flutter build ios
+```
 
-- Build iOS app:
+---
 
-  ```bash
-  flutter build ios
-  ```
+## Landing Page
 
-## Project Structure
+`index3.html` — self-contained landing page with dark theme matching the app. Open directly in a browser:
 
-- `lib/main.dart` — application entrypoint
-- `lib/app/sym_sync_app.dart` — root app setup, dependency providers, and session bloc wiring
-- `lib/data/emg/` — hardware abstraction and EMG data sources
-- `lib/domain/models/` — data models for session and EMG frames
-- `lib/presentation/` — UI pages, navigation, and presentation widgets
-- `lib/theme/` — app theme definitions and styling
-- `lib/widgets/` — reusable UI components
-- `lib/plux_service.dart` — native Bluetooth EMG device plumbing for Android
+```bash
+open index3.html
+```
 
-## Notes
+Features: sticky nav, phone mockups, feature pillars, heatmap visualization (inline JS), use cases, science section, and CTA.
 
-- Android permissions for Bluetooth and location are requested before device connection.
-- The app uses simulated data outside Android to keep desktop and iOS builds runnable during development.
-- If you integrate a real PLUX device, update the MAC address in `lib/presentation/pages/home_shell_page.dart`.
+---
+
+## Known Issues
+
+- 5 pre-existing `withOpacity` deprecation warnings in `status_badge.dart` and `symmetry_arc.dart` (use `withValues(alpha:)` instead)
+- Onboarding always shows (`_onboardingComplete` hardcoded to `false` in `sym_sync_app.dart`)
+- No database migration — uses JSON via SharedPreferences (sufficient for offline single-user <10k sessions)
+- No automated tests — `test/` directory is empty
+
+---
 
 ## License
 
-This repository is configured as a private Flutter package. Update the `publish_to` value in `pubspec.yaml` if you plan to publish.
-
-<!-- update push -->
+Private package. Update `publish_to` in `pubspec.yaml` to publish.
