@@ -83,7 +83,7 @@ class LegPairSilhouette extends StatelessWidget {
             alignment: Alignment.center,
             children: <Widget>[
               Image.asset(
-                'assets/images/leg_silhouette.png',
+                'assets/images/upper_body.png',
                 fit: BoxFit.contain,
                 filterQuality: FilterQuality.medium,
                 width: constraints.maxWidth,
@@ -263,7 +263,7 @@ class TiltMeter extends StatelessWidget {
             Text(
               hasData
                   ? 'Live bilateral symmetry'
-                  : 'Connect the second EMG cable to begin bilateral tracking',
+                  : 'No signal detected',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: const Color(0xFF5A6478),

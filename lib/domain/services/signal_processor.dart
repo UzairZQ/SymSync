@@ -23,7 +23,7 @@ class SignalProcessor {
 
   String correctiveInstruction(double? symmetryIndex) {
     if (symmetryIndex == null) {
-      return 'Connect the second EMG cable to begin bilateral tracking';
+      return 'Awaiting bilateral sensor data';
     }
     final value = symmetryIndex.abs();
     if (value < 8) {

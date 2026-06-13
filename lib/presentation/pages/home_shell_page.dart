@@ -186,7 +186,7 @@ class _BottomNav extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding + 10),
           decoration: BoxDecoration(
-            color: context.bgElevated,
+            color: context.dividerClr,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppTheme.radiusXL),
             ),

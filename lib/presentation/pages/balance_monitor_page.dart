@@ -121,17 +121,18 @@ class BalanceMonitorContent extends StatelessWidget {
                     symmetryIndex: displaySymmetry,
                     label: balanceLabel,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    hasData
-                        ? 'Use the slider position to keep both sides balanced.'
-                        : 'Connect both EMG cables to begin bilateral tracking.',
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: context.txtSecondary,
-                      fontWeight: FontWeight.w700,
+                  if (hasData)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Text(
+                        'Use the slider position to keep both sides balanced.',
+                        style: AppTheme.bodyLarge.copyWith(
+                          color: context.txtSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
                 ],
               ),
             ),
@@ -242,7 +243,7 @@ class BalanceMonitorContent extends StatelessWidget {
 
   String _balanceLabel(double? smoothedSI) {
     if (smoothedSI == null) {
-      return 'Connect the second EMG cable to begin bilateral tracking';
+      return 'No signal';
     }
     if (smoothedSI >= -5 && smoothedSI <= 5) {
       return 'Balanced';

@@ -61,78 +61,56 @@ class _HeatmapPainter extends CustomPainter {
   final double leftActivation;
   final double rightActivation;
 
+  void _drawActivationBlob(
+    Canvas canvas,
+    Offset centre,
+    double activation,
+    Size size,
+  ) {
+    final radius = size.width * 0.18;
+    final opacity = (activation * 0.72).clamp(0.0, 0.72);
+    final centreColour = HeatmapUtils.activationColour(activation)
+        .withValues(alpha: opacity);
+
+    final gradient = RadialGradient(
+      center: Alignment.center,
+      radius: 1.0,
+      colors: [
+        centreColour,
+        centreColour.withValues(alpha: opacity * 0.5),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+
+    final rect = Rect.fromCircle(center: centre, radius: radius);
+    final paint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..blendMode = BlendMode.srcOver;
+
+    canvas.drawCircle(centre, radius, paint);
+  }
+
+  void _drawElectrodeDot(Canvas canvas, Offset centre) {
+    final dotPaint = Paint()..color = const Color(0xFF2563EB);
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawCircle(centre, 6, dotPaint);
+    canvas.drawCircle(centre, 6, borderPaint);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
+    final leftCentre = Offset(size.width * 0.34, size.height * 0.454);
+    final rightCentre = Offset(size.width * 0.66, size.height * 0.454);
 
-    final leftTrap = Path()
-      ..moveTo(centerX - size.width * 0.04, size.height * 0.18)
-      ..lineTo(centerX - size.width * 0.26, size.height * 0.27)
-      ..quadraticBezierTo(
-        centerX - size.width * 0.22,
-        size.height * 0.42,
-        centerX - size.width * 0.08,
-        size.height * 0.48,
-      )
-      ..quadraticBezierTo(
-        centerX - size.width * 0.03,
-        size.height * 0.36,
-        centerX - size.width * 0.04,
-        size.height * 0.18,
-      );
+    _drawActivationBlob(canvas, leftCentre, leftActivation, size);
+    _drawActivationBlob(canvas, rightCentre, rightActivation, size);
 
-    final rightTrap = Path()
-      ..moveTo(centerX + size.width * 0.04, size.height * 0.18)
-      ..lineTo(centerX + size.width * 0.26, size.height * 0.27)
-      ..quadraticBezierTo(
-        centerX + size.width * 0.22,
-        size.height * 0.42,
-        centerX + size.width * 0.08,
-        size.height * 0.48,
-      )
-      ..quadraticBezierTo(
-        centerX + size.width * 0.03,
-        size.height * 0.36,
-        centerX + size.width * 0.04,
-        size.height * 0.18,
-      );
-
-    canvas.drawPath(
-      leftTrap,
-      Paint()
-        ..color = HeatmapUtils.activationColour(
-          leftActivation,
-        ).withValues(alpha: 0.38 + leftActivation * 0.58),
-    );
-    canvas.drawPath(
-      rightTrap,
-      Paint()
-        ..color = HeatmapUtils.activationColour(
-          rightActivation,
-        ).withValues(alpha: 0.38 + rightActivation * 0.58),
-    );
-
-    final spinePaint = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.85)
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(centerX, size.height * 0.22),
-      Offset(centerX, size.height * 0.60),
-      spinePaint,
-    );
-
-    final electrodePaint = Paint()..color = const Color(0xFF2563EB);
-    canvas.drawCircle(
-      Offset(centerX - size.width * 0.15, size.height * 0.34),
-      size.width * 0.018,
-      electrodePaint,
-    );
-    canvas.drawCircle(
-      Offset(centerX + size.width * 0.15, size.height * 0.34),
-      size.width * 0.018,
-      electrodePaint,
-    );
+    _drawElectrodeDot(canvas, leftCentre);
+    _drawElectrodeDot(canvas, rightCentre);
   }
 
   @override
