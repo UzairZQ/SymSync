@@ -312,8 +312,12 @@ class SessionBloc extends Cubit<SessionState> {
 
   double _sessionPeakLeft = 0.0;
   double _sessionPeakRight = 0.0;
+  double _windowActivationSum = 0;
+  double _windowActivationSumRight = 0;
+  int _windowActivationCount = 0;
+
   final Queue<double> _siBuffer = Queue<double>();
-  static const int _siBufferSize = 20;
+  static const int _siBufferSize = 8;
 
   Future<void> start() async {
     await _loadHistory();
@@ -379,6 +383,9 @@ class SessionBloc extends Cubit<SessionState> {
       _sessionPeakLeft = 0.0;
       _sessionPeakRight = 0.0;
       _siBuffer.clear();
+      _windowActivationSum = 0;
+      _windowActivationSumRight = 0;
+      _windowActivationCount = 0;
       await _frameSubscription?.cancel();
       _frameSubscription = _hardware.frames.listen(
         _onFrame,
@@ -486,6 +493,9 @@ class SessionBloc extends Cubit<SessionState> {
     _activationSum += leftActivation;
     _activationSumRight += rightActivation;
     _activationCount++;
+    _windowActivationSum += leftActivation;
+    _windowActivationSumRight += rightActivation;
+    _windowActivationCount++;
     _rawPoints.add(frame.ch1);
     if (_rawPoints.length > 3000) {
       _rawPoints.removeRange(0, _rawPoints.length - 3000);
@@ -504,22 +514,6 @@ class SessionBloc extends Cubit<SessionState> {
     }
     if (rightActivation > _sessionPeakRight) {
       _sessionPeakRight = rightActivation;
-    }
-
-    final symmetryIndex = _calculateSymmetryIndex();
-    if (symmetryIndex != null) {
-      _addSymmetryIndex(symmetryIndex);
-    } else {
-      _siBuffer.clear();
-    }
-
-    if (state.status == SessionStatus.signalLost) {
-      emit(
-        state.copyWith(
-          status: SessionStatus.connected,
-          notice: 'Signal recovered',
-        ),
-      );
     }
   }
 
@@ -555,7 +549,7 @@ class SessionBloc extends Cubit<SessionState> {
     final double leftAvg = _activationSum / _activationCount;
     final double rightAvg = _activationSumRight / _activationCount;
     // Calculate right activation average by using final session corrected SI if possible
-    final double? finalSymmetryIndex = _calculateSymmetryIndex();
+    final double? finalSymmetryIndex = _smoothedSI ?? _calculateSymmetryIndex();
 
     final summary = SessionSummary(
       startedAt: _sessionStartedAt!,
@@ -588,6 +582,9 @@ class SessionBloc extends Cubit<SessionState> {
     _sessionPeakLeft = 0.0;
     _sessionPeakRight = 0.0;
     _siBuffer.clear();
+    _windowActivationSum = 0;
+    _windowActivationSumRight = 0;
+    _windowActivationCount = 0;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
   }
@@ -679,28 +676,40 @@ class SessionBloc extends Cubit<SessionState> {
         ? 0
         : DateTime.now().difference(startedAt).inSeconds;
 
-    final double leftAct = _signalProcessor.activationFromRaw(
-      (_rawPoints3.isNotEmpty
-              ? _rawPoints3.last
-              : SignalProcessor.adcMidpoint) -
-          _calibrationMidpoint +
-          SignalProcessor.adcMidpoint,
-    );
-    final double rightAct = _liveActivation;
+    final bool hasWindowData = _windowActivationCount > 0;
+
+    final double leftAct = hasWindowData
+        ? _windowActivationSum / _windowActivationCount
+        : state.leftTrapRms;
+    final double rightAct = hasWindowData
+        ? _windowActivationSumRight / _windowActivationCount
+        : state.rightTrapRms;
+
+    if (hasWindowData) {
+      _windowActivationSum = 0;
+      _windowActivationSumRight = 0;
+      _windowActivationCount = 0;
+
+      final newSI = _signalProcessor.symmetryIndexFromLevels(leftAct, rightAct);
+      _addSymmetryIndex(newSI);
+    }
 
     final peakLeft = _sessionPeakLeft > 0 ? _sessionPeakLeft : 1.0;
     final peakRight = _sessionPeakRight > 0 ? _sessionPeakRight : 1.0;
 
     final smoothedSI = _smoothedSI;
 
+    final isLost = _lastFrameAt != null &&
+        DateTime.now().difference(_lastFrameAt!).inMilliseconds > 2000;
+    final newStatus = state.status == SessionStatus.signalLost && !isLost
+        ? SessionStatus.connected
+        : state.status == SessionStatus.connected && isLost
+            ? SessionStatus.signalLost
+            : state.status;
+
     emit(
       state.copyWith(
-        status:
-            state.status == SessionStatus.connected &&
-                _lastFrameAt != null &&
-                DateTime.now().difference(_lastFrameAt!).inMilliseconds > 2000
-            ? SessionStatus.signalLost
-            : state.status,
+        status: newStatus,
         busy: _busy,
         latestRaw: _latestRaw,
         samplesPerSecond: _samplesPerSecond,

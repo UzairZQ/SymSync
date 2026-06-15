@@ -7,8 +7,31 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../widgets/session_visuals.dart';
 
-class BalanceMonitorContent extends StatelessWidget {
+class BalanceMonitorContent extends StatefulWidget {
   const BalanceMonitorContent({super.key});
+
+  @override
+  State<BalanceMonitorContent> createState() => _BalanceMonitorContentState();
+}
+
+class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
+  String _stableLabel = '';
+  String? _previousLabel;
+  int _consecutiveCount = 0;
+
+  String _balanceLabelWithHysteresis(double? si) {
+    final raw = _balanceLabel(si);
+    if (raw == _previousLabel) {
+      _consecutiveCount++;
+      if (_consecutiveCount >= 2) {
+        _stableLabel = raw;
+      }
+    } else {
+      _previousLabel = raw;
+      _consecutiveCount = 1;
+    }
+    return _stableLabel.isNotEmpty ? _stableLabel : raw;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +64,7 @@ class BalanceMonitorContent extends StatelessWidget {
             : (hasSessionData
                   ? 'Last session results'
                   : 'Start a session to see your balance');
-        final balanceLabel = _balanceLabel(displaySymmetry);
+        final balanceLabel = _balanceLabelWithHysteresis(displaySymmetry);
 
         String activityLabel(double activation) {
           if (activation < 0.05) return 'Inactive';
