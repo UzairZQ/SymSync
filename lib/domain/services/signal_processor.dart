@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 class SignalProcessor {
   const SignalProcessor();
 
@@ -55,7 +57,7 @@ class SignalFilterState {
   double _hpPrevY = 0;
   double _lpPrevY = 0;
   final List<double> _rmsWindow = [];
-  static const int _rmsWindowSize = 100; // 100 ms at 1000Hz
+  static const int _rmsWindowSize = 100;
 
   void reset() {
     _hpPrevX = 0;
@@ -82,15 +84,16 @@ class SignalFilterState {
   }
 
   double processRms(double filteredValue) {
-    _rmsWindow.add(filteredValue);
+    final squared = filteredValue * filteredValue;
+    _rmsWindow.add(squared);
     if (_rmsWindow.length > _rmsWindowSize) {
       _rmsWindow.removeAt(0);
     }
     double sumSq = 0;
     for (final val in _rmsWindow) {
-      sumSq += val * val;
+      sumSq += val;
     }
-    final rms = sumSq > 0 ? (sumSq / _rmsWindow.length) : 0.0;
-    return (rms / 300.0).clamp(0.0, 1.0);
+    final meanSq = sumSq / _rmsWindow.length;
+    return math.sqrt(meanSq);
   }
 }

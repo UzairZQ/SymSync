@@ -328,9 +328,14 @@ class SessionBloc extends Cubit<SessionState> {
 
   double _sessionPeakLeft = 0.0;
   double _sessionPeakRight = 0.0;
+  double _sessionPeakRmsLeft = 0.0;
+  double _sessionPeakRmsRight = 0.0;
   double _windowActivationSum = 0;
   double _windowActivationSumRight = 0;
   int _windowActivationCount = 0;
+
+  final _leftFilter = SignalFilterState();
+  final _rightFilter = SignalFilterState();
 
   final Queue<double> _siBuffer = Queue<double>();
   static const int _siBufferSize = 8;
@@ -508,6 +513,10 @@ class SessionBloc extends Cubit<SessionState> {
     _peakRaw = SignalProcessor.adcMidpoint;
     _sessionPeakLeft = 0.0;
     _sessionPeakRight = 0.0;
+    _sessionPeakRmsLeft = 0.0;
+    _sessionPeakRmsRight = 0.0;
+    _leftFilter.reset();
+    _rightFilter.reset();
     _siBuffer.clear();
     _windowActivationSum = 0;
     _windowActivationSumRight = 0;
@@ -573,19 +582,40 @@ class SessionBloc extends Cubit<SessionState> {
     _peakRaw = frame.ch1 > _peakRaw ? frame.ch1 : _peakRaw;
     _lastFrameAt = DateTime.now();
     _samplesThisSecond++;
-    final double rightActivation = _signalProcessor.activationFromRaw(
-      frame.ch1 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
-    );
-    final double leftActivation = _signalProcessor.activationFromRaw(
-      frame.ch3 - _calibrationMidpoint + SignalProcessor.adcMidpoint,
-    );
-    _liveActivation = rightActivation;
-    _activationSum += leftActivation;
-    _activationSumRight += rightActivation;
+
+    // Filter and compute RMS for each channel
+    final ch1Adjusted = (frame.ch1 - _calibrationMidpoint + SignalProcessor.adcMidpoint).toDouble();
+    final ch3Adjusted = (frame.ch3 - _calibrationMidpoint + SignalProcessor.adcMidpoint).toDouble();
+    final rightFiltered = _rightFilter.filter(ch1Adjusted);
+    final leftFiltered = _leftFilter.filter(ch3Adjusted);
+    final rightRms = _rightFilter.processRms(rightFiltered);
+    final leftRms = _leftFilter.processRms(leftFiltered);
+
+    _liveActivation = rightRms;
+    _activationSum += leftRms;
+    _activationSumRight += rightRms;
     _activationCount++;
-    _windowActivationSum += leftActivation;
-    _windowActivationSumRight += rightActivation;
+    _windowActivationSum += leftRms;
+    _windowActivationSumRight += rightRms;
     _windowActivationCount++;
+
+    if (leftRms > _sessionPeakRmsLeft) {
+      _sessionPeakRmsLeft = leftRms;
+    }
+    if (rightRms > _sessionPeakRmsRight) {
+      _sessionPeakRmsRight = rightRms;
+    }
+
+    // Keep legacy activationFromRaw tracking for session summaries
+    final double rightActivation = _signalProcessor.activationFromRaw(ch1Adjusted.toInt());
+    final double leftActivation = _signalProcessor.activationFromRaw(ch3Adjusted.toInt());
+    if (leftActivation > _sessionPeakLeft) {
+      _sessionPeakLeft = leftActivation;
+    }
+    if (rightActivation > _sessionPeakRight) {
+      _sessionPeakRight = rightActivation;
+    }
+
     _rawPoints.add(frame.ch1);
     if (_rawPoints.length > 3000) {
       _rawPoints.removeRange(0, _rawPoints.length - 3000);
@@ -594,16 +624,9 @@ class SessionBloc extends Cubit<SessionState> {
     if (_rawPoints3.length > 3000) {
       _rawPoints3.removeRange(0, _rawPoints3.length - 3000);
     }
-    _activationPoints.add(_liveActivation);
+    _activationPoints.add(rightRms);
     if (_activationPoints.length > 3000) {
       _activationPoints.removeRange(0, _activationPoints.length - 3000);
-    }
-
-    if (leftActivation > _sessionPeakLeft) {
-      _sessionPeakLeft = leftActivation;
-    }
-    if (rightActivation > _sessionPeakRight) {
-      _sessionPeakRight = rightActivation;
     }
   }
 
@@ -700,6 +723,10 @@ class SessionBloc extends Cubit<SessionState> {
     _peakRaw = SignalProcessor.adcMidpoint;
     _sessionPeakLeft = 0.0;
     _sessionPeakRight = 0.0;
+    _sessionPeakRmsLeft = 0.0;
+    _sessionPeakRmsRight = 0.0;
+    _leftFilter.reset();
+    _rightFilter.reset();
     _siBuffer.clear();
     _windowActivationSum = 0;
     _windowActivationSumRight = 0;
@@ -750,41 +777,10 @@ class SessionBloc extends Cubit<SessionState> {
     if (sampleCount == 0) {
       return null;
     }
-    final startIndex = sampleCount > 2000 ? sampleCount - 2000 : 0;
-
-    int min1 = 999999;
-    int max1 = -999999;
-    for (int i = startIndex; i < sampleCount; i++) {
-      final v = _rawPoints[i];
-      if (v < min1) min1 = v;
-      if (v > max1) max1 = v;
-    }
-    final ch1Active = (max1 - min1) > 50;
-
-    int min3 = 999999;
-    int max3 = -999999;
-    for (int i = startIndex; i < sampleCount; i++) {
-      if (i < _rawPoints3.length) {
-        final v = _rawPoints3[i];
-        if (v < min3) min3 = v;
-        if (v > max3) max3 = v;
-      }
-    }
-    final ch3Active = (max3 - min3) > 50;
-
-    if (ch1Active && ch3Active) {
-      final leftActivation = _signalProcessor.activationFromRaw(
-        (_rawPoints3.isNotEmpty
-                ? _rawPoints3.last
-                : SignalProcessor.adcMidpoint) -
-            _calibrationMidpoint +
-            SignalProcessor.adcMidpoint,
-      );
-      final rightActivation = _liveActivation;
-      return _signalProcessor.symmetryIndexFromLevels(
-        leftActivation,
-        rightActivation,
-      );
+    if (_windowActivationCount > 0) {
+      final leftAvg = _windowActivationSum / _windowActivationCount;
+      final rightAvg = _windowActivationSumRight / _windowActivationCount;
+      return _signalProcessor.symmetryIndexFromLevels(leftAvg, rightAvg);
     }
     return null;
   }
@@ -813,8 +809,8 @@ class SessionBloc extends Cubit<SessionState> {
       _addSymmetryIndex(newSI);
     }
 
-    final peakLeft = _sessionPeakLeft > 0.05 ? _sessionPeakLeft : null;
-    final peakRight = _sessionPeakRight > 0.05 ? _sessionPeakRight : null;
+    final peakLeft = _sessionPeakRmsLeft > 0.001 ? _sessionPeakRmsLeft : null;
+    final peakRight = _sessionPeakRmsRight > 0.001 ? _sessionPeakRmsRight : null;
 
     final smoothedSI = _smoothedSI;
 
