@@ -243,15 +243,9 @@ class TiltMeter extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       builder: (context, animatedPosition, child) {
-        final leftColor = AppTheme.accentAmber;
-        final centerColor = AppTheme.accentTeal;
-        final rightColor = AppTheme.accentBlue;
+        final thumbT = animatedPosition.clamp(0.0, 1.0);
         final thumbColor = hasData
-            ? (animatedPosition < 0.45
-                  ? leftColor
-                  : animatedPosition > 0.55
-                      ? rightColor
-                      : centerColor)
+            ? HeatmapGradient.at3(thumbT)
             : context.txtTertiary;
         return Column(
           children: <Widget>[
@@ -269,7 +263,7 @@ class TiltMeter extends StatelessWidget {
                   return Stack(
                     clipBehavior: Clip.none,
                     children: <Widget>[
-                      // Background track — glassmorphism
+                      // Full-width gradient track — light blue -> orange -> red
                       Positioned(
                         left: trackLeft,
                         top: trackTop,
@@ -277,38 +271,11 @@ class TiltMeter extends StatelessWidget {
                           width: trackWidth,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: context.bgElevated.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(3),
-                            border: Border.all(
-                              color: context.dividerClr.withValues(alpha: 0.3),
-                              width: 0.5,
-                            ),
+                            gradient: HeatmapGradient.horizontal3(),
                           ),
                         ),
                       ),
-                      // Active fill — gradient from left edge to thumb
-                      if (hasData)
-                        Positioned(
-                          left: trackLeft,
-                          top: trackTop,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: Container(
-                              width: (markerX - trackLeft).clamp(0, trackWidth),
-                              height: 6,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    leftColor.withValues(alpha: 0.7),
-                                    centerColor,
-                                    rightColor.withValues(alpha: 0.7),
-                                  ],
-                                  stops: const [0.0, 0.5, 1.0],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       // Tick marks
                       for (int i = 0; i < 5; i++) ...[
                         Positioned(
@@ -318,7 +285,7 @@ class TiltMeter extends StatelessWidget {
                             width: 3,
                             height: 3,
                             decoration: BoxDecoration(
-                              color: context.txtTertiary.withValues(alpha: 0.35),
+                              color: Colors.white.withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -426,28 +393,26 @@ class _HeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final leftActive = hasData && animatedPosition < 0.45;
-    final rightActive = hasData && animatedPosition > 0.55;
-    final centerActive = hasData && !leftActive && !rightActive;
+    final t = animatedPosition.clamp(0.0, 1.0);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: <Widget>[
         _Label(
           text: 'Left',
-          active: leftActive,
-          activeColor: AppTheme.accentAmber,
+          active: hasData && t < 0.33,
+          activeColor: HeatmapGradient.lightBlue,
           align: TextAlign.start,
         ),
         _Label(
           text: 'Center',
-          active: centerActive,
-          activeColor: AppTheme.accentTeal,
+          active: hasData && t >= 0.33 && t <= 0.66,
+          activeColor: HeatmapGradient.orange,
           align: TextAlign.center,
         ),
         _Label(
           text: 'Right',
-          active: rightActive,
-          activeColor: AppTheme.accentBlue,
+          active: hasData && t > 0.66,
+          activeColor: HeatmapGradient.darkRed,
           align: TextAlign.end,
         ),
       ],

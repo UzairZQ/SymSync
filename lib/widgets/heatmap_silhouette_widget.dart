@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/heatmap_utils.dart';
+
 class HeatmapSilhouetteWidget extends StatelessWidget {
   const HeatmapSilhouetteWidget({
     super.key,
@@ -58,27 +60,6 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
   }
 }
 
-class _HeatmapGradient {
-  _HeatmapGradient._();
-
-  static const Color lightBlue = Color(0xFF5C9CE6);
-  static const Color orange = Color(0xFFD99058);
-  static const Color red = Color(0xFFBA1A1A);
-
-  static Color at(double t) {
-    t = t.clamp(0.0, 1.0);
-    if (t < 0.5) return Color.lerp(lightBlue, orange, t / 0.5)!;
-    return Color.lerp(orange, red, (t - 0.5) / 0.5)!;
-  }
-
-  static LinearGradient vertical() => LinearGradient(
-    colors: [lightBlue, orange, red],
-    stops: const [0.0, 0.5, 1.0],
-    begin: Alignment.bottomCenter,
-    end: Alignment.topCenter,
-  );
-}
-
 class _HeatmapPainter extends CustomPainter {
   const _HeatmapPainter({
     required this.leftActivation,
@@ -128,13 +109,13 @@ class _HeatmapPainter extends CustomPainter {
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, blurRadius);
 
     if (leftActive) {
-      paint.color = _HeatmapGradient.at(leftActivation).withValues(alpha: 0.40);
+      paint.color = HeatmapGradient.at3(leftActivation).withValues(alpha: 0.40);
       for (final pt in leftPoints) {
         canvas.drawCircle(pt, blurRadius * 0.6, paint);
       }
     }
     if (rightActive) {
-      paint.color = _HeatmapGradient.at(rightActivation).withValues(alpha: 0.40);
+      paint.color = HeatmapGradient.at3(rightActivation).withValues(alpha: 0.40);
       for (final pt in rightPoints) {
         canvas.drawCircle(pt, blurRadius * 0.6, paint);
       }
@@ -176,7 +157,7 @@ class _VerticalLegend extends StatelessWidget {
                     height: constraints.maxHeight,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
-                      gradient: _HeatmapGradient.vertical(),
+                      gradient: HeatmapGradient.vertical3(),
                     ),
                   ),
                   Positioned(

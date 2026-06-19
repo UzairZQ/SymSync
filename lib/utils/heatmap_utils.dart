@@ -30,6 +30,31 @@ class HeatmapGradient {
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   );
+
+  // 3-color heatmap gradient: light blue -> orange -> red
+  static const Color lightBlue = Color(0xFF5C9CE6);
+  static const Color orange   = Color(0xFFD99058);
+  static const Color darkRed  = Color(0xFFBA1A1A);
+
+  static Color at3(double t) {
+    t = t.clamp(0.0, 1.0);
+    if (t < 0.5) return Color.lerp(lightBlue, orange, t / 0.5)!;
+    return Color.lerp(orange, darkRed, (t - 0.5) / 0.5)!;
+  }
+
+  static LinearGradient horizontal3() => LinearGradient(
+    colors: const [lightBlue, orange, darkRed],
+    stops: const [0.0, 0.5, 1.0],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  static LinearGradient vertical3() => LinearGradient(
+    colors: const [lightBlue, orange, darkRed],
+    stops: const [0.0, 0.5, 1.0],
+    begin: Alignment.bottomCenter,
+    end: Alignment.topCenter,
+  );
 }
 
 class HeatmapUtils {
