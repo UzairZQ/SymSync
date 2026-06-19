@@ -41,7 +41,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
         final lastSession = state.history.isNotEmpty
             ? state.history.first
             : null;
-        final isRecording = state.isConnected && state.sessionSeconds > 0;
+        final isRecording = state.isRecording;
         final hasSessionData = lastSession != null;
 
         final displaySymmetry = isRecording

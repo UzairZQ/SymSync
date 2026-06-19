@@ -18,7 +18,7 @@ class AnatomicalViewContent extends StatelessWidget {
         final lastSession = state.history.isNotEmpty
             ? state.history.first
             : null;
-        final isLive = state.isConnected;
+        final isLive = state.isRecording;
 
         final displaySymmetryIndex = isLive
             ? state.symmetryIndex

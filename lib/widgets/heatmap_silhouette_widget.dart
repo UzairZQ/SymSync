@@ -60,25 +60,27 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
   }
 }
 
-class _TurboGradient {
-  _TurboGradient._();
+class _HeatmapGradient {
+  _HeatmapGradient._();
 
   static const _stops = [
-    0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
+    0.0, 0.09, 0.18, 0.27, 0.36, 0.45, 0.55, 0.64, 0.73, 0.82, 0.91, 1.0,
   ];
 
+  // Visible on dark background: dark blue -> teal -> green -> lime -> gold -> orange -> red
   static const _colors = [
-    Color(0xFF30123B),
-    Color(0xFF2E528F),
-    Color(0xFF2E8DA1),
-    Color(0xFF3BBD78),
-    Color(0xFF6ED647),
-    Color(0xFFA8D933),
-    Color(0xFFD7C02B),
-    Color(0xFFED9236),
-    Color(0xFFEB5D42),
-    Color(0xFFCC293D),
-    Color(0xFF70050F),
+    Color(0xFF1E3A5F),
+    Color(0xFF21608C),
+    Color(0xFF268AA0),
+    Color(0xFF2EAD88),
+    Color(0xFF4DC464),
+    Color(0xFF81D548),
+    Color(0xFFB5CF3C),
+    Color(0xFFD9B43C),
+    Color(0xFFED9240),
+    Color(0xFFF07045),
+    Color(0xFFE04A40),
+    Color(0xFFC02030),
   ];
 
   static Color at(double t) {
@@ -110,9 +112,9 @@ class _HeatmapPainter extends CustomPainter {
   final double leftActivation;
   final double rightActivation;
 
-  // Grid resolution for the continuous heatmap (80×120 = 9600 cells)
-  static const int _gridX = 80;
-  static const int _gridY = 120;
+  // Grid resolution for smooth continuous heatmap (200×300 = 60k cells)
+  static const int _gridX = 200;
+  static const int _gridY = 300;
 
   // Gaussian kernel bandwidth as fraction of widget width
   static const double _sigmaRel = 0.045;
@@ -128,6 +130,9 @@ class _HeatmapPainter extends CustomPainter {
 
   // Heatmap opacity over the silhouette
   static const double _alpha = 0.72;
+
+  // Gaussian cutoff (exp(-4.5) ≈ 0.011)
+  static const double _cutoffSigma = 3.0;
 
   static double _gauss(double dx, double dy, double sigma) {
     return math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
@@ -157,30 +162,59 @@ class _HeatmapPainter extends CustomPainter {
     final elecDx = size.width * _elecSpreadX;
     final elecDy = size.height * _elecSpreadY;
 
-    final leftPoints = _electrodeGrid(leftCentre, elecDx, elecDy);
-    final rightPoints = _electrodeGrid(rightCentre, elecDx, elecDy);
-    final nPoints = leftPoints.length;
-
-    // Pre-compute Gaussian weights for each electrode point per cell
-    // to avoid re-computing exp() for activations that are zero
     final leftActive = leftActivation > 0.01;
     final rightActive = rightActivation > 0.01;
     if (!leftActive && !rightActive) return;
 
+    final leftPoints = _electrodeGrid(leftCentre, elecDx, elecDy);
+    final rightPoints = _electrodeGrid(rightCentre, elecDx, elecDy);
+    final nPoints = leftPoints.length;
+
+    // Compute bounding box in grid coords for each active region
+    final marginX = (_cutoffSigma * sigma) / cellW;
+    final marginY = (_cutoffSigma * sigma) / cellH;
+    final spreadX = elecDx / cellW;
+    final spreadY = elecDy / cellH;
+
+    final lcX = leftCentre.dx / cellW;
+    final lcY = leftCentre.dy / cellH;
+    final rcX = rightCentre.dx / cellW;
+    final rcY = rightCentre.dy / cellH;
+
+    final gxLo0 = (lcX - spreadX - marginX).floor().clamp(0, _gridX - 1);
+    final gxHi0 = (lcX + spreadX + marginX).ceil().clamp(0, _gridX - 1);
+    final gyLo0 = (lcY - spreadY - marginY).floor().clamp(0, _gridY - 1);
+    final gyHi0 = (lcY + spreadY + marginY).ceil().clamp(0, _gridY - 1);
+
+    final gxLo1 = (rcX - spreadX - marginX).floor().clamp(0, _gridX - 1);
+    final gxHi1 = (rcX + spreadX + marginX).ceil().clamp(0, _gridX - 1);
+    final gyLo1 = (rcY - spreadY - marginY).floor().clamp(0, _gridY - 1);
+    final gyHi1 = (rcY + spreadY + marginY).ceil().clamp(0, _gridY - 1);
+
     final paint = Paint()..blendMode = BlendMode.srcOver;
 
-    for (int gy = 0; gy < _gridY; gy++) {
-      for (int gx = 0; gx < _gridX; gx++) {
+    // Combine both bounding boxes into one vertical span per column
+    final gyLoAll = math.min(gyLo0, gyLo1);
+    final gyHiAll = math.max(gyHi0, gyHi1);
+    final gxLoAll = math.min(gxLo0, gxLo1);
+    final gxHiAll = math.max(gxHi0, gxHi1);
+
+    for (int gy = gyLoAll; gy <= gyHiAll; gy++) {
+      for (int gx = gxLoAll; gx <= gxHiAll; gx++) {
+        final isInLeft = gx >= gxLo0 && gx <= gxHi0 && gy >= gyLo0 && gy <= gyHi0;
+        final isInRight = gx >= gxLo1 && gx <= gxHi1 && gy >= gyLo1 && gy <= gyHi1;
+        if (!isInLeft && !isInRight) continue;
+
         final cx = (gx + 0.5) * cellW;
         final cy = (gy + 0.5) * cellH;
 
         double sum = 0.0;
-        if (leftActive) {
+        if (leftActive && isInLeft) {
           for (final pt in leftPoints) {
             sum += leftActivation * _gauss(cx - pt.dx, cy - pt.dy, sigma);
           }
         }
-        if (rightActive) {
+        if (rightActive && isInRight) {
           for (final pt in rightPoints) {
             sum += rightActivation * _gauss(cx - pt.dx, cy - pt.dy, sigma);
           }
@@ -189,9 +223,9 @@ class _HeatmapPainter extends CustomPainter {
         final intensity = (sum / nPoints).clamp(0.0, 1.0);
         if (intensity < 0.008) continue;
 
-        paint.color = _TurboGradient.at(intensity).withValues(alpha: _alpha);
+        paint.color = _HeatmapGradient.at(intensity).withValues(alpha: _alpha);
         canvas.drawRect(
-          Rect.fromLTWH(gx * cellW, gy * cellH, cellW + 0.5, cellH + 0.5),
+          Rect.fromLTWH(gx * cellW, gy * cellH, cellW + 1.0, cellH + 1.0),
           paint,
         );
       }
@@ -233,7 +267,7 @@ class _VerticalLegend extends StatelessWidget {
                     height: constraints.maxHeight,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
-                      gradient: _TurboGradient.vertical(),
+                      gradient: _HeatmapGradient.vertical(),
                     ),
                   ),
                   Positioned(
