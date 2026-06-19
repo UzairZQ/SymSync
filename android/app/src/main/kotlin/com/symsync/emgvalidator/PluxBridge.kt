@@ -233,7 +233,11 @@ class PluxBridge(
     private fun stopInternal() {
         val controller = communication ?: return
         if (isAcquiring) {
-            controller.stop()
+            try {
+                controller.stop()
+            } catch (_: Exception) {
+                // Device may have already dropped — best-effort stop
+            }
         }
         isAcquiring = false
     }

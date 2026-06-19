@@ -70,19 +70,26 @@ class _HeatmapPainter extends CustomPainter {
   final double rightActivation;
 
   void _drawGlow(Canvas canvas, Offset centre, double activation, Size size) {
-    if (activation < 0.10) return;
+    final baseRadius = size.width * 0.13;
+    final radius = baseRadius * (0.5 + activation * 0.5);
 
-    final radius = size.width * 0.50;
+    if (radius < 2.0) return;
+
+    // Boost sensitivity so mid-range activation reaches orange/red
+    final colourT = (activation * 1.4).clamp(0.0, 1.0);
+    final glowColour = HeatmapGradient.at(colourT);
+    // Fade out when inactive
+    final centreAlpha = 0.1 + activation * 0.75;
 
     final gradient = RadialGradient(
       center: Alignment.center,
       radius: 1.0,
       colors: [
-        HeatmapGradient.at(activation).withValues(alpha: 0.85),
-        HeatmapGradient.at(activation).withValues(alpha: 0.30),
+        glowColour.withValues(alpha: centreAlpha),
+        glowColour.withValues(alpha: centreAlpha * 0.3),
         Colors.transparent,
       ],
-      stops: const [0.0, 0.4, 1.0],
+      stops: const [0.0, 0.5, 1.0],
     );
 
     final rect = Rect.fromCircle(center: centre, radius: radius);
@@ -94,8 +101,8 @@ class _HeatmapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final leftCentre = Offset(size.width * 0.34, size.height * 0.454);
-    final rightCentre = Offset(size.width * 0.66, size.height * 0.454);
+    final leftCentre = Offset(size.width * 0.34, size.height * 0.38);
+    final rightCentre = Offset(size.width * 0.66, size.height * 0.38);
 
     _drawGlow(canvas, leftCentre, leftActivation, size);
     _drawGlow(canvas, rightCentre, rightActivation, size);

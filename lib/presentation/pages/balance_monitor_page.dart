@@ -75,7 +75,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
 
         return ListView(
           key: const PageStorageKey<String>('balance'),
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceXXL),
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceLG),
           children: <Widget>[
             Row(
               children: <Widget>[
@@ -87,13 +87,12 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                         'Balance Monitor',
                         style: AppTheme.headingLarge.copyWith(
                           color: context.txtPrimary,
-                          fontSize: 30,
                         ),
                       ),
                       const SizedBox(height: AppTheme.spaceXS),
                       Text(
                         balanceSubtitle,
-                        style: AppTheme.bodyLarge.copyWith(
+                        style: AppTheme.bodyMedium.copyWith(
                           color: context.txtSecondary,
                         ),
                       ),
@@ -104,27 +103,27 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppTheme.spaceSM,
-                      vertical: AppTheme.spaceXS,
+                      vertical: 2,
                     ),
                     decoration: BoxDecoration(
                       color: AppTheme.accentAmber.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Container(
-                          width: 8,
-                          height: 8,
+                          width: 6,
+                          height: 6,
                           decoration: const BoxDecoration(
                             color: AppTheme.accentAmber,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
                           'Recording',
-                          style: AppTheme.bodyMedium.copyWith(
+                          style: AppTheme.bodySmall.copyWith(
                             color: AppTheme.accentAmber,
                             fontWeight: FontWeight.w700,
                           ),
@@ -134,9 +133,9 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                   ),
               ],
             ),
-            const SizedBox(height: AppTheme.spaceLG),
+            const SizedBox(height: AppTheme.spaceMD),
             AppCard(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
@@ -146,10 +145,10 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                   ),
                   if (hasData)
                     Padding(
-                      padding: const EdgeInsets.only(top: 20),
+                      padding: const EdgeInsets.only(top: 12),
                       child: Text(
                         'Use the slider position to keep both sides balanced.',
-                        style: AppTheme.bodyLarge.copyWith(
+                        style: AppTheme.bodyMedium.copyWith(
                           color: context.txtSecondary,
                           fontWeight: FontWeight.w700,
                         ),
@@ -159,7 +158,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                 ],
               ),
             ),
-            const SizedBox(height: AppTheme.spaceXL),
+            const SizedBox(height: AppTheme.spaceLG),
             Text(
               'TARGET MUSCLE GROUP',
               style: AppTheme.labelSmall.copyWith(
@@ -167,39 +166,39 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                 letterSpacing: 1.1,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 6,
+              runSpacing: 6,
               children: const <Widget>[
                 _MuscleChip(label: 'Trapezius', selected: true),
                 _MuscleChip(label: 'Deltoid'),
                 _MuscleChip(label: 'Lat'),
               ],
             ),
-            const SizedBox(height: AppTheme.spaceLG),
+            const SizedBox(height: AppTheme.spaceMD),
             if (isRecording && !hasData)
               AppCard(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: <Widget>[
                     Icon(
                       Icons.fiber_manual_record,
-                      size: 48,
+                      size: 36,
                       color: AppTheme.accentAmber.withValues(alpha: 0.6),
                     ),
-                    const SizedBox(height: AppTheme.spaceMD),
+                    const SizedBox(height: AppTheme.spaceSM),
                     Text(
                       'Recording in progress',
                       style: AppTheme.headingMedium.copyWith(
                         color: context.txtPrimary,
                       ),
                     ),
-                    const SizedBox(height: AppTheme.spaceSM),
+                    const SizedBox(height: AppTheme.spaceXS),
                     Text(
                       'Results will appear here when the session ends.',
                       textAlign: TextAlign.center,
-                      style: AppTheme.bodyLarge.copyWith(
+                      style: AppTheme.bodyMedium.copyWith(
                         color: context.txtSecondary,
                       ),
                     ),
@@ -229,9 +228,9 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                 ],
               ),
             if (hasData) ...[
-              const SizedBox(height: AppTheme.spaceLG),
+              const SizedBox(height: AppTheme.spaceMD),
               AppCard(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -243,15 +242,14 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                           : 'Balanced activation',
                       style: AppTheme.headingMedium.copyWith(
                         color: context.txtPrimary,
-                        fontSize: 20,
                       ),
                     ),
                     const SizedBox(height: AppTheme.spaceSM),
                     Text(
                       processor.correctiveInstruction(displaySymmetry),
-                      style: AppTheme.bodyMedium.copyWith(
+                      style: AppTheme.bodySmall.copyWith(
                         color: context.txtSecondary,
-                        height: 1.5,
+                        height: 1.4,
                       ),
                     ),
                   ],
@@ -307,7 +305,7 @@ class _ChannelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = (activation * 100).round();
     return AppCard(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -315,10 +313,9 @@ class _ChannelCard extends StatelessWidget {
             label,
             style: AppTheme.headingMedium.copyWith(
               color: context.txtPrimary,
-              fontSize: 18,
             ),
           ),
-          const SizedBox(height: AppTheme.spaceMD),
+          const SizedBox(height: AppTheme.spaceSM),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
@@ -326,16 +323,16 @@ class _ChannelCard extends StatelessWidget {
                 '$pct',
                 style: AppTheme.displayMedium.copyWith(
                   color: context.txtPrimary,
-                  fontSize: 36,
+                  fontSize: 28,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(width: 4),
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '%',
-                  style: AppTheme.bodyLarge.copyWith(
+                  style: AppTheme.bodySmall.copyWith(
                     color: context.txtTertiary,
                     fontWeight: FontWeight.w700,
                   ),
@@ -343,16 +340,16 @@ class _ChannelCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           _ActivityBadge(level: activity, color: color),
-          const SizedBox(height: AppTheme.spaceMD),
+          const SizedBox(height: AppTheme.spaceSM),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: activation,
               backgroundColor: context.bgElevated,
               color: color,
-              minHeight: 6,
+              minHeight: 4,
             ),
           ),
           const SizedBox(height: AppTheme.spaceSM),

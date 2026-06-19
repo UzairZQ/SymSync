@@ -80,7 +80,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
 
         return ListView(
           key: const PageStorageKey<String>('summary'),
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceXL),
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceLG),
           children: <Widget>[
             Row(
               children: <Widget>[
@@ -101,9 +101,9 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             const SizedBox(height: AppTheme.spaceXS),
             Text(
               'Review your recent symmetry and muscle pattern trends',
-              style: AppTheme.bodyLarge.copyWith(color: context.txtSecondary),
+              style: AppTheme.bodyMedium.copyWith(color: context.txtSecondary),
             ),
-            const SizedBox(height: AppTheme.spaceXL),
+            const SizedBox(height: AppTheme.spaceMD),
             AppCard(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
               child: Column(
@@ -116,18 +116,18 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       letterSpacing: 1.2,
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spaceMD),
+                  const SizedBox(height: AppTheme.spaceSM),
                   SizedBox(
-                    height: 340,
+                    height: 260,
                     child: historyCount > 0
                         ? HeatmapSilhouetteWidget(
                             leftActivation: leftAvg.clamp(0.0, 1.0),
                             rightActivation: rightAvg.clamp(0.0, 1.0),
-                            width: 280,
+                            width: 200,
                           )
                         : const _EmptyHeatmap(),
                   ),
-                  const SizedBox(height: AppTheme.spaceMD),
+                  const SizedBox(height: AppTheme.spaceSM),
                   // Muscle chip row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -147,7 +147,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppTheme.spaceXL),
+                  const SizedBox(height: AppTheme.spaceLG),
                   Row(
                     children: <Widget>[
                       Expanded(
@@ -176,7 +176,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                 ],
               ),
             ),
-            const SizedBox(height: AppTheme.spaceXL),
+            const SizedBox(height: AppTheme.spaceLG),
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTheme.spaceMD,
@@ -226,7 +226,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                 }),
               ),
             ),
-            const SizedBox(height: AppTheme.spaceXL),
+            const SizedBox(height: AppTheme.spaceLG),
             AppCard(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
               child: Column(
@@ -318,7 +318,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
           value,
           style: AppTheme.headingMedium.copyWith(
             color: color,
-            fontSize: 24,
+            fontSize: 20,
           ),
         ),
       ],
@@ -364,7 +364,7 @@ class _MuscleChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spaceMD,
-        vertical: AppTheme.spaceXS,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
         color: isActive
@@ -377,10 +377,10 @@ class _MuscleChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: AppTheme.bodyMedium.copyWith(
+        style: AppTheme.bodySmall.copyWith(
           color: isActive ? AppTheme.accentTeal : context.txtTertiary,
           fontWeight: FontWeight.w600,
-          fontSize: 13,
+          fontSize: 11,
         ),
       ),
     );
@@ -398,19 +398,19 @@ class _EmptyHeatmap extends StatelessWidget {
         children: <Widget>[
           Icon(
             Icons.heat_pump_outlined,
-            size: 56,
+            size: 40,
             color: context.txtTertiary.withValues(alpha: 0.6),
           ),
-          const SizedBox(height: AppTheme.spaceMD),
+          const SizedBox(height: AppTheme.spaceSM),
           Text(
             'No data yet',
-            style: AppTheme.bodyLarge.copyWith(color: context.txtSecondary),
+            style: AppTheme.bodyMedium.copyWith(color: context.txtSecondary),
           ),
           const SizedBox(height: AppTheme.spaceXS),
           Text(
             'Run a session to see your heatmap',
             textAlign: TextAlign.center,
-            style: AppTheme.bodyMedium.copyWith(color: context.txtTertiary),
+            style: AppTheme.bodySmall.copyWith(color: context.txtTertiary),
           ),
         ],
       ),

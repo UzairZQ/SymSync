@@ -45,9 +45,9 @@ class ProfilePage extends StatelessWidget {
 
         return ListView(
           key: const PageStorageKey<String>('profile'),
-          padding: const EdgeInsets.only(bottom: 28),
+          padding: const EdgeInsets.only(bottom: 20),
           children: <Widget>[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: <Widget>[
                 Expanded(
@@ -55,7 +55,6 @@ class ProfilePage extends StatelessWidget {
                     'Profile',
                     style: AppTheme.headingLarge.copyWith(
                       color: context.txtPrimary,
-                      fontSize: 28,
                     ),
                   ),
                 ),
@@ -67,18 +66,18 @@ class ProfilePage extends StatelessWidget {
                 const ThemeToggle(),
               ],
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 28),
             Center(
               child: Stack(
                 alignment: Alignment.bottomRight,
                 children: <Widget>[
                   Container(
-                    width: 128,
-                    height: 128,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: context.txtPrimary,
                       shape: BoxShape.circle,
-                      border: Border.all(color: context.bgPrimary, width: 4),
+                      border: Border.all(color: context.bgPrimary, width: 3),
                       boxShadow: const <BoxShadow>[
                         BoxShadow(
                           color: Color(0x26000000),
@@ -92,28 +91,28 @@ class ProfilePage extends StatelessWidget {
                       initials,
                       style: AppTheme.displayMedium.copyWith(
                         color: context.bgPrimary,
-                        fontSize: 38,
+                        fontSize: 30,
                       ),
                     ),
                   ),
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       color: AppTheme.accentGreen,
                       shape: BoxShape.circle,
-                      border: Border.all(color: context.bgPrimary, width: 3),
+                      border: Border.all(color: context.bgPrimary, width: 2),
                     ),
                     child: const Icon(
                       Icons.verified,
                       color: Colors.white,
-                      size: 18,
+                      size: 14,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Text(
               hasData ? 'TRACKING' : 'NEW USER',
               textAlign: TextAlign.center,
@@ -128,26 +127,26 @@ class ProfilePage extends StatelessWidget {
               textAlign: TextAlign.center,
               style: AppTheme.displayMedium.copyWith(
                 color: context.txtPrimary,
-                fontSize: 38,
+                fontSize: 30,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Text(
               hasData
                   ? 'Monitoring bilateral performance and\nsymmetry trends across your sessions.'
                   : 'Set up your sensors and run your first\nsession to start tracking your progress.',
               textAlign: TextAlign.center,
-              style: AppTheme.bodyLarge.copyWith(
+              style: AppTheme.bodyMedium.copyWith(
                 color: context.txtSecondary,
-                height: 1.55,
+                height: 1.4,
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 16),
             Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
+                  horizontal: 12,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
                   color: context.bgCard,
@@ -160,18 +159,19 @@ class ProfilePage extends StatelessWidget {
                     color: context.txtSecondary,
                     letterSpacing: 0,
                     fontWeight: FontWeight.w800,
+                    fontSize: 9,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 34),
+            const SizedBox(height: 24),
             _ProfileStatCard(
               icon: Icons.grid_view_outlined,
               title: 'Sessions',
               value: '$sessionCount',
               suffix: hasData ? 'Recorded' : 'None yet',
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             _ProfileStatCard(
               icon: Icons.timer_outlined,
               title: 'Time',
@@ -182,7 +182,7 @@ class ProfilePage extends StatelessWidget {
                   ? 'h Total'
                   : (totalHours >= 1 ? 'h Tracked' : 'min Tracked'),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             _ProfileStatCard(
               icon: Icons.balance_outlined,
               title: 'Balance',
@@ -190,7 +190,7 @@ class ProfilePage extends StatelessWidget {
               suffix: balanceLabel,
               inverted: true,
             ),
-            const SizedBox(height: 34),
+            const SizedBox(height: 24),
             const _SectionTitle('Preferences'),
             _ToggleRow(
               title: 'Dark Theme',
@@ -204,7 +204,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             AppCard(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -212,10 +212,9 @@ class ProfilePage extends StatelessWidget {
                     'Danger Zone',
                     style: AppTheme.headingMedium.copyWith(
                       color: AppTheme.accentRed,
-                      fontSize: 22,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     'This action is irreversible. All recorded biometric history will be permanently deleted from local storage.',
                     style: AppTheme.bodyMedium.copyWith(
@@ -223,10 +222,10 @@ class ProfilePage extends StatelessWidget {
                       height: 1.45,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   FilledButton.icon(
                     onPressed: () {},
-                    icon: const Icon(Icons.delete_outline, size: 16),
+                    icon: const Icon(Icons.delete_outline, size: 14),
                     label: const Text('Clear All Session Data'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.accentRed,
@@ -274,8 +273,8 @@ class _ProfileStatCard extends StatelessWidget {
     final bg = inverted ? context.txtPrimary : context.bgCard;
     final fg = inverted ? context.bgPrimary : context.txtPrimary;
     return Container(
-      constraints: const BoxConstraints(minHeight: 164),
-      padding: const EdgeInsets.all(28),
+      constraints: const BoxConstraints(minHeight: 100),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: AppTheme.cardRadius,
@@ -294,16 +293,16 @@ class _ProfileStatCard extends StatelessWidget {
                 color: inverted
                     ? context.bgPrimary.withValues(alpha: 0.72)
                     : context.txtSecondary,
-                size: 18,
+                size: 16,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
               Text(
                 title,
-                style: AppTheme.headingMedium.copyWith(
+                style: AppTheme.bodyMedium.copyWith(
                   color: inverted
                       ? context.bgPrimary.withValues(alpha: 0.72)
                       : context.txtSecondary,
-                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -313,11 +312,14 @@ class _ProfileStatCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 value,
-                style: AppTheme.displayLarge.copyWith(color: fg, fontSize: 48),
+                style: AppTheme.displayLarge.copyWith(
+                  color: fg,
+                  fontSize: 36,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Padding(
-                padding: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
                   suffix,
                   style: AppTheme.labelSmall.copyWith(
@@ -325,6 +327,7 @@ class _ProfileStatCard extends StatelessWidget {
                         ? AppTheme.accentLime
                         : AppTheme.accentGreen,
                     letterSpacing: 0,
+                    fontSize: 9,
                   ),
                 ),
               ),
@@ -343,7 +346,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: context.dividerClr)),
       ),
@@ -351,7 +354,6 @@ class _SectionTitle extends StatelessWidget {
         title,
         style: AppTheme.headingLarge.copyWith(
           color: context.txtPrimary,
-          fontSize: 30,
         ),
       ),
     );
@@ -374,7 +376,7 @@ class _ToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -385,13 +387,12 @@ class _ToggleRow extends StatelessWidget {
                   title,
                   style: AppTheme.headingMedium.copyWith(
                     color: context.txtPrimary,
-                    fontSize: 20,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   body,
-                  style: AppTheme.bodyMedium.copyWith(
+                  style: AppTheme.bodySmall.copyWith(
                     color: context.txtSecondary,
                   ),
                 ),

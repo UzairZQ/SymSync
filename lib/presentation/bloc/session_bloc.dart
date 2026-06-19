@@ -45,6 +45,7 @@ class SessionState extends Equatable {
     required this.normalisedRightActivation,
     required this.baselineRmsLeft,
     required this.baselineRmsRight,
+    required this.isRecording,
     this.calibratedAt,
   });
 
@@ -81,6 +82,7 @@ class SessionState extends Equatable {
       normalisedRightActivation: 0.0,
       baselineRmsLeft: 0.0,
       baselineRmsRight: 0.0,
+      isRecording: false,
       calibratedAt: null,
     );
   }
@@ -109,6 +111,7 @@ class SessionState extends Equatable {
   final double normalisedRightActivation;
   final double baselineRmsLeft;
   final double baselineRmsRight;
+  final bool isRecording;
   final DateTime? calibratedAt;
 
   bool get isConnected =>
@@ -155,6 +158,7 @@ class SessionState extends Equatable {
     double? normalisedRightActivation,
     double? baselineRmsLeft,
     double? baselineRmsRight,
+    bool? isRecording,
     DateTime? calibratedAt,
     bool clearCalibratedAt = false,
   }) {
@@ -188,6 +192,7 @@ class SessionState extends Equatable {
           normalisedRightActivation ?? this.normalisedRightActivation,
       baselineRmsLeft: baselineRmsLeft ?? this.baselineRmsLeft,
       baselineRmsRight: baselineRmsRight ?? this.baselineRmsRight,
+      isRecording: isRecording ?? this.isRecording,
       calibratedAt: clearCalibratedAt
           ? null
           : (calibratedAt ?? this.calibratedAt),
@@ -219,6 +224,7 @@ class SessionState extends Equatable {
     normalisedRightActivation,
     baselineRmsLeft,
     baselineRmsRight,
+    isRecording,
     calibratedAt,
   ];
 }
@@ -251,10 +257,15 @@ class SessionBloc extends Cubit<SessionState> {
             .inSeconds
             .clamp(0, 9999);
         emit(state.copyWith(sessionSeconds: seconds));
+        _autoSaveCounter++;
+        if (_autoSaveCounter >= 30) {
+          _autoSaveCounter = 0;
+          _autoSaveSession();
+        }
       }
     });
     _signalLossTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (isClosed || _sessionStartedAt == null) {
+      if (isClosed) {
         return;
       }
       final lastFrame = _lastFrameAt;
@@ -265,6 +276,9 @@ class SessionBloc extends Cubit<SessionState> {
       if (state.isConnected &&
           elapsed.inMilliseconds > 2000 &&
           state.status != SessionStatus.signalLost) {
+        if (_sessionStartedAt != null) {
+          _siBuffer.clear();
+        }
         emit(
           state.copyWith(
             status: SessionStatus.signalLost,
@@ -283,6 +297,7 @@ class SessionBloc extends Cubit<SessionState> {
   Timer? _rebuildTimer;
   Timer? _spsTimer;
   Timer? _signalLossTimer;
+  int _autoSaveCounter = 0;
 
   final List<int> _rawPoints = List<int>.filled(
     3000,
@@ -298,6 +313,7 @@ class SessionBloc extends Cubit<SessionState> {
   final List<SessionSummary> _history = <SessionSummary>[];
 
   DateTime? _sessionStartedAt;
+  DateTime? _connectedAt;
   DateTime? _lastFrameAt;
   int _samplesThisSecond = 0;
   int _samplesPerSecond = 0;
@@ -372,32 +388,18 @@ class SessionBloc extends Cubit<SessionState> {
         sampleRate: 1000,
       );
 
-      _sessionStartedAt = DateTime.now();
-      _lastFrameAt = _sessionStartedAt;
-      _samplesThisSecond = 0;
-      _samplesPerSecond = 0;
-      _activationSum = 0;
-      _activationSumRight = 0;
-      _activationCount = 0;
-      _peakRaw = SignalProcessor.adcMidpoint;
-      _sessionPeakLeft = 0.0;
-      _sessionPeakRight = 0.0;
-      _siBuffer.clear();
-      _windowActivationSum = 0;
-      _windowActivationSumRight = 0;
-      _windowActivationCount = 0;
       await _frameSubscription?.cancel();
       _frameSubscription = _hardware.frames.listen(
         _onFrame,
         onError: _onFrameError,
       );
+      _connectedAt = DateTime.now();
 
       emit(
         state.copyWith(
           status: SessionStatus.connected,
           busy: false,
-          connectedAtMs: _sessionStartedAt!.millisecondsSinceEpoch,
-          lastFrameMs: _lastFrameAt!.millisecondsSinceEpoch,
+          connectedAtMs: _connectedAt!.millisecondsSinceEpoch,
           notice: 'Connected',
           clearErrorMessage: true,
         ),
@@ -431,24 +433,37 @@ class SessionBloc extends Cubit<SessionState> {
 
     try {
       await _frameSubscription?.cancel();
-      _frameSubscription = null;
+    } catch (_) {}
+    _frameSubscription = null;
+
+    try {
       await _hardware.stopAcquisition();
-      await _hardware.disconnect();
-      await _persistSessionIfNeeded();
-      final selectedTab = state.selectedTab;
-      _resetSession();
-      emit(
-        SessionState.initial().copyWith(
-          selectedTab: selectedTab,
-          history: List<SessionSummary>.unmodifiable(_history),
-          notice: 'Disconnected',
-        ),
-      );
-    } catch (error) {
-      emit(state.copyWith(busy: false, errorMessage: error.toString()));
-    } finally {
-      _busy = false;
+    } catch (_) {
+      // Device may have already dropped the connection
     }
+
+    try {
+      await _hardware.disconnect();
+    } catch (_) {
+      // Device may have already dropped the connection
+    }
+
+    try {
+      await _persistSessionIfNeeded();
+    } catch (_) {
+      // Best-effort persistence
+    }
+
+    final selectedTab = state.selectedTab;
+    _resetSession();
+    emit(
+      SessionState.initial().copyWith(
+        selectedTab: selectedTab,
+        history: List<SessionSummary>.unmodifiable(_history),
+        notice: 'Disconnected',
+      ),
+    );
+    _busy = false;
   }
 
   void calibrate() {
@@ -476,6 +491,81 @@ class SessionBloc extends Cubit<SessionState> {
 
   void selectTab(SessionTab tab) {
     emit(state.copyWith(selectedTab: tab));
+  }
+
+  Future<void> startRecording() async {
+    if (_busy || state.isRecording || !state.isConnected) {
+      return;
+    }
+    _busy = true;
+    _sessionStartedAt = DateTime.now();
+    _lastFrameAt = _sessionStartedAt;
+    _samplesThisSecond = 0;
+    _samplesPerSecond = 0;
+    _activationSum = 0;
+    _activationSumRight = 0;
+    _activationCount = 0;
+    _peakRaw = SignalProcessor.adcMidpoint;
+    _sessionPeakLeft = 0.0;
+    _sessionPeakRight = 0.0;
+    _siBuffer.clear();
+    _windowActivationSum = 0;
+    _windowActivationSumRight = 0;
+    _windowActivationCount = 0;
+    _autoSaveCounter = 0;
+    _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
+    _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
+    _busy = false;
+    emit(
+      state.copyWith(
+        isRecording: true,
+        sessionSeconds: 0,
+        symmetryIndex: null,
+        lastFrameMs: _lastFrameAt!.millisecondsSinceEpoch,
+        notice: 'Recording started',
+        clearErrorMessage: true,
+      ),
+    );
+  }
+
+  Future<void> stopRecording() async {
+    if (_busy || !state.isRecording) {
+      return;
+    }
+    _busy = true;
+    try {
+      await _persistSessionIfNeeded();
+    } catch (_) {
+      // Best-effort persistence
+    }
+    _sessionStartedAt = null;
+    _lastFrameAt = null;
+    _samplesThisSecond = 0;
+    _samplesPerSecond = 0;
+    _activationSum = 0;
+    _activationSumRight = 0;
+    _activationCount = 0;
+    _peakRaw = SignalProcessor.adcMidpoint;
+    _sessionPeakLeft = 0.0;
+    _sessionPeakRight = 0.0;
+    _siBuffer.clear();
+    _windowActivationSum = 0;
+    _windowActivationSumRight = 0;
+    _windowActivationCount = 0;
+    _autoSaveCounter = 0;
+    _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
+    _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
+    _busy = false;
+    emit(
+      state.copyWith(
+        isRecording: false,
+        sessionSeconds: 0,
+        symmetryIndex: null,
+        lastFrameMs: null,
+        notice: 'Recording saved',
+        clearErrorMessage: true,
+      ),
+    );
   }
 
   void _onFrame(EmgFrame frame) {
@@ -567,8 +657,37 @@ class SessionBloc extends Cubit<SessionState> {
     await _historyStore.save(_history.take(10).toList(growable: false));
   }
 
+  Future<void> _autoSaveSession() async {
+    if (_sessionStartedAt == null || _activationCount == 0) {
+      return;
+    }
+    final now = DateTime.now();
+    final duration = now.difference(_sessionStartedAt!).inSeconds;
+    final double leftAvg = _activationSum / _activationCount;
+    final double rightAvg = _activationSumRight / _activationCount;
+    final double? finalSymmetryIndex = _smoothedSI ?? _calculateSymmetryIndex();
+    final summary = SessionSummary(
+      startedAt: _sessionStartedAt!,
+      endedAt: now,
+      durationSeconds: duration,
+      peakRaw: _peakRaw,
+      averageActivation: leftAvg,
+      averageSymmetryIndex: finalSymmetryIndex,
+      averageLeftActivation: leftAvg,
+      averageRightActivation: rightAvg,
+      note: 'Auto-save — ${_sessionNote(_sessionStartedAt!)}',
+      channelMapping: Map<String, String>.from(state.channelMapping),
+    );
+    _history.insert(0, summary);
+    await _historyStore.save(_history.take(10).toList(growable: false));
+    if (!isClosed) {
+      emit(state.copyWith(history: List<SessionSummary>.unmodifiable(_history)));
+    }
+  }
+
   void _resetSession() {
     _sessionStartedAt = null;
+    _connectedAt = null;
     _lastFrameAt = null;
     _samplesThisSecond = 0;
     _samplesPerSecond = 0;
@@ -694,8 +813,8 @@ class SessionBloc extends Cubit<SessionState> {
       _addSymmetryIndex(newSI);
     }
 
-    final peakLeft = _sessionPeakLeft > 0 ? _sessionPeakLeft : 1.0;
-    final peakRight = _sessionPeakRight > 0 ? _sessionPeakRight : 1.0;
+    final peakLeft = _sessionPeakLeft > 0.05 ? _sessionPeakLeft : null;
+    final peakRight = _sessionPeakRight > 0.05 ? _sessionPeakRight : null;
 
     final smoothedSI = _smoothedSI;
 
@@ -721,12 +840,16 @@ class SessionBloc extends Cubit<SessionState> {
         rawPoints: List<int>.unmodifiable(_rawPoints),
         rawPoints3: List<int>.unmodifiable(_rawPoints3),
         history: List<SessionSummary>.unmodifiable(_history),
-        connectedAtMs: startedAt?.millisecondsSinceEpoch,
+        connectedAtMs: _connectedAt?.millisecondsSinceEpoch,
         lastFrameMs: _lastFrameAt?.millisecondsSinceEpoch,
         leftTrapRms: leftAct,
         rightTrapRms: rightAct,
-        normalisedLeftActivation: (leftAct / peakLeft).clamp(0.0, 1.0),
-        normalisedRightActivation: (rightAct / peakRight).clamp(0.0, 1.0),
+        normalisedLeftActivation: peakLeft != null
+            ? (leftAct / peakLeft).clamp(0.0, 1.0)
+            : leftAct.clamp(0.0, 1.0),
+        normalisedRightActivation: peakRight != null
+            ? (rightAct / peakRight).clamp(0.0, 1.0)
+            : rightAct.clamp(0.0, 1.0),
       ),
     );
   }

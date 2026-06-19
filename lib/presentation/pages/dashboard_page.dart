@@ -62,9 +62,9 @@ class DashboardPage extends StatelessWidget {
 
         return ListView(
           key: const PageStorageKey<String>('dashboard'),
-          padding: const EdgeInsets.only(bottom: 28),
+          padding: const EdgeInsets.only(bottom: 20),
           children: <Widget>[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: <Widget>[
                 Expanded(
@@ -72,7 +72,6 @@ class DashboardPage extends StatelessWidget {
                     'SymSync',
                     style: AppTheme.headingLarge.copyWith(
                       color: context.txtPrimary,
-                      fontSize: 28,
                     ),
                   ),
                 ),
@@ -84,42 +83,42 @@ class DashboardPage extends StatelessWidget {
                 const ThemeToggle(),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
             Text(
               '${state.greeting},\n${state.displayName}',
               style: AppTheme.displayLarge.copyWith(
                 color: context.txtPrimary,
-                fontSize: 32,
+                fontSize: 26,
                 height: 1.08,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               hasAnyData
                   ? 'Stay consistent — your next session will build on the progress you have already made.'
                   : 'Pair your sensors and run a session to start tracking your bilateral symmetry.',
               style: AppTheme.bodyMedium.copyWith(
                 color: context.txtSecondary,
-                height: 1.45,
+                height: 1.4,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             AppCard(
-              padding: const EdgeInsets.all(28),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: <Widget>[
                   SizedBox(
-                    height: 148,
-                    width: 148,
+                    height: 120,
+                    width: 120,
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
                         SizedBox(
-                          height: 148,
-                          width: 148,
+                          height: 120,
+                          width: 120,
                           child: CircularProgressIndicator(
                             value: (indexScore ?? 0) / 100,
-                            strokeWidth: 9,
+                            strokeWidth: 8,
                             backgroundColor: context.bgElevated,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               indexScore == null
@@ -135,7 +134,7 @@ class DashboardPage extends StatelessWidget {
                               indexScore == null ? '—' : '$indexScore%',
                               style: AppTheme.displayMedium.copyWith(
                                 color: context.txtPrimary,
-                                fontSize: 32,
+                                fontSize: 26,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -152,7 +151,7 @@ class DashboardPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 26),
+                  const SizedBox(height: 18),
                   _MetricRow(
                     label: 'Sessions Today',
                     value: '${state.history.length}',
@@ -165,9 +164,9 @@ class DashboardPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: context.txtPrimary,
                 borderRadius: AppTheme.cardRadius,
@@ -186,10 +185,10 @@ class DashboardPage extends StatelessWidget {
                     'Quick Start',
                     style: AppTheme.headingMedium.copyWith(
                       color: context.bgPrimary,
-                      fontSize: 22,
+                      fontSize: 18,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     isConnected
                         ? 'Sensors are streaming. Open a session to begin bilateral analysis.'
@@ -199,9 +198,9 @@ class DashboardPage extends StatelessWidget {
                       height: 1.45,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: context.bgPrimary.withValues(alpha: 0.16),
@@ -236,7 +235,7 @@ class DashboardPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: isConnected ? onDisconnect : onConnect,
                     style: OutlinedButton.styleFrom(
@@ -245,13 +244,13 @@ class DashboardPage extends StatelessWidget {
                       ),
                       foregroundColor: context.bgPrimary,
                       shape: const StadiumBorder(),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
                       isConnected ? 'Disconnect Device' : 'Connect Device',
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
@@ -279,7 +278,7 @@ class DashboardPage extends StatelessWidget {
                             backgroundColor: context.bgPrimary,
                             foregroundColor: context.txtPrimary,
                             shape: const StadiumBorder(),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                           ),
                         ),
                       ),
@@ -324,7 +323,7 @@ class DashboardPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             _LiveChannelStatusCard(
               leftActivation: state.normalisedLeftActivation,
               rightActivation: state.normalisedRightActivation,
@@ -332,9 +331,9 @@ class DashboardPage extends StatelessWidget {
               rightActive:
                   isConnected && state.normalisedRightActivation > 0.03,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             AppCard(
-              padding: const EdgeInsets.all(22),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -345,7 +344,6 @@ class DashboardPage extends StatelessWidget {
                           'Recent\nSessions',
                           style: AppTheme.headingMedium.copyWith(
                             color: context.txtPrimary,
-                            fontSize: 22,
                             height: 1.05,
                           ),
                         ),
@@ -356,10 +354,10 @@ class DashboardPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   if (recent.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: Text(
                           'No sessions yet — your history will appear here.',
@@ -464,7 +462,7 @@ class _LiveChannelStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -472,16 +470,15 @@ class _LiveChannelStatusCard extends StatelessWidget {
             'Live Channel Status',
             style: AppTheme.headingMedium.copyWith(
               color: context.txtPrimary,
-              fontSize: 20,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           _ActivationStatusRow(
             label: 'LEFT TRAPEZIUS',
             activation: leftActivation,
             active: leftActive,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           _ActivationStatusRow(
             label: 'RIGHT TRAPEZIUS',
             activation: rightActivation,

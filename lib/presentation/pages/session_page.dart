@@ -6,7 +6,6 @@ import '../../screens/calibration_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
 import '../../widgets/connection_badge.dart';
-import '../../widgets/session_confirmation_modal.dart';
 import '../bloc/session_bloc.dart';
 import 'anatomical_view_page.dart';
 import 'balance_monitor_page.dart';
@@ -18,19 +17,12 @@ class SessionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          final bloc = context.read<SessionBloc>();
-          if (bloc.state.isConnected) {
-            bloc.disconnect();
-          }
-        }
-      },
+      canPop: true,
       child: Scaffold(
         backgroundColor: context.bgPrimary,
         body: const SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, AppTheme.spaceXL),
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: SessionPage(),
           ),
         ),
@@ -51,9 +43,26 @@ class _SessionPageState extends State<SessionPage> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(_onPageChanged);
+  }
+
+  @override
   void dispose() {
+    _pageController.removeListener(_onPageChanged);
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _onPageChanged() {
+    final page = _pageController.page;
+    if (page != null) {
+      final index = page.round();
+      if (index != _selectedIndex && index >= 0) {
+        setState(() => _selectedIndex = index);
+      }
+    }
   }
 
   @override
@@ -95,7 +104,6 @@ class _SessionPageState extends State<SessionPage> {
                           'Session',
                           style: AppTheme.headingLarge.copyWith(
                             color: context.txtPrimary,
-                            fontSize: 28,
                           ),
                         ),
                         const SizedBox(height: AppTheme.spaceXS),
@@ -153,17 +161,16 @@ class _SessionPageState extends State<SessionPage> {
                 setState(() => _selectedIndex = index);
               },
             ),
-            const SizedBox(height: AppTheme.spaceMD),
+            const SizedBox(height: AppTheme.spaceSM),
 
             Expanded(
               child: PageView(
-                physics: const NeverScrollableScrollPhysics(),
                 controller: _pageController,
                 children: pages,
               ),
             ),
 
-            const SizedBox(height: AppTheme.spaceMD),
+            const SizedBox(height: AppTheme.spaceSM),
 
             const _SessionActionsBar(),
             const SizedBox(height: AppTheme.spaceLG),
@@ -177,41 +184,33 @@ class _SessionPageState extends State<SessionPage> {
 class _SessionActionsBar extends StatelessWidget {
   const _SessionActionsBar();
 
-  static const String _deviceMac = '00:07:80:8C:0A:27';
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
         final isConnected = state.isConnected;
-        final isConnecting = state.status == SessionStatus.connecting;
+        final isRecording = state.isRecording;
         final isBusy = state.busy;
+        final isConnecting = state.status == SessionStatus.connecting;
 
         return Row(
           children: [
             Expanded(
               child: ElevatedButton(
-                onPressed: isBusy
+                onPressed: isBusy || !isConnected
                     ? null
                     : () async {
-                        if (isConnected) {
-                          try {
-                            await context.read<SessionBloc>().disconnect();
-                          } catch (_) {
-                            return;
-                          }
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
+                        if (isRecording) {
+                          await context.read<SessionBloc>().stopRecording();
                         } else {
-                          _showConfirmationModal(context, state);
+                          await context.read<SessionBloc>().startRecording();
                         }
                       },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
-                    vertical: AppTheme.spaceMD,
+                    vertical: 10,
                   ),
-                  backgroundColor: isConnected
+                  backgroundColor: isRecording
                       ? AppTheme.accentRed
                       : context.txtPrimary,
                   foregroundColor: context.bgPrimary,
@@ -222,8 +221,8 @@ class _SessionActionsBar extends StatelessWidget {
                 ),
                 child: isConnecting
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
+                        height: 18,
+                        width: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
@@ -232,9 +231,9 @@ class _SessionActionsBar extends StatelessWidget {
                         ),
                       )
                     : Text(
-                        isConnected ? 'Stop Recording' : 'Start Recording',
+                        isRecording ? 'Stop Recording' : 'Start Recording',
                         style: AppTheme.headingMedium.copyWith(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: isBusy
                               ? context.txtTertiary
@@ -256,7 +255,7 @@ class _SessionActionsBar extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppTheme.spaceLG,
-                  vertical: AppTheme.spaceMD,
+                  vertical: 10,
                 ),
                 backgroundColor: context.bgPrimary,
                 foregroundColor: context.txtPrimary,
@@ -276,7 +275,7 @@ class _SessionActionsBar extends StatelessWidget {
               child: Text(
                 'Calibrate',
                 style: AppTheme.headingMedium.copyWith(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: isConnected ? context.txtPrimary : context.txtTertiary,
                 ),
@@ -285,23 +284,6 @@ class _SessionActionsBar extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-
-  void _showConfirmationModal(BuildContext context, SessionState state) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => SessionConfirmationModal(
-        channelA: state.channelMapping['A'] ?? 'left',
-        channelB: state.channelMapping['B'] ?? 'right',
-        onConfirm: () {
-          Navigator.of(dialogContext).pop();
-          context.read<SessionBloc>().connect(_deviceMac);
-        },
-        onCancel: () {
-          Navigator.of(dialogContext).pop();
-        },
-      ),
     );
   }
 }

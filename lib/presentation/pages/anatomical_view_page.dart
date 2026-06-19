@@ -44,7 +44,7 @@ class AnatomicalViewContent extends StatelessWidget {
 
         return ListView(
           key: const PageStorageKey<String>('anatomical'),
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceXXL),
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceLG),
           children: <Widget>[
             Row(
               children: <Widget>[
@@ -56,16 +56,15 @@ class AnatomicalViewContent extends StatelessWidget {
                         'Muscle\nActivation',
                         style: AppTheme.headingLarge.copyWith(
                           color: context.txtPrimary,
-                          fontSize: 28,
                           height: 1.15,
                         ),
                       ),
                       const SizedBox(height: AppTheme.spaceXS),
                       Text(
                         'Live symmetry map of your upper back during movement.',
-                        style: AppTheme.bodyLarge.copyWith(
+                        style: AppTheme.bodyMedium.copyWith(
                           color: context.txtSecondary,
-                          height: 1.4,
+                          height: 1.3,
                         ),
                       ),
                     ],
@@ -77,21 +76,21 @@ class AnatomicalViewContent extends StatelessWidget {
                     color: state.isConnected
                         ? AppTheme.accentGreen.withValues(alpha: 0.16)
                         : context.bgElevated,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
                   ),
                   child: Icon(
                     Icons.bluetooth,
                     color: state.isConnected
                         ? AppTheme.accentGreen
                         : context.txtTertiary,
-                    size: 22,
+                    size: 18,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppTheme.spaceLG),
+            const SizedBox(height: AppTheme.spaceMD),
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF0F4F8),
                 borderRadius: AppTheme.cardRadius,
@@ -102,46 +101,46 @@ class AnatomicalViewContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   SizedBox(
-                    height: 340,
+                    height: 260,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: HeatmapSilhouetteWidget(
                         leftActivation: displayLeftActivation,
                         rightActivation: displayRightActivation,
-                        width: 260,
+                        width: 200,
                       ),
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spaceXL),
+                  const SizedBox(height: AppTheme.spaceLG),
                   AppCard(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
                           imbalanceLabel,
-                          style: AppTheme.bodyLarge.copyWith(
+                          style: AppTheme.bodyMedium.copyWith(
                             color: context.txtPrimary,
                             fontWeight: FontWeight.w800,
-                            height: 1.4,
+                            height: 1.3,
                           ),
                         ),
-                        const SizedBox(height: AppTheme.spaceMD),
+                        const SizedBox(height: AppTheme.spaceSM),
                         Text(
                           displaySymmetryIndex == null
                               ? 'Start recording with both channels connected to see corrective guidance.'
                               : processor.correctiveInstruction(
                                   displaySymmetryIndex,
                                 ),
-                          style: AppTheme.bodyMedium.copyWith(
+                          style: AppTheme.bodySmall.copyWith(
                             color: context.txtSecondary,
-                            height: 1.5,
+                            height: 1.4,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spaceXL),
+                  const SizedBox(height: AppTheme.spaceLG),
                   Text(
                     'TARGET MUSCLE GROUP',
                     style: AppTheme.labelSmall.copyWith(
@@ -149,10 +148,10 @@ class AnatomicalViewContent extends StatelessWidget {
                       letterSpacing: 1.1,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 6,
+                    runSpacing: 6,
                     children: const [
                       _MuscleChip(label: 'Trapezius', selected: true),
                       _MuscleChip(label: 'Deltoid'),
@@ -178,7 +177,7 @@ class _MuscleChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: selected ? context.txtPrimary : context.bgCard,
         borderRadius: BorderRadius.circular(999),
@@ -192,6 +191,7 @@ class _MuscleChip extends StatelessWidget {
           color: selected ? context.bgPrimary : context.txtSecondary,
           letterSpacing: 0,
           fontWeight: FontWeight.w800,
+          fontSize: 10,
         ),
       ),
     );

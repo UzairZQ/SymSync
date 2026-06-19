@@ -55,11 +55,11 @@ abstract class AppTheme {
 
   // ── SPACING ───────────────────────────────────────────────────────────────
   static const double spaceXS = 4.0;
-  static const double spaceSM = 8.0;
-  static const double spaceMD = 16.0;
-  static const double spaceLG = 24.0;
-  static const double spaceXL = 32.0;
-  static const double spaceXXL = 48.0;
+  static const double spaceSM = 6.0;
+  static const double spaceMD = 12.0;
+  static const double spaceLG = 16.0;
+  static const double spaceXL = 20.0;
+  static const double spaceXXL = 28.0;
 
   // ── RADII ─────────────────────────────────────────────────────────────────
   static const double radiusSM = 8.0;
@@ -77,22 +77,22 @@ abstract class AppTheme {
     fontWeight: FontWeight.w800,
   );
   static final TextStyle displayLarge = GoogleFonts.inter(
-    fontSize: 44,
+    fontSize: 36,
     color: textPrimary,
     fontWeight: FontWeight.w800,
   );
   static final TextStyle displayMedium = GoogleFonts.inter(
-    fontSize: 32,
+    fontSize: 26,
     color: textPrimary,
     fontWeight: FontWeight.w800,
   );
   static final TextStyle headingLarge = GoogleFonts.inter(
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: FontWeight.w800,
     color: textPrimary,
   );
   static final TextStyle headingMedium = GoogleFonts.inter(
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
@@ -103,6 +103,11 @@ abstract class AppTheme {
   );
   static final TextStyle bodyMedium = GoogleFonts.inter(
     fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: textSecondary,
+  );
+  static final TextStyle bodySmall = GoogleFonts.inter(
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: textSecondary,
   );
