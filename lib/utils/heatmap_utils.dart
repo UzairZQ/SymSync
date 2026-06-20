@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 class HeatmapGradient {
   static const colors = <Color>[
-    Color(0xFF355CFF),
-    Color(0xFF8BC6FF),
-    Color(0xFFA7F3D0),
-    Color(0xFFFFD166),
-    Color(0xFFFF7A59),
+    Color(0xFF2A6F97),
+    Color(0xFF61A5C2),
+    Color(0xFFF6C85F),
+    Color(0xFFF28E2B),
+    Color(0xFFC62828),
   ];
 
   static Color at(double t) {
@@ -31,46 +31,46 @@ class HeatmapGradient {
     end: Alignment.topCenter,
   );
 
-  // 3-color heatmap gradient: light blue -> orange -> red
-  static const Color lightBlue = Color(0xFF5C9CE6);
-  static const Color orange   = Color(0xFFD99058);
-  static const Color darkRed  = Color(0xFFBA1A1A);
-
   static Color at3(double t) {
-    t = t.clamp(0.0, 1.0);
-    if (t < 0.5) return Color.lerp(lightBlue, orange, t / 0.5)!;
-    return Color.lerp(orange, darkRed, (t - 0.5) / 0.5)!;
+    return at(t);
   }
 
   static LinearGradient horizontal3() => LinearGradient(
-    colors: const [lightBlue, orange, darkRed],
-    stops: const [0.0, 0.5, 1.0],
+    colors: colors,
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
   static LinearGradient vertical3() => LinearGradient(
-    colors: const [lightBlue, orange, darkRed],
-    stops: const [0.0, 0.5, 1.0],
+    colors: colors,
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   );
 }
 
+class BalanceGradient {
+  static const Color extreme = Color(0xFFC65D2E);
+  static const Color moderate = Color(0xFFE9B44C);
+  static const Color balanced = Color(0xFF4F8A78);
+
+  static const colors = <Color>[extreme, moderate, balanced, moderate, extreme];
+
+  static LinearGradient horizontal() => const LinearGradient(
+    colors: colors,
+    stops: <double>[0.0, 0.25, 0.5, 0.75, 1.0],
+  );
+
+  static Color at(double t) {
+    final distanceFromCenter = ((t.clamp(0.0, 1.0) - 0.5).abs() * 2.0);
+    if (distanceFromCenter < 0.5) {
+      return Color.lerp(balanced, moderate, distanceFromCenter / 0.5)!;
+    }
+    return Color.lerp(moderate, extreme, (distanceFromCenter - 0.5) / 0.5)!;
+  }
+}
+
 class HeatmapUtils {
   static Color activationColour(double activation) {
-    final value = activation.clamp(0.0, 1.0);
-    if (value < 0.5) {
-      return Color.lerp(
-        const Color(0xFF2563EB),
-        const Color(0xFFF59E0B),
-        value / 0.5,
-      )!;
-    }
-    return Color.lerp(
-      const Color(0xFFF59E0B),
-      const Color(0xFFDC2626),
-      (value - 0.5) / 0.5,
-    )!;
+    return HeatmapGradient.at(activation);
   }
 }

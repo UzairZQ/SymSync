@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/heatmap_silhouette_widget.dart';
+import '../../widgets/terms_glossary_sheet.dart';
 
 class ActivationSummaryPage extends StatefulWidget {
   const ActivationSummaryPage({super.key});
@@ -95,6 +96,17 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                 ConnectionBadge(
                   isConnected: isConnected,
                   isConnecting: isConnecting,
+                ),
+                const SizedBox(width: AppTheme.spaceSM),
+                IconButton(
+                  tooltip: 'Explain summary terms',
+                  onPressed: () => showTermsGlossarySheet(context),
+                  style: IconButton.styleFrom(
+                    backgroundColor: context.bgCard,
+                    foregroundColor: context.txtSecondary,
+                    side: BorderSide(color: context.dividerClr),
+                  ),
+                  icon: const Icon(Icons.help_outline_rounded, size: 18),
                 ),
               ],
             ),
@@ -316,10 +328,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
         const SizedBox(height: AppTheme.spaceXS),
         Text(
           value,
-          style: AppTheme.headingMedium.copyWith(
-            color: color,
-            fontSize: 20,
-          ),
+          style: AppTheme.headingMedium.copyWith(color: color, fontSize: 20),
         ),
       ],
     );

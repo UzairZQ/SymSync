@@ -7,10 +7,7 @@ import '../presentation/pages/session_page.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_card.dart';
 
-enum CalibrationPhase {
-  connecting,
-  monitoring,
-}
+enum CalibrationPhase { connecting, monitoring }
 
 class CalibrationScreen extends StatefulWidget {
   const CalibrationScreen({super.key});
@@ -28,8 +25,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   Timer? _monitoringTimer;
   String _ch1Status = '—';
   String _ch3Status = '—';
-  double _ch1NoiseUv = 0;
-  double _ch3NoiseUv = 0;
+  double _ch1NoiseRms = 0;
+  double _ch3NoiseRms = 0;
 
   static const String _deviceMac = '00:07:80:8C:0A:27';
 
@@ -58,7 +55,9 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     }
 
     _connectionTimer?.cancel();
-    _connectionTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    _connectionTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) {
       _connectionElapsedSeconds += 1;
 
       if (bloc.state.isConnected) {
@@ -105,8 +104,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     final rms3 = raw3.length >= 200 ? _calculateCenteredRms(raw3, 200) : 0.0;
 
     setState(() {
-      _ch1NoiseUv = _adcToMicrovolts(rms1);
-      _ch3NoiseUv = _adcToMicrovolts(rms3);
+      _ch1NoiseRms = rms1;
+      _ch3NoiseRms = rms3;
 
       _ch1Status = std1 > 50
           ? (rms1 < 3000 ? 'Signal OK' : 'Noisy')
@@ -118,19 +117,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   }
 
   void _beginSession() {
-    final state = context.read<SessionBloc>().state;
-
-    final baselineLeft = state.rawPoints.length >= 100
-        ? _calculateCenteredRms(state.rawPoints, 100)
-        : 0.0;
-    final baselineRight = state.rawPoints3.length >= 100
-        ? _calculateCenteredRms(state.rawPoints3, 100)
-        : 0.0;
-
-    context.read<SessionBloc>().saveCalibration(
-      baselineLeft: baselineLeft,
-      baselineRight: baselineRight,
-    );
+    context.read<SessionBloc>().calibrate();
 
     Navigator.pushReplacement(
       context,
@@ -142,7 +129,9 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     if (samples.length < count) return 0.0;
     final segment = samples.sublist(samples.length - count);
     final mean = segment.reduce((a, b) => a + b) / count;
-    final sumSqDiff = segment.map((x) => (x - mean) * (x - mean)).reduce((a, b) => a + b);
+    final sumSqDiff = segment
+        .map((x) => (x - mean) * (x - mean))
+        .reduce((a, b) => a + b);
     return math.sqrt(sumSqDiff / count);
   }
 
@@ -158,10 +147,6 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     return math.sqrt(sumSq / actualCount);
   }
 
-  double _adcToMicrovolts(double adcCentered) {
-    return ((adcCentered / 65535.0) * 3.0) / 0.019 * 1000.0;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -170,12 +155,18 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
         backgroundColor: context.bgPrimary,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: context.txtPrimary),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: context.txtPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Device Setup',
-          style: TextStyle(color: context.txtPrimary, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: context.txtPrimary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
@@ -232,7 +223,11 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           const SizedBox(height: 16),
           Text(
             'Connecting to Device…',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.txtPrimary),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: context.txtPrimary,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -251,6 +246,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
 
   Widget _buildMonitoringWidget() {
     final state = context.watch<SessionBloc>().state;
+    final channelAIsLeft = state.channelMapping['A'] == 'left';
     final ch1Samples = state.rawPoints.length >= 200
         ? state.rawPoints.sublist(state.rawPoints.length - 200)
         : state.rawPoints;
@@ -263,17 +259,17 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildChannelRow(
-          channelLabel: 'CH1 — Right Trapezius',
+          channelLabel: 'CH1 — ${channelAIsLeft ? 'Left' : 'Right'} Trapezius',
           status: _ch1Status,
-          noiseUv: _ch1NoiseUv,
+          noiseRms: _ch1NoiseRms,
           samples: ch1Samples,
           color: const Color(0xFF8BAEA3),
         ),
         const SizedBox(height: 16),
         _buildChannelRow(
-          channelLabel: 'CH3 — Left Trapezius',
+          channelLabel: 'CH3 — ${channelAIsLeft ? 'Right' : 'Left'} Trapezius',
           status: _ch3Status,
-          noiseUv: _ch3NoiseUv,
+          noiseRms: _ch3NoiseRms,
           samples: ch3Samples,
           color: const Color(0xFFC56D5D),
         ),
@@ -284,7 +280,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   Widget _buildChannelRow({
     required String channelLabel,
     required String status,
-    required double noiseUv,
+    required double noiseRms,
     required List<int> samples,
     required Color color,
   }) {
@@ -310,7 +306,10 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
@@ -328,7 +327,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Noise floor: ${noiseUv.toStringAsFixed(1)} µV',
+            'Noise floor: ${noiseRms.toStringAsFixed(0)} ADC RMS',
             style: TextStyle(color: context.txtTertiary, fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -389,9 +388,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       onPressed: () => Navigator.pop(context),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         side: BorderSide(color: context.dividerClr),
         foregroundColor: context.txtSecondary,
       ),
@@ -428,8 +425,10 @@ class _SparklinePainter extends CustomPainter {
       final sample = samples[i];
       final x = i * stepX;
       final diff = sample - 32768;
-      final y = (size.height / 2 - (diff / 2000.0) * (size.height / 2))
-          .clamp(0.0, size.height);
+      final y = (size.height / 2 - (diff / 2000.0) * (size.height / 2)).clamp(
+        0.0,
+        size.height,
+      );
       if (i == 0) {
         path.moveTo(x, y);
       } else {

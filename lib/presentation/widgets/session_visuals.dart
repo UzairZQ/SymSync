@@ -90,14 +90,17 @@ class LegPairSilhouette extends StatelessWidget {
                 alignment: Alignment.center,
                 children: <Widget>[
                   Image.asset(
-                    'assets/images/upper_body.png',
+                    'assets/images/upper_body_clinical.png',
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
                     width: constraints.maxWidth - legendWidth,
                     height: constraints.maxHeight,
                   ),
                   CustomPaint(
-                    size: Size(constraints.maxWidth - legendWidth, constraints.maxHeight),
+                    size: Size(
+                      constraints.maxWidth - legendWidth,
+                      constraints.maxHeight,
+                    ),
                     painter: _LegActivationPainter(
                       leftActivation: leftActivation,
                       rightActivation: rightActivation,
@@ -147,8 +150,9 @@ class _LegActivationPainter extends CustomPainter {
         final intensity =
             0.3 + (1.0 - (vertical * 0.5 + horizontal * 0.3)) * 0.7;
 
-        final color =
-            HeatmapGradient.at((activation * intensity).clamp(0.0, 1.0));
+        final color = HeatmapGradient.at(
+          (activation * intensity).clamp(0.0, 1.0),
+        );
         final alpha = 0.50 + intensity.clamp(0.0, 1.0) * 0.50;
 
         final paint = Paint()..color = color.withValues(alpha: alpha);
@@ -227,17 +231,21 @@ class TiltMeter extends StatelessWidget {
   final double? symmetryIndex;
   final String label;
 
-  static const _degreeLabels = <String>[
-    '-20°', '-10°', '0°', '+10°', '+20°',
+  static const _balanceLabels = <String>[
+    '-100%',
+    '-50%',
+    '0%',
+    '+50%',
+    '+100%',
   ];
 
   @override
   Widget build(BuildContext context) {
-    final tiltDegrees = symmetryIndex == null
-        ? 0.0
-        : (symmetryIndex! / 3.0).clamp(-20.0, 20.0);
+    const processor = SignalProcessor();
     final hasData = symmetryIndex != null;
-    final position = (tiltDegrees + 20.0) / 40.0;
+    final position = hasData
+        ? processor.balancePositionFromSymmetry(symmetryIndex!)
+        : 0.5;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.5, end: hasData ? position : 0.5),
       duration: const Duration(milliseconds: 300),
@@ -245,12 +253,23 @@ class TiltMeter extends StatelessWidget {
       builder: (context, animatedPosition, child) {
         final thumbT = animatedPosition.clamp(0.0, 1.0);
         final thumbColor = hasData
-            ? HeatmapGradient.at3(thumbT)
+            ? BalanceGradient.at(thumbT)
             : context.txtTertiary;
         return Column(
           children: <Widget>[
             _HeaderRow(animatedPosition: animatedPosition, hasData: hasData),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
+            Text(
+              hasData
+                  ? '${symmetryIndex! > 0 ? '+' : ''}${symmetryIndex!.toStringAsFixed(0)}% relative imbalance'
+                  : 'Relative activation imbalance',
+              style: AppTheme.labelSmall.copyWith(
+                color: hasData ? thumbColor : context.txtTertiary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               height: 48,
               child: LayoutBuilder(
@@ -259,11 +278,11 @@ class TiltMeter extends StatelessWidget {
                   final trackWidth = constraints.maxWidth * 0.92;
                   final trackTop = (constraints.maxHeight - 6) / 2;
                   final markerX =
-                      trackLeft + (trackWidth * animatedPosition.clamp(0.0, 1.0));
+                      trackLeft +
+                      (trackWidth * animatedPosition.clamp(0.0, 1.0));
                   return Stack(
                     clipBehavior: Clip.none,
                     children: <Widget>[
-                      // Full-width gradient track — light blue -> orange -> red
                       Positioned(
                         left: trackLeft,
                         top: trackTop,
@@ -272,7 +291,7 @@ class TiltMeter extends StatelessWidget {
                           height: 6,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(3),
-                            gradient: HeatmapGradient.horizontal3(),
+                            gradient: BalanceGradient.horizontal(),
                           ),
                         ),
                       ),
@@ -334,19 +353,36 @@ class TiltMeter extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: _degreeLabels.map((d) {
-                return Text(
-                  d,
-                  style: AppTheme.labelSmall.copyWith(
-                    color: context.txtTertiary.withValues(alpha: 0.5),
-                    fontSize: 10,
-                    letterSpacing: 0,
-                  ),
-                );
-              }).toList(),
+            SizedBox(
+              height: 16,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final trackLeft = constraints.maxWidth * 0.04;
+                  final trackWidth = constraints.maxWidth * 0.92;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: List<Widget>.generate(_balanceLabels.length, (
+                      index,
+                    ) {
+                      const labelWidth = 42.0;
+                      final x = trackLeft + trackWidth * index / 4;
+                      return Positioned(
+                        left: x - labelWidth / 2,
+                        width: labelWidth,
+                        child: Text(
+                          _balanceLabels[index],
+                          textAlign: TextAlign.center,
+                          style: AppTheme.labelSmall.copyWith(
+                            color: context.txtTertiary.withValues(alpha: 0.7),
+                            fontSize: 9,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -400,19 +436,19 @@ class _HeaderRow extends StatelessWidget {
         _Label(
           text: 'Left',
           active: hasData && t < 0.33,
-          activeColor: HeatmapGradient.lightBlue,
+          activeColor: BalanceGradient.extreme,
           align: TextAlign.start,
         ),
         _Label(
           text: 'Center',
           active: hasData && t >= 0.33 && t <= 0.66,
-          activeColor: HeatmapGradient.orange,
+          activeColor: BalanceGradient.balanced,
           align: TextAlign.center,
         ),
         _Label(
           text: 'Right',
           active: hasData && t > 0.66,
-          activeColor: HeatmapGradient.darkRed,
+          activeColor: BalanceGradient.extreme,
           align: TextAlign.end,
         ),
       ],
@@ -464,10 +500,9 @@ class _GradientLegend extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.55),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ),
         const SizedBox(height: 4),
@@ -485,10 +520,9 @@ class _GradientLegend extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.55),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ),
       ],

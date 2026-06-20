@@ -18,7 +18,10 @@ class PluxEmgHardware implements EmgHardware {
     List<int> channels = const <int>[1, 3],
     int sampleRate = 1000,
   }) {
-    return _service.startAcquisition(channels: channels);
+    return _service.startAcquisition(
+      channels: channels,
+      sampleRate: sampleRate,
+    );
   }
 
   @override

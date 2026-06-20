@@ -332,6 +332,8 @@ class SessionBloc extends Cubit<SessionState> {
   double _sessionPeakRmsRight = 0.0;
   double _windowActivationSum = 0;
   double _windowActivationSumRight = 0;
+  double _windowRmsSumLeft = 0;
+  double _windowRmsSumRight = 0;
   int _windowActivationCount = 0;
 
   final _leftFilter = SignalFilterState();
@@ -472,11 +474,14 @@ class SessionBloc extends Cubit<SessionState> {
   }
 
   void calibrate() {
-    _calibrationMidpoint = _latestRaw;
+    final baselineLeft = state.leftTrapRms;
+    final baselineRight = state.rightTrapRms;
     emit(
       state.copyWith(
-        calibrationMidpoint: _calibrationMidpoint,
-        notice: 'Calibration saved at $_calibrationMidpoint',
+        baselineRmsLeft: baselineLeft,
+        baselineRmsRight: baselineRight,
+        calibratedAt: DateTime.now(),
+        notice: 'Resting EMG baseline saved',
       ),
     );
   }
@@ -520,6 +525,8 @@ class SessionBloc extends Cubit<SessionState> {
     _siBuffer.clear();
     _windowActivationSum = 0;
     _windowActivationSumRight = 0;
+    _windowRmsSumLeft = 0;
+    _windowRmsSumRight = 0;
     _windowActivationCount = 0;
     _autoSaveCounter = 0;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
@@ -560,6 +567,8 @@ class SessionBloc extends Cubit<SessionState> {
     _siBuffer.clear();
     _windowActivationSum = 0;
     _windowActivationSumRight = 0;
+    _windowRmsSumLeft = 0;
+    _windowRmsSumRight = 0;
     _windowActivationCount = 0;
     _autoSaveCounter = 0;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
@@ -583,32 +592,45 @@ class SessionBloc extends Cubit<SessionState> {
     _lastFrameAt = DateTime.now();
     _samplesThisSecond++;
 
-    // Filter and compute RMS for each channel
-    final ch1Adjusted = (frame.ch1 - _calibrationMidpoint + SignalProcessor.adcMidpoint).toDouble();
-    final ch3Adjusted = (frame.ch3 - _calibrationMidpoint + SignalProcessor.adcMidpoint).toDouble();
-    final rightFiltered = _rightFilter.filter(ch1Adjusted);
-    final leftFiltered = _leftFilter.filter(ch3Adjusted);
+    final channelAIsLeft = state.channelMapping['A'] == 'left';
+    final leftRaw = channelAIsLeft ? frame.ch1 : frame.ch3;
+    final rightRaw = channelAIsLeft ? frame.ch3 : frame.ch1;
+
+    // The native bridge emits raw 16-bit ADC counts. The UI uses a
+    // 20–400 Hz band-pass approximation followed by a 100 ms RMS envelope.
+    final rightFiltered = _rightFilter.filter(rightRaw.toDouble());
+    final leftFiltered = _leftFilter.filter(leftRaw.toDouble());
     final rightRms = _rightFilter.processRms(rightFiltered);
     final leftRms = _leftFilter.processRms(leftFiltered);
+    final rightLevel = _signalProcessor.baselineCorrectedRms(
+      rightRms,
+      state.baselineRmsRight,
+    );
+    final leftLevel = _signalProcessor.baselineCorrectedRms(
+      leftRms,
+      state.baselineRmsLeft,
+    );
 
-    _liveActivation = rightRms;
-    _activationSum += leftRms;
-    _activationSumRight += rightRms;
+    _liveActivation = rightLevel;
+    _activationSum += leftLevel;
+    _activationSumRight += rightLevel;
     _activationCount++;
-    _windowActivationSum += leftRms;
-    _windowActivationSumRight += rightRms;
+    _windowActivationSum += leftLevel;
+    _windowActivationSumRight += rightLevel;
+    _windowRmsSumLeft += leftRms;
+    _windowRmsSumRight += rightRms;
     _windowActivationCount++;
 
-    if (leftRms > _sessionPeakRmsLeft) {
-      _sessionPeakRmsLeft = leftRms;
+    if (leftLevel > _sessionPeakRmsLeft) {
+      _sessionPeakRmsLeft = leftLevel;
     }
-    if (rightRms > _sessionPeakRmsRight) {
-      _sessionPeakRmsRight = rightRms;
+    if (rightLevel > _sessionPeakRmsRight) {
+      _sessionPeakRmsRight = rightLevel;
     }
 
     // Keep legacy activationFromRaw tracking for session summaries
-    final double rightActivation = _signalProcessor.activationFromRaw(ch1Adjusted.toInt());
-    final double leftActivation = _signalProcessor.activationFromRaw(ch3Adjusted.toInt());
+    final double rightActivation = _signalProcessor.activationFromRaw(rightRaw);
+    final double leftActivation = _signalProcessor.activationFromRaw(leftRaw);
     if (leftActivation > _sessionPeakLeft) {
       _sessionPeakLeft = leftActivation;
     }
@@ -659,8 +681,16 @@ class SessionBloc extends Cubit<SessionState> {
     final now = DateTime.now();
     final duration = now.difference(_sessionStartedAt!).inSeconds;
 
-    final double leftAvg = _activationSum / _activationCount;
-    final double rightAvg = _activationSumRight / _activationCount;
+    final double leftAvg = _sessionPeakRmsLeft > 0
+        ? ((_activationSum / _activationCount) / _sessionPeakRmsLeft).clamp(
+            0.0,
+            1.0,
+          )
+        : 0.0;
+    final double rightAvg = _sessionPeakRmsRight > 0
+        ? ((_activationSumRight / _activationCount) / _sessionPeakRmsRight)
+              .clamp(0.0, 1.0)
+        : 0.0;
     // Calculate right activation average by using final session corrected SI if possible
     final double? finalSymmetryIndex = _smoothedSI ?? _calculateSymmetryIndex();
 
@@ -686,8 +716,16 @@ class SessionBloc extends Cubit<SessionState> {
     }
     final now = DateTime.now();
     final duration = now.difference(_sessionStartedAt!).inSeconds;
-    final double leftAvg = _activationSum / _activationCount;
-    final double rightAvg = _activationSumRight / _activationCount;
+    final double leftAvg = _sessionPeakRmsLeft > 0
+        ? ((_activationSum / _activationCount) / _sessionPeakRmsLeft).clamp(
+            0.0,
+            1.0,
+          )
+        : 0.0;
+    final double rightAvg = _sessionPeakRmsRight > 0
+        ? ((_activationSumRight / _activationCount) / _sessionPeakRmsRight)
+              .clamp(0.0, 1.0)
+        : 0.0;
     final double? finalSymmetryIndex = _smoothedSI ?? _calculateSymmetryIndex();
     final summary = SessionSummary(
       startedAt: _sessionStartedAt!,
@@ -704,7 +742,9 @@ class SessionBloc extends Cubit<SessionState> {
     _history.insert(0, summary);
     await _historyStore.save(_history.take(10).toList(growable: false));
     if (!isClosed) {
-      emit(state.copyWith(history: List<SessionSummary>.unmodifiable(_history)));
+      emit(
+        state.copyWith(history: List<SessionSummary>.unmodifiable(_history)),
+      );
     }
   }
 
@@ -730,6 +770,8 @@ class SessionBloc extends Cubit<SessionState> {
     _siBuffer.clear();
     _windowActivationSum = 0;
     _windowActivationSumRight = 0;
+    _windowRmsSumLeft = 0;
+    _windowRmsSumRight = 0;
     _windowActivationCount = 0;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
@@ -780,7 +822,11 @@ class SessionBloc extends Cubit<SessionState> {
     if (_windowActivationCount > 0) {
       final leftAvg = _windowActivationSum / _windowActivationCount;
       final rightAvg = _windowActivationSumRight / _windowActivationCount;
-      return _signalProcessor.symmetryIndexFromLevels(leftAvg, rightAvg);
+      return _signalProcessor.symmetryIndexFromLevels(
+        leftAvg,
+        rightAvg,
+        minimumCombinedLevel: 1.0,
+      );
     }
     return null;
   }
@@ -795,32 +841,51 @@ class SessionBloc extends Cubit<SessionState> {
 
     final double leftAct = hasWindowData
         ? _windowActivationSum / _windowActivationCount
-        : state.leftTrapRms;
+        : 0.0;
     final double rightAct = hasWindowData
         ? _windowActivationSumRight / _windowActivationCount
+        : 0.0;
+    final double leftRms = hasWindowData
+        ? _windowRmsSumLeft / _windowActivationCount
+        : state.leftTrapRms;
+    final double rightRms = hasWindowData
+        ? _windowRmsSumRight / _windowActivationCount
         : state.rightTrapRms;
 
     if (hasWindowData) {
       _windowActivationSum = 0;
       _windowActivationSumRight = 0;
+      _windowRmsSumLeft = 0;
+      _windowRmsSumRight = 0;
       _windowActivationCount = 0;
 
-      final newSI = _signalProcessor.symmetryIndexFromLevels(leftAct, rightAct);
-      _addSymmetryIndex(newSI);
+      final newSI = _signalProcessor.symmetryIndexFromLevels(
+        leftAct,
+        rightAct,
+        minimumCombinedLevel: 1.0,
+      );
+      if (newSI != null) {
+        _addSymmetryIndex(newSI);
+      } else {
+        _siBuffer.clear();
+      }
     }
 
     final peakLeft = _sessionPeakRmsLeft > 0.001 ? _sessionPeakRmsLeft : null;
-    final peakRight = _sessionPeakRmsRight > 0.001 ? _sessionPeakRmsRight : null;
+    final peakRight = _sessionPeakRmsRight > 0.001
+        ? _sessionPeakRmsRight
+        : null;
 
     final smoothedSI = _smoothedSI;
 
-    final isLost = _lastFrameAt != null &&
+    final isLost =
+        _lastFrameAt != null &&
         DateTime.now().difference(_lastFrameAt!).inMilliseconds > 2000;
     final newStatus = state.status == SessionStatus.signalLost && !isLost
         ? SessionStatus.connected
         : state.status == SessionStatus.connected && isLost
-            ? SessionStatus.signalLost
-            : state.status;
+        ? SessionStatus.signalLost
+        : state.status;
 
     emit(
       state.copyWith(
@@ -838,8 +903,8 @@ class SessionBloc extends Cubit<SessionState> {
         history: List<SessionSummary>.unmodifiable(_history),
         connectedAtMs: _connectedAt?.millisecondsSinceEpoch,
         lastFrameMs: _lastFrameAt?.millisecondsSinceEpoch,
-        leftTrapRms: leftAct,
-        rightTrapRms: rightAct,
+        leftTrapRms: leftRms,
+        rightTrapRms: rightRms,
         normalisedLeftActivation: peakLeft != null
             ? (leftAct / peakLeft).clamp(0.0, 1.0)
             : leftAct.clamp(0.0, 1.0),

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../theme/app_theme.dart';
+import '../../widgets/sensor_placement_guide.dart';
 import '../bloc/session_bloc.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -45,7 +46,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 
   void _nextPage() {
-    if (_currentPage < 5) {
+    if (_currentPage < 6) {
       _pageCtrl.nextPage(
         duration: const Duration(milliseconds: 380),
         curve: Curves.easeOutCubic,
@@ -55,7 +56,7 @@ class _OnboardingPageState extends State<OnboardingPage>
 
   void _skipToLast() {
     _pageCtrl.animateToPage(
-      5,
+      6,
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeOutCubic,
     );
@@ -125,7 +126,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                     ],
                   ),
                   const Spacer(),
-                  if (_currentPage < 5)
+                  if (_currentPage < 6)
                     TextButton(
                       onPressed: _skipToLast,
                       style: TextButton.styleFrom(
@@ -176,6 +177,10 @@ class _OnboardingPageState extends State<OnboardingPage>
                     entry: _entryCtrl,
                     illustration: const _BluetoothConnectionIllustration(),
                   ),
+                  _SlideElectrodePlacement(
+                    key: const ValueKey<String>('placement'),
+                    entry: _entryCtrl,
+                  ),
                   _SlideImage(
                     key: const ValueKey<String>('stairs'),
                     asset: 'assets/images/onboarding/stairs.png',
@@ -219,7 +224,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                 children: <Widget>[
                   SmoothPageIndicator(
                     controller: _pageCtrl,
-                    count: 6,
+                    count: 7,
                     effect: ExpandingDotsEffect(
                       dotHeight: 7,
                       dotWidth: 7,
@@ -230,7 +235,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                     ),
                   ),
                   const SizedBox(height: AppTheme.spaceLG),
-                  if (_currentPage == 5)
+                  if (_currentPage == 6)
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -400,6 +405,73 @@ class _SlideImage extends StatelessWidget {
                 color: AppTheme.lightTextSecondary,
                 height: 1.55,
               ),
+            ),
+          ),
+          const Spacer(flex: 1),
+        ],
+      ),
+    );
+  }
+}
+
+class _SlideElectrodePlacement extends StatelessWidget {
+  const _SlideElectrodePlacement({super.key, required this.entry});
+
+  final AnimationController entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLG),
+      child: Column(
+        children: <Widget>[
+          const SizedBox(height: AppTheme.spaceLG),
+          Expanded(
+            flex: 7,
+            child: FadeTransition(
+              opacity: entry,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F4F8),
+                  borderRadius: AppTheme.cardRadius,
+                  border: Border.all(color: AppTheme.lightDivider),
+                  boxShadow: AppTheme.lightCardShadow,
+                ),
+                padding: const EdgeInsets.all(12),
+                child: const SensorPlacementDiagram(),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceLG),
+          Text(
+            'Place Both Sensors',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 25,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.lightTextPrimary,
+              height: 1.2,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceSM),
+          Text(
+            'Use matching positions on the left and right upper trapezius. Clean and dry the skin, align the sensor with the muscle, and avoid bone or irritated skin.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppTheme.lightTextSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Follow the sensor manufacturer’s instructions for electrode spacing and cable fixation.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              color: AppTheme.lightTextTertiary,
+              height: 1.35,
             ),
           ),
           const Spacer(flex: 1),

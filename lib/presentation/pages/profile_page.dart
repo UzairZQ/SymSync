@@ -5,7 +5,9 @@ import '../../theme/app_theme.dart';
 import '../../theme/theme_provider.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
+import '../../widgets/sensor_placement_guide.dart';
 import '../../widgets/theme_toggle.dart';
+import '../../widgets/terms_glossary_sheet.dart';
 import '../bloc/session_bloc.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -191,6 +193,22 @@ class ProfilePage extends StatelessWidget {
               inverted: true,
             ),
             const SizedBox(height: 24),
+            const _SectionTitle('Learn'),
+            _ActionRow(
+              icon: Icons.menu_book_outlined,
+              title: 'SymSync terms',
+              body:
+                  'Understand symmetry, balance, activation, trends, and signal quality.',
+              onTap: () => showTermsGlossarySheet(context),
+            ),
+            _ActionRow(
+              icon: Icons.sensors_outlined,
+              title: 'Sensor placement',
+              body:
+                  'Review the upper-trapezius landmarks and bilateral setup steps.',
+              onTap: () => showSensorPlacementSheet(context),
+            ),
+            const SizedBox(height: 24),
             const _SectionTitle('Preferences'),
             _ToggleRow(
               title: 'Dark Theme',
@@ -253,6 +271,68 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppTheme.accentTeal.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: AppTheme.accentTeal, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: AppTheme.headingMedium.copyWith(
+                      color: context.txtPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    body,
+                    style: AppTheme.bodySmall.copyWith(
+                      color: context.txtSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: context.txtTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileStatCard extends StatelessWidget {
   const _ProfileStatCard({
     required this.icon,
@@ -312,10 +392,7 @@ class _ProfileStatCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 value,
-                style: AppTheme.displayLarge.copyWith(
-                  color: fg,
-                  fontSize: 36,
-                ),
+                style: AppTheme.displayLarge.copyWith(color: fg, fontSize: 36),
               ),
               const SizedBox(width: 6),
               Padding(
@@ -352,9 +429,7 @@ class _SectionTitle extends StatelessWidget {
       ),
       child: Text(
         title,
-        style: AppTheme.headingLarge.copyWith(
-          color: context.txtPrimary,
-        ),
+        style: AppTheme.headingLarge.copyWith(color: context.txtPrimary),
       ),
     );
   }

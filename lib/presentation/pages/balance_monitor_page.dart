@@ -147,7 +147,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(
-                        'Use the slider position to keep both sides balanced.',
+                        'The marker shows EMG activation imbalance, not body angle.',
                         style: AppTheme.bodyMedium.copyWith(
                           color: context.txtSecondary,
                           fontWeight: FontWeight.w700,
@@ -311,9 +311,7 @@ class _ChannelCard extends StatelessWidget {
         children: <Widget>[
           Text(
             label,
-            style: AppTheme.headingMedium.copyWith(
-              color: context.txtPrimary,
-            ),
+            style: AppTheme.headingMedium.copyWith(color: context.txtPrimary),
           ),
           const SizedBox(height: AppTheme.spaceSM),
           Row(
@@ -331,10 +329,11 @@ class _ChannelCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '%',
+                  '% peak',
                   style: AppTheme.bodySmall.copyWith(
                     color: context.txtTertiary,
                     fontWeight: FontWeight.w700,
+                    fontSize: 9,
                   ),
                 ),
               ),

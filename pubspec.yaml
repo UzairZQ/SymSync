@@ -57,6 +57,7 @@ flutter:
 
   assets:
     - assets/images/upper_body.png
+    - assets/images/upper_body_clinical.png
     - assets/images/onboarding/welcome.png
     - assets/images/onboarding/emg.png
     - assets/images/onboarding/stairs.png

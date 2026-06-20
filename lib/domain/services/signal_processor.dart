@@ -5,22 +5,37 @@ class SignalProcessor {
 
   static const int adcMidpoint = 32768;
   static const int fullScale = 65535;
+  static const double sampleRateHz = 1000.0;
+  static const double highPassCutoffHz = 20.0;
+  static const double lowPassCutoffHz = 400.0;
 
   double activationFromRaw(int raw) {
     final normalized = (raw - adcMidpoint).abs() / adcMidpoint;
     return normalized.clamp(0.0, 1.0);
   }
 
-  double symmetryIndexFromLevels(double left, double right) {
+  double baselineCorrectedRms(double rms, double baselineRms) {
+    final signalPower = (rms * rms) - (baselineRms * baselineRms);
+    return signalPower <= 0 ? 0.0 : math.sqrt(signalPower);
+  }
+
+  double? symmetryIndexFromLevels(
+    double left,
+    double right, {
+    double minimumCombinedLevel = 0.0,
+  }) {
     final denominator = left + right;
-    if (denominator == 0) {
-      return 0;
+    if (denominator <= minimumCombinedLevel) {
+      return null;
     }
     return ((right - left) / denominator) * 100.0;
   }
 
-  double tiltDegreesFromSymmetry(double symmetryIndex) {
-    return (symmetryIndex / 3.0).clamp(-20.0, 20.0);
+  double balancePositionFromSymmetry(double symmetryIndex) {
+    return ((symmetryIndex.clamp(-100.0, 100.0) + 100.0) / 200.0).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   String correctiveInstruction(double? symmetryIndex) {
@@ -53,11 +68,37 @@ class SignalProcessor {
 }
 
 class SignalFilterState {
+  SignalFilterState({
+    this.sampleRateHz = SignalProcessor.sampleRateHz,
+    this.highPassCutoffHz = SignalProcessor.highPassCutoffHz,
+    this.lowPassCutoffHz = SignalProcessor.lowPassCutoffHz,
+    this.rmsWindowMilliseconds = 100,
+  });
+
+  final double sampleRateHz;
+  final double highPassCutoffHz;
+  final double lowPassCutoffHz;
+  final int rmsWindowMilliseconds;
+
   double _hpPrevX = 0;
   double _hpPrevY = 0;
   double _lpPrevY = 0;
-  final List<double> _rmsWindow = [];
-  static const int _rmsWindowSize = 100;
+  final List<double> _rmsWindow = <double>[];
+
+  int get _rmsWindowSize =>
+      math.max(1, (sampleRateHz * rmsWindowMilliseconds / 1000).round());
+
+  double get _highPassAlpha {
+    final dt = 1.0 / sampleRateHz;
+    final rc = 1.0 / (2.0 * math.pi * highPassCutoffHz);
+    return rc / (rc + dt);
+  }
+
+  double get _lowPassAlpha {
+    final dt = 1.0 / sampleRateHz;
+    final rc = 1.0 / (2.0 * math.pi * lowPassCutoffHz);
+    return dt / (rc + dt);
+  }
 
   void reset() {
     _hpPrevX = 0;
@@ -67,20 +108,16 @@ class SignalFilterState {
   }
 
   double filter(double raw) {
-    final x = raw - 32768.0;
+    final x = raw - SignalProcessor.adcMidpoint;
 
-    // Highpass filter (approx 20Hz cutoff at 1000Hz)
-    const double alphaHp = 0.88;
-    final yHp = alphaHp * (_hpPrevY + x - _hpPrevX);
+    final yHp = _highPassAlpha * (_hpPrevY + x - _hpPrevX);
     _hpPrevX = x;
     _hpPrevY = yHp;
 
-    // Lowpass filter (approx 400Hz cutoff at 1000Hz)
-    const double alphaLp = 0.7;
-    final yLp = _lpPrevY + alphaLp * (yHp - _lpPrevY);
+    final yLp = _lpPrevY + _lowPassAlpha * (yHp - _lpPrevY);
     _lpPrevY = yLp;
 
-    return (yLp / 65.5).clamp(-500.0, 500.0);
+    return yLp;
   }
 
   double processRms(double filteredValue) {

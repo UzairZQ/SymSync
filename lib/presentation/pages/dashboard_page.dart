@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/heatmap_utils.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
+import '../../widgets/terms_glossary_sheet.dart';
 import '../../widgets/theme_toggle.dart';
 import '../bloc/session_bloc.dart';
 import '../../screens/calibration_screen.dart';
@@ -78,6 +79,17 @@ class DashboardPage extends StatelessWidget {
                 ConnectionBadge(
                   isConnected: isConnected,
                   isConnecting: isConnecting,
+                ),
+                const SizedBox(width: AppTheme.spaceSM),
+                IconButton(
+                  tooltip: 'Explain SymSync terms',
+                  onPressed: () => showTermsGlossarySheet(context),
+                  style: IconButton.styleFrom(
+                    backgroundColor: context.bgCard,
+                    foregroundColor: context.txtSecondary,
+                    side: BorderSide(color: context.dividerClr),
+                  ),
+                  icon: const Icon(Icons.help_outline_rounded, size: 18),
                 ),
                 const SizedBox(width: AppTheme.spaceSM),
                 const ThemeToggle(),
@@ -468,9 +480,7 @@ class _LiveChannelStatusCard extends StatelessWidget {
         children: <Widget>[
           Text(
             'Live Channel Status',
-            style: AppTheme.headingMedium.copyWith(
-              color: context.txtPrimary,
-            ),
+            style: AppTheme.headingMedium.copyWith(color: context.txtPrimary),
           ),
           const SizedBox(height: 12),
           _ActivationStatusRow(
@@ -601,7 +611,11 @@ class _SessionListItem extends StatelessWidget {
               color: tagColor.withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.accessibility_new_rounded, color: tagColor, size: 16),
+            child: Icon(
+              Icons.accessibility_new_rounded,
+              color: tagColor,
+              size: 16,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
