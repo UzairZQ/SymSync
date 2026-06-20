@@ -30,6 +30,11 @@ class SessionHistoryStore {
   Future<void> append(SessionSummary summary) async {
     final items = await load();
     items.insert(0, summary);
-    await save(items.take(10).toList(growable: false));
+    await save(items.take(500).toList(growable: false));
+  }
+
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_historyKey);
   }
 }

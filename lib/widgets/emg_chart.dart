@@ -27,7 +27,8 @@ class EMGChart extends StatefulWidget {
   State<EMGChart> createState() => _EMGChartState();
 }
 
-class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin {
+class _EMGChartState extends State<EMGChart>
+    with SingleTickerProviderStateMixin {
   final List<double> _buffer = [];
   final SignalFilterState _filterState = SignalFilterState();
   StreamSubscription<EmgFrame>? _subscription;
@@ -101,7 +102,9 @@ class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin
 
       final now = DateTime.now();
       _recentRawValues.add((time: now, value: raw));
-      _recentRawValues.removeWhere((item) => now.difference(item.time).inSeconds > 2);
+      _recentRawValues.removeWhere(
+        (item) => now.difference(item.time).inSeconds > 2,
+      );
 
       // Channel is active if variance in the last 2 seconds > 50 ADC units
       bool active = false;
@@ -206,7 +209,12 @@ class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppTheme.spaceMD, AppTheme.spaceSM, AppTheme.spaceMD, AppTheme.spaceSM),
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceMD,
+                AppTheme.spaceSM,
+                AppTheme.spaceMD,
+                AppTheme.spaceSM,
+              ),
               child: Row(
                 children: [
                   Container(
@@ -220,7 +228,7 @@ class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin
                           color: widget.lineColor.withValues(alpha: 0.4),
                           blurRadius: 6,
                           spreadRadius: 2,
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -274,8 +282,12 @@ class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin
                         ),
                         titlesData: FlTitlesData(
                           show: true,
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
@@ -284,22 +296,34 @@ class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin
                                 final tolerance = (maxY - minY) * 0.05;
                                 final diffMin = (value - minY).abs();
                                 final diffMax = (value - maxY).abs();
-                                final diffMid = (value - (minY + maxY) / 2).abs();
+                                final diffMid = (value - (minY + maxY) / 2)
+                                    .abs();
 
-                                if (diffMin < tolerance || diffMax < tolerance || diffMid < tolerance) {
+                                if (diffMin < tolerance ||
+                                    diffMax < tolerance ||
+                                    diffMid < tolerance) {
                                   String label = '';
                                   if (widget.mode == 'Raw ADC') {
-                                    if (diffMin < tolerance) label = '0';
-                                    else if (diffMid < tolerance) label = '32k';
-                                    else if (diffMax < tolerance) label = '65k';
+                                    if (diffMin < tolerance)
+                                      label = '0';
+                                    else if (diffMid < tolerance)
+                                      label = '32k';
+                                    else if (diffMax < tolerance)
+                                      label = '65k';
                                   } else if (widget.mode == 'Filtered') {
-                                    if (diffMin < tolerance) label = '-500';
-                                    else if (diffMid < tolerance) label = '0';
-                                    else if (diffMax < tolerance) label = '500';
+                                    if (diffMin < tolerance)
+                                      label = '-500';
+                                    else if (diffMid < tolerance)
+                                      label = '0';
+                                    else if (diffMax < tolerance)
+                                      label = '500';
                                   } else {
-                                    if (diffMin < tolerance) label = '0.0';
-                                    else if (diffMid < tolerance) label = '0.5';
-                                    else if (diffMax < tolerance) label = '1.0';
+                                    if (diffMin < tolerance)
+                                      label = '0.0';
+                                    else if (diffMid < tolerance)
+                                      label = '0.5';
+                                    else if (diffMax < tolerance)
+                                      label = '1.0';
                                   }
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 6.0),
@@ -323,12 +347,17 @@ class _EMGChartState extends State<EMGChart> with SingleTickerProviderStateMixin
                               reservedSize: 18,
                               getTitlesWidget: (value, meta) {
                                 String label = '';
-                                if (value == 0) label = '-3s';
-                                else if ((value - 1000).abs() < 10) label = '-2s';
-                                else if ((value - 2000).abs() < 10) label = '-1s';
-                                else if ((value - 2999).abs() < 10) label = 'Now';
+                                if (value == 0)
+                                  label = '-3s';
+                                else if ((value - 1000).abs() < 10)
+                                  label = '-2s';
+                                else if ((value - 2000).abs() < 10)
+                                  label = '-1s';
+                                else if ((value - 2999).abs() < 10)
+                                  label = 'Now';
 
-                                if (label.isEmpty) return const SizedBox.shrink();
+                                if (label.isEmpty)
+                                  return const SizedBox.shrink();
                                 return Text(
                                   label,
                                   style: AppTheme.monoSmall.copyWith(

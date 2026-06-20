@@ -10,6 +10,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/terms_glossary_sheet.dart';
 import '../../widgets/theme_toggle.dart';
+import '../../widgets/research_context_sheet.dart';
 import '../bloc/session_bloc.dart';
 import '../../screens/calibration_screen.dart';
 import 'session_page.dart';
@@ -36,7 +37,8 @@ class DashboardPage extends StatelessWidget {
       builder: (context, state) {
         final symmetry = state.symmetryIndex;
         final hasSymmetry = symmetry != null;
-        final symmetryScores = state.history
+        final participantHistory = state.activeHistory;
+        final symmetryScores = participantHistory
             .map((s) => s.averageSymmetryIndex)
             .whereType<double>()
             .toList();
@@ -53,8 +55,8 @@ class DashboardPage extends StatelessWidget {
                   .toStringAsFixed(0);
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
-        final hasAnyData = state.history.isNotEmpty || hasSymmetry;
-        final recent = state.history.take(3).toList();
+        final hasAnyData = participantHistory.isNotEmpty || hasSymmetry;
+        final recent = participantHistory.take(3).toList();
 
         final now = DateTime.now();
         final calibratedAt = state.calibratedAt;
@@ -114,6 +116,8 @@ class DashboardPage extends StatelessWidget {
                 height: 1.4,
               ),
             ),
+            const SizedBox(height: 12),
+            const ResearchContextBanner(compact: true),
             const SizedBox(height: 14),
             AppCard(
               padding: const EdgeInsets.all(20),
@@ -166,7 +170,7 @@ class DashboardPage extends StatelessWidget {
                   const SizedBox(height: 18),
                   _MetricRow(
                     label: 'Sessions Today',
-                    value: '${state.history.length}',
+                    value: '${participantHistory.length}',
                   ),
                   _MetricRow(label: 'Avg Symmetry', value: avgSymmetry ?? '—'),
                   _MetricRow(

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../domain/models/research_context.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/heatmap_silhouette_widget.dart';
 import '../../widgets/terms_glossary_sheet.dart';
+import '../../widgets/research_context_sheet.dart';
 
 class ActivationSummaryPage extends StatefulWidget {
   const ActivationSummaryPage({super.key});
@@ -29,7 +32,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
           const Duration(days: 30),
         ];
         final cutoff = now.subtract(periods[_periodIndex]);
-        final filteredHistory = state.history
+        final filteredHistory = state.activeHistory
             .where((s) => s.startedAt.isAfter(cutoff))
             .toList();
 
@@ -115,6 +118,8 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
               'Review your recent symmetry and muscle pattern trends',
               style: AppTheme.bodyMedium.copyWith(color: context.txtSecondary),
             ),
+            const SizedBox(height: AppTheme.spaceMD),
+            const ResearchContextBanner(compact: true),
             const SizedBox(height: AppTheme.spaceMD),
             AppCard(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
@@ -290,6 +295,11 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                 ],
               ),
             ),
+            const SizedBox(height: AppTheme.spaceLG),
+            _ExerciseRecommendations(
+              primaryImbalance: primaryImbalance,
+              scenarioLabel: state.selectedScenario.shortLabel,
+            ),
           ],
         );
       },
@@ -422,6 +432,190 @@ class _EmptyHeatmap extends StatelessWidget {
             style: AppTheme.bodySmall.copyWith(color: context.txtTertiary),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ExerciseRecommendations extends StatelessWidget {
+  const _ExerciseRecommendations({
+    required this.primaryImbalance,
+    required this.scenarioLabel,
+  });
+
+  final String primaryImbalance;
+  final String scenarioLabel;
+
+  static const _videos = <_ExerciseVideo>[
+    _ExerciseVideo(
+      id: '-r0eoFS7_5Q',
+      title: 'Upper Trapezius Stretch',
+      source: 'Ask Doctor Jo',
+      purpose: 'Gentle mobility for a tense or overactive upper trapezius.',
+    ),
+    _ExerciseVideo(
+      id: 'IBdiLul8x2k',
+      title: 'Scapular Retraction',
+      source: 'National University Hospital Singapore',
+      purpose: 'A simple posture exercise for the neck and upper back.',
+    ),
+    _ExerciseVideo(
+      id: '_94If_xw7Lg',
+      title: 'Early Scapular Strengthening',
+      source: 'Physiotutors',
+      purpose: 'Controlled shoulder-blade strengthening with clear form cues.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final guidance = primaryImbalance == 'Balanced'
+        ? 'Maintain balanced movement with gentle mobility and control.'
+        : 'Use these as general educational exercises for $scenarioLabel. '
+              'Stop if an exercise causes pain and consult a clinician when needed.';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          'Recommended exercises',
+          style: AppTheme.headingLarge.copyWith(color: context.txtPrimary),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          guidance,
+          style: AppTheme.bodySmall.copyWith(
+            color: context.txtSecondary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 224,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _videos.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) =>
+                _ExerciseVideoCard(video: _videos[index]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExerciseVideo {
+  const _ExerciseVideo({
+    required this.id,
+    required this.title,
+    required this.source,
+    required this.purpose,
+  });
+
+  final String id;
+  final String title;
+  final String source;
+  final String purpose;
+}
+
+class _ExerciseVideoCard extends StatelessWidget {
+  const _ExerciseVideoCard({required this.video});
+
+  final _ExerciseVideo video;
+
+  Future<void> _open(BuildContext context) async {
+    final uri = Uri.parse('https://www.youtube.com/watch?v=${video.id}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The video could not be opened.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 250,
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          onTap: () => _open(context),
+          borderRadius: AppTheme.cardRadius,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radiusXL),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: <Widget>[
+                    Image.network(
+                      'https://img.youtube.com/vi/${video.id}/hqdefault.jpg',
+                      height: 112,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        height: 112,
+                        color: context.bgElevated,
+                        child: const Icon(Icons.video_library_outlined),
+                      ),
+                    ),
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: const BoxDecoration(
+                        color: Color(0xDD171916),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      video.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.headingMedium.copyWith(
+                        color: context.txtPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      video.source,
+                      style: AppTheme.labelSmall.copyWith(
+                        color: AppTheme.accentTeal,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      video.purpose,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.bodySmall.copyWith(
+                        color: context.txtSecondary,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

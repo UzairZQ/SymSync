@@ -59,18 +59,15 @@ class SessionAggregator {
     return grid;
   }
 
-  static void _addActivationToGrid(
-    List<List<double>> grid,
-    double activation,
-  ) {
+  static void _addActivationToGrid(List<List<double>> grid, double activation) {
     activation = activation.clamp(0.0, 1.0);
 
     for (int r = 0; r < _gridRows; r++) {
       for (int c = 0; c < _gridCols; c++) {
         final vertical = (r / (_gridRows - 1)).clamp(0.0, 1.0);
         final horizontal = (c / (_gridCols - 1) - 0.5).abs() * 2.0;
-        final intensity = (1.0 - (vertical * 0.6 + horizontal * 0.4)) *
-            activation;
+        final intensity =
+            (1.0 - (vertical * 0.6 + horizontal * 0.4)) * activation;
 
         grid[r][c] += intensity;
       }

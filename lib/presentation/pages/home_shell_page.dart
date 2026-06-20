@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import 'activation_summary_page.dart';
 import 'dashboard_page.dart';
 import 'profile_page.dart';
+import 'participant_setup_page.dart';
 import 'session_page.dart';
 
 class HomeShellPage extends StatefulWidget {
@@ -84,60 +85,75 @@ class _HomeShellPageState extends State<HomeShellPage> {
       const ProfilePage(),
     ];
 
-    return BlocListener<SessionBloc, SessionState>(
-      listenWhen: (prev, cur) =>
-          prev.errorMessage != cur.errorMessage && cur.errorMessage != null,
-      listener: (context, state) {
-        if (state.errorMessage != null)
-          _showError(context, state.errorMessage!);
-      },
-      child: Scaffold(
-        body: Stack(
-          children: <Widget>[
-            Container(color: context.bgPrimary),
-            Column(
+    return BlocBuilder<SessionBloc, SessionState>(
+      buildWhen: (previous, current) =>
+          previous.researchContextLoaded != current.researchContextLoaded ||
+          previous.participants != current.participants,
+      builder: (context, researchState) {
+        if (!researchState.researchContextLoaded) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (researchState.participants.isEmpty) {
+          return const ParticipantSetupPage();
+        }
+        return BlocListener<SessionBloc, SessionState>(
+          listenWhen: (prev, cur) =>
+              prev.errorMessage != cur.errorMessage && cur.errorMessage != null,
+          listener: (context, state) {
+            if (state.errorMessage != null)
+              _showError(context, state.errorMessage!);
+          },
+          child: Scaffold(
+            body: Stack(
               children: <Widget>[
-                Expanded(
-                  child: SafeArea(
-                    bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: BlocBuilder<SessionBloc, SessionState>(
-                        buildWhen: (prev, cur) =>
-                            prev.selectedTab != cur.selectedTab,
-                        builder: (context, state) {
-                          final index = state.selectedTab.index.clamp(
-                            0,
-                            pages.length - 1,
-                          );
-                          return IndexedStack(
-                            index: index,
-                            children: pages.asMap().entries.map((entry) {
-                              return AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: index == entry.key ? 1 : 0,
-                                curve: Curves.easeInOut,
-                                child: IgnorePointer(
-                                  ignoring: index != entry.key,
-                                  child: entry.value,
-                                ),
+                Container(color: context.bgPrimary),
+                Column(
+                  children: <Widget>[
+                    Expanded(
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          child: BlocBuilder<SessionBloc, SessionState>(
+                            buildWhen: (prev, cur) =>
+                                prev.selectedTab != cur.selectedTab,
+                            builder: (context, state) {
+                              final index = state.selectedTab.index.clamp(
+                                0,
+                                pages.length - 1,
                               );
-                            }).toList(),
-                          );
-                        },
+                              return IndexedStack(
+                                index: index,
+                                children: pages.asMap().entries.map((entry) {
+                                  return AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 200),
+                                    opacity: index == entry.key ? 1 : 0,
+                                    curve: Curves.easeInOut,
+                                    child: IgnorePointer(
+                                      ignoring: index != entry.key,
+                                      child: entry.value,
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                _BottomNav(
-                  onChanged: (tab) =>
-                      context.read<SessionBloc>().selectTab(tab),
+                    _BottomNav(
+                      onChanged: (tab) =>
+                          context.read<SessionBloc>().selectTab(tab),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

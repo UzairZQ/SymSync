@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/services/session_aggregator.dart';
+import '../../utils/heatmap_utils.dart';
 import '../widgets/session_visuals.dart';
 import '../../theme/app_theme.dart';
 
@@ -85,11 +86,7 @@ class _GradientLegend extends StatelessWidget {
           width: 120,
           height: 16,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF355CFF), Color(0xFFFF7A59)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
+            gradient: HeatmapGradient.horizontal(),
             borderRadius: BorderRadius.circular(4),
           ),
         ),

@@ -6,6 +6,7 @@ import '../../screens/calibration_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
 import '../../widgets/connection_badge.dart';
+import '../../widgets/research_context_sheet.dart';
 import '../bloc/session_bloc.dart';
 import 'anatomical_view_page.dart';
 import 'balance_monitor_page.dart';
@@ -153,6 +154,8 @@ class _SessionPageState extends State<SessionPage> {
               ),
             ),
 
+            const ResearchContextBanner(compact: true),
+            const SizedBox(height: AppTheme.spaceSM),
             SessionTabBar(
               selectedIndex: _selectedIndex,
               labels: tabs,
@@ -164,10 +167,7 @@ class _SessionPageState extends State<SessionPage> {
             const SizedBox(height: AppTheme.spaceSM),
 
             Expanded(
-              child: PageView(
-                controller: _pageController,
-                children: pages,
-              ),
+              child: PageView(controller: _pageController, children: pages),
             ),
 
             const SizedBox(height: AppTheme.spaceSM),
@@ -203,13 +203,16 @@ class _SessionActionsBar extends StatelessWidget {
                         if (isRecording) {
                           await context.read<SessionBloc>().stopRecording();
                         } else {
-                          await context.read<SessionBloc>().startRecording();
+                          final confirmed = await showRecordingContextSheet(
+                            context,
+                          );
+                          if (confirmed && context.mounted) {
+                            await context.read<SessionBloc>().startRecording();
+                          }
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   backgroundColor: isRecording
                       ? AppTheme.accentRed
                       : context.txtPrimary,

@@ -7,7 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/emg/emg_hardware.dart';
 import '../../data/history/session_history_store.dart';
+import '../../data/notifications/local_notification_service.dart';
+import '../../data/research/research_context_store.dart';
 import '../../domain/models/emg_frame.dart';
+import '../../domain/models/research_context.dart';
 import '../../domain/models/session_summary.dart';
 import '../../domain/models/session_tab.dart';
 import '../../domain/services/signal_processor.dart';
@@ -46,6 +49,11 @@ class SessionState extends Equatable {
     required this.baselineRmsLeft,
     required this.baselineRmsRight,
     required this.isRecording,
+    required this.researchContextLoaded,
+    required this.participants,
+    required this.activeParticipantId,
+    required this.selectedScenario,
+    required this.notificationPreferences,
     this.calibratedAt,
   });
 
@@ -83,6 +91,11 @@ class SessionState extends Equatable {
       baselineRmsLeft: 0.0,
       baselineRmsRight: 0.0,
       isRecording: false,
+      researchContextLoaded: false,
+      participants: const <ParticipantProfile>[],
+      activeParticipantId: null,
+      selectedScenario: UsageScenario.officeDesk,
+      notificationPreferences: const NotificationPreferences(),
       calibratedAt: null,
     );
   }
@@ -112,6 +125,11 @@ class SessionState extends Equatable {
   final double baselineRmsLeft;
   final double baselineRmsRight;
   final bool isRecording;
+  final bool researchContextLoaded;
+  final List<ParticipantProfile> participants;
+  final String? activeParticipantId;
+  final UsageScenario selectedScenario;
+  final NotificationPreferences notificationPreferences;
   final DateTime? calibratedAt;
 
   bool get isConnected =>
@@ -121,7 +139,18 @@ class SessionState extends Equatable {
 
   String get greeting => greetingForHour(DateTime.now().hour);
 
-  String get displayName => 'Participant';
+  ParticipantProfile? get activeParticipant {
+    for (final participant in participants) {
+      if (participant.id == activeParticipantId) return participant;
+    }
+    return null;
+  }
+
+  String get displayName => activeParticipant?.displayLabel ?? 'Participant';
+
+  List<SessionSummary> get activeHistory => history
+      .where((summary) => summary.participantId == activeParticipantId)
+      .toList(growable: false);
 
   double get baselineCorrectedSI {
     final l = leftTrapRms - baselineRmsLeft;
@@ -159,6 +188,12 @@ class SessionState extends Equatable {
     double? baselineRmsLeft,
     double? baselineRmsRight,
     bool? isRecording,
+    bool? researchContextLoaded,
+    List<ParticipantProfile>? participants,
+    String? activeParticipantId,
+    bool clearActiveParticipantId = false,
+    UsageScenario? selectedScenario,
+    NotificationPreferences? notificationPreferences,
     DateTime? calibratedAt,
     bool clearCalibratedAt = false,
   }) {
@@ -193,6 +228,15 @@ class SessionState extends Equatable {
       baselineRmsLeft: baselineRmsLeft ?? this.baselineRmsLeft,
       baselineRmsRight: baselineRmsRight ?? this.baselineRmsRight,
       isRecording: isRecording ?? this.isRecording,
+      researchContextLoaded:
+          researchContextLoaded ?? this.researchContextLoaded,
+      participants: participants ?? this.participants,
+      activeParticipantId: clearActiveParticipantId
+          ? null
+          : (activeParticipantId ?? this.activeParticipantId),
+      selectedScenario: selectedScenario ?? this.selectedScenario,
+      notificationPreferences:
+          notificationPreferences ?? this.notificationPreferences,
       calibratedAt: clearCalibratedAt
           ? null
           : (calibratedAt ?? this.calibratedAt),
@@ -225,6 +269,11 @@ class SessionState extends Equatable {
     baselineRmsLeft,
     baselineRmsRight,
     isRecording,
+    researchContextLoaded,
+    participants,
+    activeParticipantId,
+    selectedScenario,
+    notificationPreferences,
     calibratedAt,
   ];
 }
@@ -233,12 +282,14 @@ class SessionBloc extends Cubit<SessionState> {
   SessionBloc({
     required EmgHardware hardware,
     required SessionHistoryStore historyStore,
+    required ResearchContextStore researchContextStore,
+    required LocalNotificationService notificationService,
   }) : _hardware = hardware,
        _historyStore = historyStore,
+       _researchContextStore = researchContextStore,
+       _notificationService = notificationService,
        _signalProcessor = const SignalProcessor(),
        super(SessionState.initial()) {
-    _loadHistory();
-    _loadChannelMapping();
     _rebuildTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (isClosed) {
         return;
@@ -291,6 +342,8 @@ class SessionBloc extends Cubit<SessionState> {
 
   final EmgHardware _hardware;
   final SessionHistoryStore _historyStore;
+  final ResearchContextStore _researchContextStore;
+  final LocalNotificationService _notificationService;
   final SignalProcessor _signalProcessor;
 
   StreamSubscription<EmgFrame>? _frameSubscription;
@@ -325,6 +378,9 @@ class SessionBloc extends Cubit<SessionState> {
   int _activationCount = 0;
   int _peakRaw = SignalProcessor.adcMidpoint;
   bool _busy = false;
+  DateTime? _imbalanceStartedAt;
+  DateTime? _lastGuidanceNotificationAt;
+  bool _notificationInFlight = false;
 
   double _sessionPeakLeft = 0.0;
   double _sessionPeakRight = 0.0;
@@ -343,8 +399,128 @@ class SessionBloc extends Cubit<SessionState> {
   static const int _siBufferSize = 8;
 
   Future<void> start() async {
-    await _loadHistory();
-    await _loadChannelMapping();
+    await Future.wait(<Future<void>>[
+      _loadHistory(),
+      _loadResearchContext(),
+      _loadChannelMapping(),
+      _notificationService.initialize(),
+    ]);
+  }
+
+  Future<void> _loadResearchContext() async {
+    final snapshot = await _researchContextStore.load();
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        researchContextLoaded: true,
+        participants: List<ParticipantProfile>.unmodifiable(
+          snapshot.participants,
+        ),
+        activeParticipantId: snapshot.activeParticipantId,
+        clearActiveParticipantId: snapshot.activeParticipantId == null,
+        selectedScenario: snapshot.scenario,
+        notificationPreferences: snapshot.notificationPreferences,
+      ),
+    );
+  }
+
+  Future<ParticipantProfile> createParticipant() async {
+    if (state.isRecording) {
+      throw StateError('Stop recording before changing participants.');
+    }
+    final used = state.participants.map((item) => item.id).toSet();
+    var number = 1;
+    while (used.contains('P${number.toString().padLeft(3, '0')}')) {
+      number++;
+    }
+    final participant = ParticipantProfile(
+      id: 'P${number.toString().padLeft(3, '0')}',
+      createdAt: DateTime.now(),
+    );
+    final participants = <ParticipantProfile>[
+      ...state.participants,
+      participant,
+    ];
+    await _researchContextStore.saveParticipants(participants, participant.id);
+    emit(
+      state.copyWith(
+        participants: List<ParticipantProfile>.unmodifiable(participants),
+        activeParticipantId: participant.id,
+      ),
+    );
+    return participant;
+  }
+
+  Future<void> selectParticipant(String participantId) async {
+    if (state.isRecording) {
+      throw StateError('Stop recording before changing participants.');
+    }
+    if (!state.participants.any((item) => item.id == participantId)) return;
+    await _researchContextStore.saveParticipants(
+      state.participants,
+      participantId,
+    );
+    emit(state.copyWith(activeParticipantId: participantId));
+  }
+
+  Future<void> deleteParticipant(String participantId) async {
+    if (state.isRecording) {
+      throw StateError('Stop recording before deleting a participant.');
+    }
+    final participants = state.participants
+        .where((item) => item.id != participantId)
+        .toList(growable: false);
+    _history.removeWhere((item) => item.participantId == participantId);
+    final nextActive = state.activeParticipantId == participantId
+        ? (participants.isEmpty ? null : participants.first.id)
+        : state.activeParticipantId;
+    await Future.wait(<Future<void>>[
+      _researchContextStore.saveParticipants(participants, nextActive),
+      _historyStore.save(_history),
+    ]);
+    emit(
+      state.copyWith(
+        participants: participants,
+        activeParticipantId: nextActive,
+        clearActiveParticipantId: nextActive == null,
+        history: List<SessionSummary>.unmodifiable(_history),
+      ),
+    );
+  }
+
+  Future<void> selectScenario(UsageScenario scenario) async {
+    if (state.isRecording) {
+      throw StateError('Stop recording before changing the scenario.');
+    }
+    await _researchContextStore.saveScenario(scenario);
+    emit(state.copyWith(selectedScenario: scenario));
+  }
+
+  Future<bool> setNotificationsEnabled(bool enabled) async {
+    var allowed = true;
+    if (enabled) {
+      allowed = await _notificationService.requestPermission();
+    }
+    final preferences = state.notificationPreferences.copyWith(
+      enabled: enabled && allowed,
+    );
+    await _researchContextStore.saveNotificationPreferences(preferences);
+    emit(state.copyWith(notificationPreferences: preferences));
+    return allowed;
+  }
+
+  Future<void> updateNotificationPreferences({
+    int? imbalanceThreshold,
+    int? sustainedSeconds,
+    int? cooldownMinutes,
+  }) async {
+    final preferences = state.notificationPreferences.copyWith(
+      imbalanceThreshold: imbalanceThreshold,
+      sustainedSeconds: sustainedSeconds,
+      cooldownMinutes: cooldownMinutes,
+    );
+    await _researchContextStore.saveNotificationPreferences(preferences);
+    emit(state.copyWith(notificationPreferences: preferences));
   }
 
   Future<void> _loadChannelMapping() async {
@@ -507,6 +683,9 @@ class SessionBloc extends Cubit<SessionState> {
     if (_busy || state.isRecording || !state.isConnected) {
       return;
     }
+    if (state.activeParticipantId == null) {
+      throw StateError('Select a participant before recording.');
+    }
     _busy = true;
     _sessionStartedAt = DateTime.now();
     _lastFrameAt = _sessionStartedAt;
@@ -529,6 +708,8 @@ class SessionBloc extends Cubit<SessionState> {
     _windowRmsSumRight = 0;
     _windowActivationCount = 0;
     _autoSaveCounter = 0;
+    _imbalanceStartedAt = null;
+    _lastGuidanceNotificationAt = null;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
     _busy = false;
@@ -571,6 +752,7 @@ class SessionBloc extends Cubit<SessionState> {
     _windowRmsSumRight = 0;
     _windowActivationCount = 0;
     _autoSaveCounter = 0;
+    _imbalanceStartedAt = null;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
     _busy = false;
@@ -674,6 +856,50 @@ class SessionBloc extends Cubit<SessionState> {
     emit(state.copyWith(history: List<SessionSummary>.unmodifiable(_history)));
   }
 
+  Future<void> clearSessionHistory() async {
+    if (state.isRecording || _sessionStartedAt != null) {
+      throw StateError(
+        'Stop the active recording before clearing session data.',
+      );
+    }
+
+    await _historyStore.clear();
+    _history.clear();
+
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          history: const <SessionSummary>[],
+          notice: 'All recorded session data was deleted.',
+          clearErrorMessage: true,
+        ),
+      );
+    }
+  }
+
+  Future<void> resetResearchData() async {
+    if (state.isRecording || _sessionStartedAt != null) {
+      throw StateError('Stop the active recording before resetting data.');
+    }
+    await Future.wait(<Future<void>>[
+      _historyStore.clear(),
+      _researchContextStore.clear(),
+    ]);
+    _history.clear();
+    _imbalanceStartedAt = null;
+    emit(
+      state.copyWith(
+        history: const <SessionSummary>[],
+        participants: const <ParticipantProfile>[],
+        clearActiveParticipantId: true,
+        selectedScenario: UsageScenario.officeDesk,
+        notificationPreferences: const NotificationPreferences(),
+        notice: 'All participant and session data was deleted.',
+        clearErrorMessage: true,
+      ),
+    );
+  }
+
   Future<void> _persistSessionIfNeeded() async {
     if (_sessionStartedAt == null || _activationCount == 0) {
       return;
@@ -705,9 +931,16 @@ class SessionBloc extends Cubit<SessionState> {
       averageRightActivation: rightAvg,
       note: _sessionNote(_sessionStartedAt!),
       channelMapping: Map<String, String>.from(state.channelMapping),
+      participantId: state.activeParticipantId,
+      scenarioId: state.selectedScenario.id,
+    );
+    _history.removeWhere(
+      (item) =>
+          item.startedAt == _sessionStartedAt &&
+          item.participantId == state.activeParticipantId,
     );
     _history.insert(0, summary);
-    await _historyStore.save(_history.take(10).toList(growable: false));
+    await _historyStore.save(_history.take(500).toList(growable: false));
   }
 
   Future<void> _autoSaveSession() async {
@@ -738,9 +971,20 @@ class SessionBloc extends Cubit<SessionState> {
       averageRightActivation: rightAvg,
       note: 'Auto-save — ${_sessionNote(_sessionStartedAt!)}',
       channelMapping: Map<String, String>.from(state.channelMapping),
+      participantId: state.activeParticipantId,
+      scenarioId: state.selectedScenario.id,
     );
-    _history.insert(0, summary);
-    await _historyStore.save(_history.take(10).toList(growable: false));
+    final existingIndex = _history.indexWhere(
+      (item) =>
+          item.startedAt == _sessionStartedAt &&
+          item.participantId == state.activeParticipantId,
+    );
+    if (existingIndex == -1) {
+      _history.insert(0, summary);
+    } else {
+      _history[existingIndex] = summary;
+    }
+    await _historyStore.save(_history.take(500).toList(growable: false));
     if (!isClosed) {
       emit(
         state.copyWith(history: List<SessionSummary>.unmodifiable(_history)),
@@ -773,6 +1017,7 @@ class SessionBloc extends Cubit<SessionState> {
     _windowRmsSumLeft = 0;
     _windowRmsSumRight = 0;
     _windowActivationCount = 0;
+    _imbalanceStartedAt = null;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
   }
@@ -877,6 +1122,7 @@ class SessionBloc extends Cubit<SessionState> {
         : null;
 
     final smoothedSI = _smoothedSI;
+    _evaluateLocalGuidance(smoothedSI);
 
     final isLost =
         _lastFrameAt != null &&
@@ -912,6 +1158,52 @@ class SessionBloc extends Cubit<SessionState> {
             ? (rightAct / peakRight).clamp(0.0, 1.0)
             : rightAct.clamp(0.0, 1.0),
       ),
+    );
+  }
+
+  void _evaluateLocalGuidance(double? symmetryIndex) {
+    final preferences = state.notificationPreferences;
+    if (!state.isRecording ||
+        !preferences.enabled ||
+        symmetryIndex == null ||
+        symmetryIndex.abs() < preferences.imbalanceThreshold) {
+      _imbalanceStartedAt = null;
+      return;
+    }
+
+    final now = DateTime.now();
+    _imbalanceStartedAt ??= now;
+    final scenarioMinimum =
+        state.selectedScenario.defaultNotificationDelaySeconds;
+    final requiredSeconds = preferences.sustainedSeconds > scenarioMinimum
+        ? preferences.sustainedSeconds
+        : scenarioMinimum;
+    if (now.difference(_imbalanceStartedAt!).inSeconds < requiredSeconds) {
+      return;
+    }
+
+    final lastNotification = _lastGuidanceNotificationAt;
+    if (_notificationInFlight ||
+        (lastNotification != null &&
+            now.difference(lastNotification).inMinutes <
+                preferences.cooldownMinutes)) {
+      return;
+    }
+
+    final participantId = state.activeParticipantId;
+    if (participantId == null) return;
+    _notificationInFlight = true;
+    _lastGuidanceNotificationAt = now;
+    _imbalanceStartedAt = null;
+    unawaited(
+      _notificationService
+          .showCorrectiveGuidance(
+            participantId: participantId,
+            scenario: state.selectedScenario.shortLabel,
+            symmetryIndex: symmetryIndex,
+            instruction: _signalProcessor.correctiveInstruction(symmetryIndex),
+          )
+          .whenComplete(() => _notificationInFlight = false),
     );
   }
 

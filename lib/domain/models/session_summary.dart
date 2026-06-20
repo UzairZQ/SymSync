@@ -12,6 +12,8 @@ class SessionSummary extends Equatable {
     this.averageLeftActivation,
     this.averageRightActivation,
     this.channelMapping,
+    this.participantId,
+    this.scenarioId,
   });
 
   final DateTime startedAt;
@@ -24,6 +26,8 @@ class SessionSummary extends Equatable {
   final double? averageRightActivation;
   final String note;
   final Map<String, String>? channelMapping;
+  final String? participantId;
+  final String? scenarioId;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -37,6 +41,8 @@ class SessionSummary extends Equatable {
       'averageRightActivation': averageRightActivation,
       'note': note,
       'channelMapping': channelMapping,
+      'participantId': participantId,
+      'scenarioId': scenarioId,
     };
   }
 
@@ -48,10 +54,15 @@ class SessionSummary extends Equatable {
       peakRaw: (json['peakRaw'] as num).toInt(),
       averageActivation: (json['averageActivation'] as num).toDouble(),
       averageSymmetryIndex: (json['averageSymmetryIndex'] as num?)?.toDouble(),
-      averageLeftActivation: (json['averageLeftActivation'] as num?)?.toDouble(),
-      averageRightActivation: (json['averageRightActivation'] as num?)?.toDouble(),
+      averageLeftActivation: (json['averageLeftActivation'] as num?)
+          ?.toDouble(),
+      averageRightActivation: (json['averageRightActivation'] as num?)
+          ?.toDouble(),
       note: (json['note'] as String?) ?? '',
-      channelMapping: (json['channelMapping'] as Map<String, dynamic>?)?.cast<String, String>(),
+      channelMapping: (json['channelMapping'] as Map<String, dynamic>?)
+          ?.cast<String, String>(),
+      participantId: json['participantId'] as String?,
+      scenarioId: json['scenarioId'] as String?,
     );
   }
 
@@ -67,5 +78,7 @@ class SessionSummary extends Equatable {
     averageRightActivation,
     note,
     channelMapping,
+    participantId,
+    scenarioId,
   ];
 }
