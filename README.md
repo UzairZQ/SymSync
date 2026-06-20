@@ -11,8 +11,13 @@ SymSync connects to a biosignalsplux sEMG hub over Bluetooth, streams two synchr
 - **Live Dashboard** — Time-of-day greeting, symmetry index radial gauge, quick-start session controls, channel status bars, and recent session history with performance tags
 - **Live Session** — Tabbed interface (Anatomical / Balance) with EMG heatmap overlay, tilt-meter balance gauge, channel-level metrics, and a research-grade signal monitor
 - **Activation Summary** — Imbalance heatmap with period filtering (Today / 7 Days / 30 Days), pattern analysis, average deviation, primary imbalance, and trend computation
-- **Profile** — User card with initials, session/tracking stats, dark theme toggle, and data management
-- **Onboarding** — 6-slide walkthrough covering EMG basics, user type selection, and cable assignment
+- **Research Participants** — Anonymous sequential participant IDs (P001, P002, …), participant switching, isolated history, and participant-safe deletion
+- **Scenario Validation** — Every recording is tagged as Office / Desk, Gym / Exercise, or Everyday / Stairs
+- **Local Corrective Notifications** — Configurable sustained-imbalance threshold, scenario-aware delay, cooldown, and directional corrective guidance without Firebase
+- **Accessible Visualisation** — Persistent color-blind mode with a perceptually distinct palette, text labels, and non-colour marker patterns
+- **Exercise Recommendations** — Curated trapezius and scapular exercise videos in Activation Summary with external YouTube playback
+- **Profile** — Participant statistics, research controls, notification settings, dark/color-blind themes, glossary, placement guide, and clean-data controls
+- **Onboarding** — 7-slide walkthrough covering EMG basics, electrode placement, user type, and cable assignment
 - **Calibration Screen** — Two-phase device calibration with noise-floor monitoring, signal quality badges, and sparkline previews
 - **Dark & Light Themes** — Full design system with theme-aware context extension
 - **Landing Page** — Self-contained `index3.html` with phone mockups, feature showcase, and inline heatmap visualization
@@ -31,6 +36,8 @@ SymSync connects to a biosignalsplux sEMG hub over Bluetooth, streams two synchr
 | Hardware | biosignalsplux sEMG Hub via PLUX BLE SDK |
 | Onboarding | smooth_page_indicator |
 | Permissions | permission_handler |
+| Local notifications | flutter_local_notifications |
+| External exercise videos | url_launcher |
 | Launcher icons | flutter_launcher_icons |
 
 ---
@@ -61,9 +68,11 @@ lib/
 │   └── app_config.dart           # Feature flags (showResearcherTools)
 ├── data/
 │   ├── emg/                      # Hardware abstraction + implementations
-│   └── history/                  # Session persistence (JSON via SharedPreferences)
+│   ├── history/                  # Session persistence (JSON via SharedPreferences)
+│   ├── notifications/            # Local corrective notification delivery
+│   └── research/                 # Participant/scenario/preferences persistence
 ├── domain/
-│   ├── models/                   # EmgFrame, SessionSummary, SessionTab
+│   ├── models/                   # EMG, session, participant, and scenario models
 │   └── services/                 # SignalProcessor, SignalFilterState, SessionAggregator
 ├── presentation/
 │   ├── bloc/
@@ -73,6 +82,7 @@ lib/
 │   └── calibration_screen.dart   # Device setup + signal quality check
 ├── theme/
 │   ├── app_theme.dart            # Full design system + ThemeContext extension
+│   ├── accessibility_provider.dart # Persistent color-blind mode
 │   └── theme_provider.dart       # ThemeMode persistence
 ├── utils/
 │   └── heatmap_utils.dart        # Activation colour mapping
@@ -152,12 +162,13 @@ Features: sticky nav, phone mockups, feature pillars, heatmap visualization (inl
 
 ---
 
-## Known Issues
+## Data and Privacy
 
-- 5 pre-existing `withOpacity` deprecation warnings in `status_badge.dart` and `symmetry_arc.dart` (use `withValues(alpha:)` instead)
-- Onboarding always shows (`_onboardingComplete` hardcoded to `false` in `sym_sync_app.dart`)
-- No database migration — uses JSON via SharedPreferences (sufficient for offline single-user <10k sessions)
-- No automated tests — `test/` directory is empty
+- Participant identities are anonymous local codes; the app does not request names or accounts.
+- EMG processing and session storage remain local to the device.
+- Existing untagged sessions are not assigned to a new participant automatically.
+- Profile offers separate controls to clear recorded sessions or reset the participant registry and all research data.
+- SharedPreferences JSON storage is intended for the current local research prototype, not multi-device clinical deployment.
 
 ---
 

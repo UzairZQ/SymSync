@@ -15,8 +15,8 @@ class AnatomicalViewContent extends StatelessWidget {
     final processor = const SignalProcessor();
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final lastSession = state.history.isNotEmpty
-            ? state.history.first
+        final lastSession = state.activeHistory.isNotEmpty
+            ? state.activeHistory.first
             : null;
         final isLive = state.isRecording;
 

@@ -54,15 +54,9 @@ class SessionConfirmationModal extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _ChannelDisplay(
-                    label: 'Channel A →',
-                    leg: channelA,
-                  ),
+                  _ChannelDisplay(label: 'Channel A →', leg: channelA),
                   const SizedBox(height: AppTheme.spaceMD),
-                  _ChannelDisplay(
-                    label: 'Channel B →',
-                    leg: channelB,
-                  ),
+                  _ChannelDisplay(label: 'Channel B →', leg: channelB),
                 ],
               ),
             ),
@@ -70,9 +64,7 @@ class SessionConfirmationModal extends StatelessWidget {
             Text(
               'Double-check your cable placement before starting.',
               textAlign: TextAlign.center,
-              style: AppTheme.bodyMedium.copyWith(
-                color: context.txtSecondary,
-              ),
+              style: AppTheme.bodyMedium.copyWith(color: context.txtSecondary),
             ),
             const SizedBox(height: AppTheme.spaceLG),
             Row(
@@ -138,10 +130,7 @@ class _ChannelDisplay extends StatelessWidget {
   final String label;
   final String leg;
 
-  const _ChannelDisplay({
-    required this.label,
-    required this.leg,
-  });
+  const _ChannelDisplay({required this.label, required this.leg});
 
   @override
   Widget build(BuildContext context) {
@@ -163,9 +152,7 @@ class _ChannelDisplay extends StatelessWidget {
           decoration: BoxDecoration(
             color: context.bgPrimary,
             borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-            border: Border.all(
-              color: context.dividerClr,
-            ),
+            border: Border.all(color: context.dividerClr),
           ),
           child: Text(
             leg[0].toUpperCase() + leg.substring(1),

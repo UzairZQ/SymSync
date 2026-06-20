@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/heatmap_utils.dart';
+import '../theme/accessibility_provider.dart';
 
 class HeatmapSilhouetteWidget extends StatelessWidget {
   const HeatmapSilhouetteWidget({
@@ -47,6 +48,8 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
                           painter: _HeatmapPainter(
                             leftActivation: leftActivation.clamp(0.0, 1.0),
                             rightActivation: rightActivation.clamp(0.0, 1.0),
+                            colorBlindMode:
+                                AccessibilityProvider.colorBlindMode,
                           ),
                         ),
                       ),
@@ -68,10 +71,12 @@ class _HeatmapPainter extends CustomPainter {
   const _HeatmapPainter({
     required this.leftActivation,
     required this.rightActivation,
+    required this.colorBlindMode,
   });
 
   final double leftActivation;
   final double rightActivation;
+  final bool colorBlindMode;
 
   static const double _leftCX = 0.36;
   static const double _rightCX = 0.64;
@@ -113,12 +118,30 @@ class _HeatmapPainter extends CustomPainter {
       ..strokeWidth = size.width * 0.008
       ..color = Colors.white.withValues(alpha: 0.95);
     canvas.drawCircle(centre, size.width * 0.029, markerRing);
+    if (colorBlindMode) {
+      final pattern = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * 0.006
+        ..color = Colors.black.withValues(alpha: 0.72);
+      final arm = size.width * 0.018;
+      canvas.drawLine(
+        Offset(centre.dx - arm, centre.dy - arm),
+        Offset(centre.dx + arm, centre.dy + arm),
+        pattern,
+      );
+      canvas.drawLine(
+        Offset(centre.dx + arm, centre.dy - arm),
+        Offset(centre.dx - arm, centre.dy + arm),
+        pattern,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _HeatmapPainter oldDelegate) {
     return oldDelegate.leftActivation != leftActivation ||
-        oldDelegate.rightActivation != rightActivation;
+        oldDelegate.rightActivation != rightActivation ||
+        oldDelegate.colorBlindMode != colorBlindMode;
   }
 }
 

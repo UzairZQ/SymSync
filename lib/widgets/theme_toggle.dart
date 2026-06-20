@@ -11,9 +11,7 @@ class ThemeToggle extends StatelessWidget {
     final isDark = context.isDark;
     return GestureDetector(
       onTap: () {
-        ThemeProvider.setThemeMode(
-          isDark ? ThemeMode.light : ThemeMode.dark,
-        );
+        ThemeProvider.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark);
       },
       child: Container(
         width: 40,

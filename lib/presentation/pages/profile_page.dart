@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/models/research_context.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/accessibility_provider.dart';
 import '../../theme/theme_provider.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/connection_badge.dart';
 import '../../widgets/sensor_placement_guide.dart';
 import '../../widgets/theme_toggle.dart';
 import '../../widgets/terms_glossary_sheet.dart';
+import '../../widgets/research_context_sheet.dart';
 import '../bloc/session_bloc.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -17,14 +20,15 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final sessionCount = state.history.length;
-        final totalSeconds = state.history.fold<int>(
+        final participantHistory = state.activeHistory;
+        final sessionCount = participantHistory.length;
+        final totalSeconds = participantHistory.fold<int>(
           0,
           (sum, item) => sum + item.durationSeconds,
         );
         final totalMinutes = (totalSeconds / 60).round();
         final totalHours = (totalSeconds / 3600).round();
-        final symmetryScores = state.history
+        final symmetryScores = participantHistory
             .map((s) => s.averageSymmetryIndex)
             .whereType<double>()
             .toList();
@@ -69,6 +73,8 @@ class ProfilePage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 28),
+            const ResearchContextBanner(),
+            const SizedBox(height: 20),
             Center(
               child: Stack(
                 alignment: Alignment.bottomRight,
@@ -193,6 +199,22 @@ class ProfilePage extends StatelessWidget {
               inverted: true,
             ),
             const SizedBox(height: 24),
+            const _SectionTitle('Research'),
+            _ActionRow(
+              icon: Icons.groups_2_outlined,
+              title: 'Participants',
+              body:
+                  'Create or switch anonymous IDs and keep measurements separated.',
+              onTap: () => showParticipantManagerSheet(context),
+            ),
+            _ActionRow(
+              icon: Icons.tune_rounded,
+              title: 'Notification thresholds',
+              body:
+                  'Set the sustained imbalance, sensitivity, and reminder cooldown.',
+              onTap: () => _showNotificationSettings(context),
+            ),
+            const SizedBox(height: 24),
             const _SectionTitle('Learn'),
             _ActionRow(
               icon: Icons.menu_book_outlined,
@@ -220,6 +242,31 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
+            _ToggleRow(
+              title: 'Color-blind mode',
+              body:
+                  'Uses a perceptually distinct palette plus labels and marker patterns.',
+              value: AccessibilityProvider.colorBlindMode,
+              onChanged: AccessibilityProvider.setColorBlindMode,
+            ),
+            _ToggleRow(
+              title: 'Corrective notifications',
+              body:
+                  'Local reminders appear only after a sustained imbalance threshold.',
+              value: state.notificationPreferences.enabled,
+              onChanged: (enabled) async {
+                final allowed = await context
+                    .read<SessionBloc>()
+                    .setNotificationsEnabled(enabled);
+                if (enabled && !allowed && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Notification permission was not granted.'),
+                    ),
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 28),
             AppCard(
               padding: const EdgeInsets.all(16),
@@ -242,12 +289,38 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   FilledButton.icon(
-                    onPressed: () {},
+                    onPressed: state.isRecording
+                        ? null
+                        : () => _confirmClearSessionData(
+                            context,
+                            hasData: state.history.isNotEmpty,
+                          ),
                     icon: const Icon(Icons.delete_outline, size: 14),
-                    label: const Text('Clear All Session Data'),
+                    label: Text(
+                      state.isRecording
+                          ? 'Stop Recording to Clear Data'
+                          : 'Clear All Session Data',
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.accentRed,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppTheme.accentRed.withValues(
+                        alpha: 0.35,
+                      ),
+                      disabledForegroundColor: Colors.white70,
+                      shape: const StadiumBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: state.isRecording
+                        ? null
+                        : () => _confirmResetResearchData(context),
+                    icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                    label: const Text('Reset Participant Registry and Data'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.accentRed,
+                      side: const BorderSide(color: AppTheme.accentRed),
                       shape: const StadiumBorder(),
                     ),
                   ),
@@ -260,6 +333,136 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  Future<void> _confirmClearSessionData(
+    BuildContext context, {
+    required bool hasData,
+  }) async {
+    if (!hasData) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('There is no session data to delete.')),
+        );
+      return;
+    }
+
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(
+            Icons.delete_forever_outlined,
+            color: AppTheme.accentRed,
+          ),
+          title: const Text('Clear all session data?'),
+          content: const Text(
+            'This permanently deletes every recorded session and resets the '
+            'Summary and Profile statistics on this device. Sensor mapping, '
+            'calibration preferences, onboarding, and theme settings are kept.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.accentRed,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete permanently'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear != true || !context.mounted) {
+      return;
+    }
+
+    try {
+      await context.read<SessionBloc>().clearSessionHistory();
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('All recorded session data was deleted.'),
+          ),
+        );
+    } on StateError catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.message.toString())));
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Session data could not be deleted. Please try again.',
+            ),
+          ),
+        );
+    }
+  }
+
+  Future<void> _confirmResetResearchData(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(
+          Icons.warning_amber_rounded,
+          color: AppTheme.accentRed,
+        ),
+        title: const Text('Reset all research data?'),
+        content: const Text(
+          'This deletes every participant ID and every recorded session. '
+          'Use this before enrolling real participants after dummy testing. '
+          'Onboarding, theme, and sensor mapping remain available.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.accentRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset permanently'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await context.read<SessionBloc>().resetResearchData();
+  }
+
+  Future<void> _showNotificationSettings(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => BlocProvider.value(
+        value: context.read<SessionBloc>(),
+        child: const _NotificationSettingsSheet(),
+      ),
+    );
+  }
+
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty || parts.first.isEmpty) return '·';
@@ -268,6 +471,153 @@ class ProfilePage extends StatelessWidget {
     }
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
+  }
+}
+
+class _NotificationSettingsSheet extends StatefulWidget {
+  const _NotificationSettingsSheet();
+
+  @override
+  State<_NotificationSettingsSheet> createState() =>
+      _NotificationSettingsSheetState();
+}
+
+class _NotificationSettingsSheetState
+    extends State<_NotificationSettingsSheet> {
+  late double _threshold;
+  late double _seconds;
+  late double _cooldown;
+
+  @override
+  void initState() {
+    super.initState();
+    final preferences = context
+        .read<SessionBloc>()
+        .state
+        .notificationPreferences;
+    _threshold = preferences.imbalanceThreshold.toDouble();
+    _seconds = preferences.sustainedSeconds.toDouble();
+    _cooldown = preferences.cooldownMinutes.toDouble();
+  }
+
+  Future<void> _save() async {
+    await context.read<SessionBloc>().updateNotificationPreferences(
+      imbalanceThreshold: _threshold.round(),
+      sustainedSeconds: _seconds.round(),
+      cooldownMinutes: _cooldown.round(),
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scenario = context.read<SessionBloc>().state.selectedScenario;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              'Corrective notification logic',
+              style: AppTheme.headingLarge.copyWith(color: context.txtPrimary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Short intentional asymmetry is ignored. ${scenario.label} '
+              'currently enforces at least '
+              '${scenario.defaultNotificationDelaySeconds} seconds before an alert.',
+              style: AppTheme.bodyMedium.copyWith(
+                color: context.txtSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SettingSlider(
+              label: 'Imbalance threshold',
+              valueLabel: '${_threshold.round()}%',
+              value: _threshold,
+              min: 10,
+              max: 50,
+              divisions: 8,
+              onChanged: (value) => setState(() => _threshold = value),
+            ),
+            _SettingSlider(
+              label: 'Sustained duration',
+              valueLabel: '${_seconds.round()} seconds',
+              value: _seconds,
+              min: 5,
+              max: 60,
+              divisions: 11,
+              onChanged: (value) => setState(() => _seconds = value),
+            ),
+            _SettingSlider(
+              label: 'Notification cooldown',
+              valueLabel: '${_cooldown.round()} minutes',
+              value: _cooldown,
+              min: 1,
+              max: 30,
+              divisions: 29,
+              onChanged: (value) => setState(() => _cooldown = value),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: _save, child: const Text('Save Settings')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingSlider extends StatelessWidget {
+  const _SettingSlider({
+    required this.label,
+    required this.valueLabel,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String valueLabel;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(child: Text(label)),
+              Text(
+                valueLabel,
+                style: AppTheme.bodyMedium.copyWith(
+                  color: context.txtPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: valueLabel,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
   }
 }
 

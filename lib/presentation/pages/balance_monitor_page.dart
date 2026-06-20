@@ -38,8 +38,8 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
     final processor = const SignalProcessor();
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final lastSession = state.history.isNotEmpty
-            ? state.history.first
+        final lastSession = state.activeHistory.isNotEmpty
+            ? state.activeHistory.first
             : null;
         final isRecording = state.isRecording;
         final hasSessionData = lastSession != null;
