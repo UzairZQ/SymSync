@@ -15,7 +15,14 @@ import '../../domain/models/session_summary.dart';
 import '../../domain/models/session_tab.dart';
 import '../../domain/services/signal_processor.dart';
 
-enum SessionStatus { disconnected, connecting, connected, signalLost, error }
+enum SessionStatus {
+  disconnected,
+  connecting,
+  connected,
+  disconnecting,
+  signalLost,
+  error,
+}
 
 String greetingForHour(int hour) {
   if (hour < 12) return 'Good morning';
@@ -179,7 +186,9 @@ class SessionState extends Equatable {
     String? errorMessage,
     bool clearErrorMessage = false,
     int? connectedAtMs,
+    bool clearConnectedAtMs = false,
     int? lastFrameMs,
+    bool clearLastFrameMs = false,
     Map<String, String>? channelMapping,
     double? leftTrapRms,
     double? rightTrapRms,
@@ -216,8 +225,10 @@ class SessionState extends Equatable {
       errorMessage: clearErrorMessage
           ? null
           : (errorMessage ?? this.errorMessage),
-      connectedAtMs: connectedAtMs ?? this.connectedAtMs,
-      lastFrameMs: lastFrameMs ?? this.lastFrameMs,
+      connectedAtMs: clearConnectedAtMs
+          ? null
+          : (connectedAtMs ?? this.connectedAtMs),
+      lastFrameMs: clearLastFrameMs ? null : (lastFrameMs ?? this.lastFrameMs),
       channelMapping: channelMapping ?? this.channelMapping,
       leftTrapRms: leftTrapRms ?? this.leftTrapRms,
       rightTrapRms: rightTrapRms ?? this.rightTrapRms,
@@ -608,45 +619,61 @@ class SessionBloc extends Cubit<SessionState> {
     _busy = true;
     emit(
       state.copyWith(
+        status: SessionStatus.disconnecting,
         busy: true,
         notice: 'Disconnecting...',
         clearErrorMessage: true,
       ),
     );
 
-    try {
-      await _frameSubscription?.cancel();
-    } catch (_) {}
+    await _bestEffort(
+      () => _frameSubscription?.cancel() ?? Future<void>.value(),
+      const Duration(seconds: 1),
+    );
     _frameSubscription = null;
 
-    try {
-      await _hardware.stopAcquisition();
-    } catch (_) {
-      // Device may have already dropped the connection
-    }
+    await _bestEffort(_hardware.stopAcquisition, const Duration(seconds: 2));
+    await _bestEffort(_hardware.disconnect, const Duration(seconds: 3));
+    await _bestEffort(_persistSessionIfNeeded, const Duration(seconds: 2));
 
-    try {
-      await _hardware.disconnect();
-    } catch (_) {
-      // Device may have already dropped the connection
-    }
-
-    try {
-      await _persistSessionIfNeeded();
-    } catch (_) {
-      // Best-effort persistence
-    }
-
-    final selectedTab = state.selectedTab;
     _resetSession();
+    _busy = false;
     emit(
-      SessionState.initial().copyWith(
-        selectedTab: selectedTab,
+      state.copyWith(
+        status: SessionStatus.disconnected,
+        busy: false,
+        latestRaw: SignalProcessor.adcMidpoint,
+        samplesPerSecond: 0,
+        sessionSeconds: 0,
+        calibrationMidpoint: SignalProcessor.adcMidpoint,
+        liveActivation: 0,
+        clearSymmetryIndex: true,
+        rawPoints: List<int>.unmodifiable(_rawPoints),
+        rawPoints3: List<int>.unmodifiable(_rawPoints3),
         history: List<SessionSummary>.unmodifiable(_history),
+        leftTrapRms: 0,
+        rightTrapRms: 0,
+        normalisedLeftActivation: 0,
+        normalisedRightActivation: 0,
+        baselineRmsLeft: 0,
+        baselineRmsRight: 0,
+        isRecording: false,
+        clearConnectedAtMs: true,
+        clearLastFrameMs: true,
+        clearCalibratedAt: true,
         notice: 'Disconnected',
+        clearErrorMessage: true,
       ),
     );
-    _busy = false;
+  }
+
+  Future<void> _bestEffort(
+    Future<void> Function() action,
+    Duration timeout,
+  ) async {
+    try {
+      await action().timeout(timeout);
+    } catch (_) {}
   }
 
   void calibrate() {
