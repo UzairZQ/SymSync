@@ -55,6 +55,7 @@ class DashboardPage extends StatelessWidget {
                   .toStringAsFixed(0);
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
+        final isDisconnecting = state.status == SessionStatus.disconnecting;
         final hasAnyData = participantHistory.isNotEmpty || hasSymmetry;
         final recent = participantHistory.take(3).toList();
 
@@ -81,6 +82,7 @@ class DashboardPage extends StatelessWidget {
                 ConnectionBadge(
                   isConnected: isConnected,
                   isConnecting: isConnecting,
+                  isDisconnecting: isDisconnecting,
                 ),
                 const SizedBox(width: AppTheme.spaceSM),
                 IconButton(
@@ -253,7 +255,9 @@ class DashboardPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
-                    onPressed: isConnected ? onDisconnect : onConnect,
+                    onPressed: state.busy
+                        ? null
+                        : (isConnected ? onDisconnect : onConnect),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
                         color: context.bgPrimary.withValues(alpha: 0.8),
@@ -263,7 +267,11 @@ class DashboardPage extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
-                      isConnected ? 'Disconnect Device' : 'Connect Device',
+                      isDisconnecting
+                          ? 'Disconnecting…'
+                          : (isConnected
+                                ? 'Disconnect Device'
+                                : 'Connect Device'),
                     ),
                   ),
                   const SizedBox(height: 6),

@@ -7,16 +7,21 @@ class ConnectionBadge extends StatelessWidget {
     super.key,
     required this.isConnected,
     required this.isConnecting,
+    this.isDisconnecting = false,
   });
 
   final bool isConnected;
   final bool isConnecting;
+  final bool isDisconnecting;
 
   @override
   Widget build(BuildContext context) {
     final Color color;
     final String label;
-    if (isConnecting) {
+    if (isDisconnecting) {
+      color = AppTheme.accentAmber;
+      label = 'Disconnecting';
+    } else if (isConnecting) {
       color = AppTheme.accentAmber;
       label = 'Connecting';
     } else if (isConnected) {

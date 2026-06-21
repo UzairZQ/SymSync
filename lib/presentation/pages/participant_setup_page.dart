@@ -30,79 +30,81 @@ class _ParticipantSetupPageState extends State<ParticipantSetupPage> {
       backgroundColor: context.bgPrimary,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           children: <Widget>[
-            const SizedBox(height: 12),
             Container(
-              width: 52,
-              height: 52,
+              width: 44,
+              height: 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: context.txtPrimary,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 'S',
-                style: AppTheme.headingLarge.copyWith(color: context.bgPrimary),
+                style: AppTheme.headingMedium.copyWith(
+                  color: context.bgPrimary,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 18),
             Text(
               'Set up the research session',
               style: AppTheme.displayMedium.copyWith(
                 color: context.txtPrimary,
-                fontSize: 32,
+                fontSize: 28,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
               'SymSync creates an anonymous participant code. No name, email, '
               'camera, or cloud account is required.',
-              style: AppTheme.bodyLarge.copyWith(
+              style: AppTheme.bodyMedium.copyWith(
                 color: context.txtSecondary,
-                height: 1.5,
+                height: 1.35,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 14),
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
                 color: context.bgCard,
-                borderRadius: AppTheme.cardRadius,
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: context.dividerClr),
               ),
               child: Row(
                 children: <Widget>[
                   const Icon(Icons.shield_outlined, color: AppTheme.accentTeal),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'The next available code will be assigned automatically '
                       '(for example P001). All measurements stay on this device.',
-                      style: AppTheme.bodyMedium.copyWith(
+                      style: AppTheme.bodySmall.copyWith(
                         color: context.txtSecondary,
-                        height: 1.4,
+                        height: 1.3,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 14),
             Text(
               'FIRST TEST SCENARIO',
               style: AppTheme.labelSmall.copyWith(color: context.txtTertiary),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 7),
             for (final scenario in UsageScenario.values) ...[
               _ScenarioCard(
                 scenario: scenario,
                 selected: scenario == _scenario,
                 onTap: () => setState(() => _scenario = scenario),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 7),
             ],
-            const SizedBox(height: 18),
+            const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: _busy ? null : _continue,
               icon: _busy
@@ -116,7 +118,7 @@ class _ParticipantSetupPageState extends State<ParticipantSetupPage> {
               style: FilledButton.styleFrom(
                 backgroundColor: context.txtPrimary,
                 foregroundColor: context.bgPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 13),
               ),
             ),
           ],
@@ -147,15 +149,15 @@ class _ScenarioCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
         decoration: BoxDecoration(
           color: selected
               ? AppTheme.accentTeal.withValues(alpha: 0.14)
               : context.bgCard,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected ? AppTheme.accentTeal : context.dividerClr,
             width: selected ? 2 : 1,
@@ -167,7 +169,7 @@ class _ScenarioCard extends StatelessWidget {
               _icon,
               color: selected ? AppTheme.accentTeal : context.txtSecondary,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,15 +178,17 @@ class _ScenarioCard extends StatelessWidget {
                     scenario.label,
                     style: AppTheme.headingMedium.copyWith(
                       color: context.txtPrimary,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     scenario.description,
                     style: AppTheme.bodySmall.copyWith(
                       color: context.txtSecondary,
-                      height: 1.35,
+                      fontSize: 11,
+                      height: 1.25,
                     ),
                   ),
                 ],
