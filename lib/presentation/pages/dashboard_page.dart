@@ -122,21 +122,22 @@ class DashboardPage extends StatelessWidget {
             const ResearchContextBanner(compact: true),
             const SizedBox(height: 14),
             AppCard(
-              padding: const EdgeInsets.all(20),
-              child: Column(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   SizedBox(
-                    height: 120,
-                    width: 120,
+                    height: 104,
+                    width: 104,
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
                         SizedBox(
-                          height: 120,
-                          width: 120,
+                          height: 104,
+                          width: 104,
                           child: CircularProgressIndicator(
                             value: (indexScore ?? 0) / 100,
-                            strokeWidth: 8,
+                            strokeWidth: 7,
                             backgroundColor: context.bgElevated,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               indexScore == null
@@ -152,7 +153,7 @@ class DashboardPage extends StatelessWidget {
                               indexScore == null ? '—' : '$indexScore%',
                               style: AppTheme.displayMedium.copyWith(
                                 color: context.txtPrimary,
-                                fontSize: 26,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -169,15 +170,24 @@ class DashboardPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  _MetricRow(
-                    label: 'Sessions Today',
-                    value: '${participantHistory.length}',
-                  ),
-                  _MetricRow(label: 'Avg Symmetry', value: avgSymmetry ?? '—'),
-                  _MetricRow(
-                    label: 'Best Balance',
-                    value: bestSymmetry == null ? '—' : '$bestSymmetry%',
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      children: <Widget>[
+                        _MetricRow(
+                          label: 'Sessions Today',
+                          value: '${participantHistory.length}',
+                        ),
+                        _MetricRow(
+                          label: 'Avg Symmetry',
+                          value: avgSymmetry ?? '—',
+                        ),
+                        _MetricRow(
+                          label: 'Best Balance',
+                          value: bestSymmetry == null ? '—' : '$bestSymmetry%',
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

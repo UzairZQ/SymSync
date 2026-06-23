@@ -29,13 +29,13 @@ class SessionTabBar extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(3),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final double innerWidth = constraints.maxWidth;
             final double tabWidth = innerWidth / labels.length;
             return SizedBox(
-              height: 38,
+              height: 34,
               child: Stack(
                 children: [
                   AnimatedPositioned(
@@ -75,7 +75,7 @@ class SessionTabBar extends StatelessWidget {
                                 Text(
                                   labels[index],
                                   style: AppTheme.labelSmall.copyWith(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     letterSpacing: 0.3,
                                     fontWeight: isSelected
                                         ? FontWeight.w800

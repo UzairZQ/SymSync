@@ -226,10 +226,12 @@ class TiltMeter extends StatelessWidget {
     super.key,
     required this.symmetryIndex,
     required this.label,
+    this.compact = false,
   });
 
   final double? symmetryIndex;
   final String label;
+  final bool compact;
 
   static const _balanceLabels = <String>[
     '-100%',
@@ -258,7 +260,7 @@ class TiltMeter extends StatelessWidget {
         return Column(
           children: <Widget>[
             _HeaderRow(animatedPosition: animatedPosition, hasData: hasData),
-            const SizedBox(height: 6),
+            SizedBox(height: compact ? 3 : 6),
             Text(
               hasData
                   ? '${symmetryIndex! > 0 ? '+' : ''}${symmetryIndex!.toStringAsFixed(0)}% relative imbalance'
@@ -269,9 +271,9 @@ class TiltMeter extends StatelessWidget {
                 letterSpacing: 0,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: compact ? 4 : 8),
             SizedBox(
-              height: 48,
+              height: compact ? 36 : 48,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final trackLeft = constraints.maxWidth * 0.04;
@@ -312,11 +314,11 @@ class TiltMeter extends StatelessWidget {
                       ],
                       // Thumb with glow
                       Positioned(
-                        left: markerX - 14,
-                        top: trackTop - 7,
+                        left: markerX - (compact ? 12 : 14),
+                        top: trackTop - (compact ? 6 : 7),
                         child: Container(
-                          width: 28,
-                          height: 28,
+                          width: compact ? 24 : 28,
+                          height: compact ? 24 : 28,
                           decoration: BoxDecoration(
                             color: thumbColor,
                             shape: BoxShape.circle,
@@ -338,8 +340,8 @@ class TiltMeter extends StatelessWidget {
                           ),
                           child: Center(
                             child: Container(
-                              width: 8,
-                              height: 8,
+                              width: compact ? 7 : 8,
+                              height: compact ? 7 : 8,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.9),
                                 shape: BoxShape.circle,
@@ -354,7 +356,7 @@ class TiltMeter extends StatelessWidget {
               ),
             ),
             SizedBox(
-              height: 16,
+              height: compact ? 14 : 16,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final trackLeft = constraints.maxWidth * 0.04;
@@ -374,7 +376,7 @@ class TiltMeter extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: AppTheme.labelSmall.copyWith(
                             color: context.txtTertiary.withValues(alpha: 0.7),
-                            fontSize: 9,
+                            fontSize: compact ? 8 : 9,
                             letterSpacing: 0,
                           ),
                         ),
@@ -384,7 +386,7 @@ class TiltMeter extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 6 : 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[

@@ -45,6 +45,13 @@ class AnatomicalViewContent extends StatelessWidget {
         return LayoutBuilder(
           key: const PageStorageKey<String>('anatomical'),
           builder: (context, constraints) {
+            final isCompact = constraints.maxHeight < 430;
+            final panelPadding = isCompact ? 8.0 : 14.0;
+            final visualWidth =
+                (constraints.maxWidth * (isCompact ? 0.46 : 0.58)).clamp(
+                  170.0,
+                  230.0,
+                );
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
               child: SizedBox(
@@ -99,10 +106,10 @@ class AnatomicalViewContent extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: isCompact ? 6 : 10),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(panelPadding),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0F4F8),
                           borderRadius: AppTheme.cardRadius,
@@ -116,12 +123,12 @@ class AnatomicalViewContent extends StatelessWidget {
                               child: HeatmapSilhouetteWidget(
                                 leftActivation: displayLeftActivation,
                                 rightActivation: displayRightActivation,
-                                width: 170,
+                                width: visualWidth,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: isCompact ? 6 : 10),
                             AppCard(
-                              padding: const EdgeInsets.all(10),
+                              padding: EdgeInsets.all(isCompact ? 10 : 14),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
@@ -133,10 +140,10 @@ class AnatomicalViewContent extends StatelessWidget {
                                     style: AppTheme.bodyMedium.copyWith(
                                       color: context.txtPrimary,
                                       fontWeight: FontWeight.w800,
-                                      height: 1.15,
+                                      height: isCompact ? 1.15 : 1.2,
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
+                                  SizedBox(height: isCompact ? 3 : 5),
                                   Text(
                                     displaySymmetryIndex == null
                                         ? 'Start recording with both channels connected.'
@@ -147,13 +154,13 @@ class AnatomicalViewContent extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: AppTheme.bodySmall.copyWith(
                                       color: context.txtSecondary,
-                                      height: 1.2,
+                                      height: isCompact ? 1.2 : 1.25,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: isCompact ? 6 : 10),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: <Widget>[

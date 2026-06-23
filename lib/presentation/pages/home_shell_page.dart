@@ -115,7 +115,7 @@ class _HomeShellPageState extends State<HomeShellPage> {
                       child: SafeArea(
                         bottom: false,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
                           child: BlocBuilder<SessionBloc, SessionState>(
                             buildWhen: (prev, cur) =>
                                 prev.selectedTab != cur.selectedTab,
@@ -198,9 +198,9 @@ class _BottomNav extends StatelessWidget {
         final selectedTab = state.selectedTab;
 
         return Container(
-          height: 88 + bottomPadding,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: EdgeInsets.fromLTRB(8, 10, 8, bottomPadding + 10),
+          height: 72 + bottomPadding,
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.fromLTRB(6, 6, 6, bottomPadding + 6),
           decoration: BoxDecoration(
             color: context.dividerClr,
             borderRadius: const BorderRadius.vertical(
@@ -226,7 +226,7 @@ class _BottomNav extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     margin: const EdgeInsets.symmetric(horizontal: 3),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 5),
                     decoration: BoxDecoration(
                       color: selected ? context.txtPrimary : Colors.transparent,
                       borderRadius: BorderRadius.circular(999),
@@ -239,16 +239,16 @@ class _BottomNav extends StatelessWidget {
                           color: selected
                               ? context.bgPrimary
                               : context.txtTertiary,
-                          size: 18,
+                          size: 17,
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(
                           item.label,
                           style: AppTheme.labelSmall.copyWith(
                             color: selected
                                 ? context.bgPrimary
                                 : context.txtSecondary,
-                            fontSize: 10,
+                            fontSize: 9.5,
                             letterSpacing: 0.2,
                             fontWeight: FontWeight.w700,
                           ),

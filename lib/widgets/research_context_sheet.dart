@@ -305,24 +305,24 @@ class ResearchContextBanner extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           child: Container(
             padding: EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: compact ? 9 : 12,
+              horizontal: compact ? 12 : 14,
+              vertical: compact ? 6 : 12,
             ),
             decoration: BoxDecoration(
               color: AppTheme.accentTeal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(compact ? 16 : 18),
               border: Border.all(
                 color: AppTheme.accentTeal.withValues(alpha: 0.35),
               ),
             ),
             child: Row(
               children: <Widget>[
-                const Icon(
+                Icon(
                   Icons.badge_outlined,
-                  size: 18,
+                  size: compact ? 16 : 18,
                   color: AppTheme.accentTeal,
                 ),
-                const SizedBox(width: 9),
+                SizedBox(width: compact ? 7 : 9),
                 Expanded(
                   child: Text(
                     '${state.displayName} · ${state.selectedScenario.label}',
@@ -336,7 +336,7 @@ class ResearchContextBanner extends StatelessWidget {
                 if (!state.isRecording)
                   Icon(
                     Icons.swap_horiz_rounded,
-                    size: 18,
+                    size: compact ? 16 : 18,
                     color: context.txtSecondary,
                   ),
               ],

@@ -76,7 +76,8 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
         return LayoutBuilder(
           key: const PageStorageKey<String>('balance'),
           builder: (context, constraints) {
-            final isTight = constraints.maxHeight < 360;
+            final isTight = constraints.maxHeight < 520;
+            final verticalGap = isTight ? 5.0 : 10.0;
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
               child: SizedBox(
@@ -150,9 +151,9 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                           ),
                       ],
                     ),
-                    SizedBox(height: isTight ? 5 : 8),
+                    SizedBox(height: verticalGap),
                     AppCard(
-                      padding: EdgeInsets.all(isTight ? 8 : 10),
+                      padding: EdgeInsets.all(isTight ? 8 : 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         mainAxisSize: MainAxisSize.min,
@@ -160,11 +161,11 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                           TiltMeter(
                             symmetryIndex: displaySymmetry,
                             label: balanceLabel,
-                            compact: true,
+                            compact: isTight,
                           ),
                           if (hasData)
                             Padding(
-                              padding: EdgeInsets.only(top: isTight ? 3 : 6),
+                              padding: EdgeInsets.only(top: isTight ? 3 : 8),
                               child: Text(
                                 'Marker shows EMG imbalance, not body angle.',
                                 maxLines: 1,
@@ -179,7 +180,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                         ],
                       ),
                     ),
-                    SizedBox(height: isTight ? 4 : 6),
+                    SizedBox(height: isTight ? 4 : 10),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: <Widget>[
@@ -205,7 +206,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                         ),
                       ],
                     ),
-                    SizedBox(height: isTight ? 4 : 6),
+                    SizedBox(height: isTight ? 4 : 10),
                     Expanded(
                       child: isRecording && !hasData
                           ? AppCard(
@@ -253,7 +254,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                                         dense: isTight,
                                       ),
                                     ),
-                                    SizedBox(width: isTight ? 6 : 8),
+                                    SizedBox(width: isTight ? 6 : 12),
                                     Expanded(
                                       child: _ChannelCard(
                                         label: 'Right Trap',
@@ -368,7 +369,7 @@ class _ChannelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = (activation * 100).round();
     return AppCard(
-      padding: EdgeInsets.all(dense ? 7 : 8),
+      padding: EdgeInsets.all(dense ? 7 : 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -378,11 +379,11 @@ class _ChannelCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppTheme.headingMedium.copyWith(
               color: context.txtPrimary,
-              fontSize: dense ? 12 : 13,
+              fontSize: dense ? 12 : 14,
               height: 1.1,
             ),
           ),
-          SizedBox(height: dense ? 1 : 3),
+          SizedBox(height: dense ? 1 : 5),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
@@ -390,7 +391,7 @@ class _ChannelCard extends StatelessWidget {
                 '$pct',
                 style: AppTheme.displayMedium.copyWith(
                   color: context.txtPrimary,
-                  fontSize: dense ? 20 : 24,
+                  fontSize: dense ? 20 : 28,
                   fontWeight: FontWeight.w900,
                   height: 1,
                 ),
@@ -409,9 +410,9 @@ class _ChannelCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: dense ? 3 : 4),
+          SizedBox(height: dense ? 3 : 6),
           _ActivityBadge(level: activity, color: color),
-          SizedBox(height: dense ? 3 : 4),
+          SizedBox(height: dense ? 3 : 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
@@ -422,7 +423,7 @@ class _ChannelCard extends StatelessWidget {
             ),
           ),
           if (!dense) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             _MiniBars(color: color, activation: activation),
           ],
         ],
