@@ -164,6 +164,13 @@ abstract class AppTheme {
         unselectedItemColor: textTertiary,
         elevation: 0,
       ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: backgroundCard,
+        foregroundColor: textPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 3,
+        shadowColor: Color(0x66000000),
+      ),
       colorScheme: const ColorScheme.dark(
         surface: backgroundCard,
         primary: accentTeal,
@@ -212,6 +219,13 @@ abstract class AppTheme {
         selectedItemColor: accentTeal,
         unselectedItemColor: lightTextTertiary,
         elevation: 0,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: lightBackgroundCard,
+        foregroundColor: lightTextPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 2,
+        shadowColor: Color(0x26000000),
       ),
       colorScheme: const ColorScheme.light(
         surface: lightBackgroundCard,

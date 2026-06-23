@@ -42,126 +42,155 @@ class AnatomicalViewContent extends StatelessWidget {
             ? 'Right side is ${displaySymmetryIndex.toStringAsFixed(0)}% more active.'
             : 'Both sides are balanced.';
 
-        return ListView(
+        return LayoutBuilder(
           key: const PageStorageKey<String>('anatomical'),
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceLG),
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Muscle\nActivation',
-                        style: AppTheme.headingLarge.copyWith(
-                          color: context.txtPrimary,
-                          height: 1.15,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spaceXS),
-                      Text(
-                        'Live symmetry map of your upper back during movement.',
-                        style: AppTheme.bodyMedium.copyWith(
-                          color: context.txtSecondary,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(AppTheme.spaceSM),
-                  decoration: BoxDecoration(
-                    color: state.isConnected
-                        ? AppTheme.accentGreen.withValues(alpha: 0.16)
-                        : context.bgElevated,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                  ),
-                  child: Icon(
-                    Icons.bluetooth,
-                    color: state.isConnected
-                        ? AppTheme.accentGreen
-                        : context.txtTertiary,
-                    size: 18,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppTheme.spaceMD),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F4F8),
-                borderRadius: AppTheme.cardRadius,
-                border: Border.all(color: context.dividerClr),
-                boxShadow: context.cardShadow,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  SizedBox(
-                    height: 260,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: HeatmapSilhouetteWidget(
-                        leftActivation: displayLeftActivation,
-                        rightActivation: displayRightActivation,
-                        width: 200,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.spaceLG),
-                  AppCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: SizedBox(
+                height: constraints.maxHeight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
                       children: <Widget>[
-                        Text(
-                          imbalanceLabel,
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: context.txtPrimary,
-                            fontWeight: FontWeight.w800,
-                            height: 1.3,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                'Muscle Activation',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTheme.headingLarge.copyWith(
+                                  color: context.txtPrimary,
+                                  height: 1.05,
+                                  fontSize: 21,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Live upper-back symmetry map.',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: context.txtSecondary,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: AppTheme.spaceSM),
-                        Text(
-                          displaySymmetryIndex == null
-                              ? 'Start recording with both channels connected to see corrective guidance.'
-                              : processor.correctiveInstruction(
-                                  displaySymmetryIndex,
-                                ),
-                          style: AppTheme.bodySmall.copyWith(
-                            color: context.txtSecondary,
-                            height: 1.4,
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: state.isConnected
+                                ? AppTheme.accentGreen.withValues(alpha: 0.16)
+                                : context.bgElevated,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            Icons.bluetooth,
+                            color: state.isConnected
+                                ? AppTheme.accentGreen
+                                : context.txtTertiary,
+                            size: 16,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: AppTheme.spaceLG),
-                  Text(
-                    'TARGET MUSCLE GROUP',
-                    style: AppTheme.labelSmall.copyWith(
-                      color: context.txtTertiary,
-                      letterSpacing: 1.1,
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F4F8),
+                          borderRadius: AppTheme.cardRadius,
+                          border: Border.all(color: context.dividerClr),
+                          boxShadow: context.cardShadow,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            Expanded(
+                              child: HeatmapSilhouetteWidget(
+                                leftActivation: displayLeftActivation,
+                                rightActivation: displayRightActivation,
+                                width: 170,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            AppCard(
+                              padding: const EdgeInsets.all(10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text(
+                                    imbalanceLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      color: context.txtPrimary,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    displaySymmetryIndex == null
+                                        ? 'Start recording with both channels connected.'
+                                        : processor.correctiveInstruction(
+                                            displaySymmetryIndex,
+                                          ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: context.txtSecondary,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
+                                Text(
+                                  'TARGET MUSCLE',
+                                  style: AppTheme.labelSmall.copyWith(
+                                    color: context.txtTertiary,
+                                    letterSpacing: 0.8,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      _MuscleChip(
+                                        label: 'Trapezius',
+                                        selected: true,
+                                      ),
+                                      _MuscleChip(label: 'Deltoid'),
+                                      _MuscleChip(label: 'Lat'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: const [
-                      _MuscleChip(label: 'Trapezius', selected: true),
-                      _MuscleChip(label: 'Deltoid'),
-                      _MuscleChip(label: 'Lat'),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            );
+          },
         );
       },
     );

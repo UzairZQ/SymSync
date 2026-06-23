@@ -92,8 +92,15 @@ class _SessionPageState extends State<SessionPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppTheme.spaceMD),
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+              decoration: BoxDecoration(
+                color: context.bgCard,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                border: Border.all(color: context.dividerClr),
+                boxShadow: context.cardShadow,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
@@ -105,9 +112,11 @@ class _SessionPageState extends State<SessionPage> {
                           'Session',
                           style: AppTheme.headingLarge.copyWith(
                             color: context.txtPrimary,
+                            fontSize: 21,
+                            height: 1.05,
                           ),
                         ),
-                        const SizedBox(height: AppTheme.spaceXS),
+                        const SizedBox(height: 2),
                         Row(
                           children: [
                             Icon(
@@ -155,7 +164,7 @@ class _SessionPageState extends State<SessionPage> {
             ),
 
             const ResearchContextBanner(compact: true),
-            const SizedBox(height: AppTheme.spaceSM),
+            const SizedBox(height: 4),
             SessionTabBar(
               selectedIndex: _selectedIndex,
               labels: tabs,
@@ -164,16 +173,16 @@ class _SessionPageState extends State<SessionPage> {
                 setState(() => _selectedIndex = index);
               },
             ),
-            const SizedBox(height: AppTheme.spaceSM),
+            const SizedBox(height: 4),
 
             Expanded(
               child: PageView(controller: _pageController, children: pages),
             ),
 
-            const SizedBox(height: AppTheme.spaceSM),
+            const SizedBox(height: 4),
 
             const _SessionActionsBar(),
-            const SizedBox(height: AppTheme.spaceLG),
+            const SizedBox(height: 8),
           ],
         );
       },
@@ -212,7 +221,7 @@ class _SessionActionsBar extends StatelessWidget {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   backgroundColor: isRecording
                       ? AppTheme.accentRed
                       : context.txtPrimary,
@@ -257,8 +266,8 @@ class _SessionActionsBar extends StatelessWidget {
                   : null,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.spaceLG,
-                  vertical: 10,
+                  horizontal: 14,
+                  vertical: 8,
                 ),
                 backgroundColor: context.bgPrimary,
                 foregroundColor: context.txtPrimary,
