@@ -6,24 +6,24 @@ extension UsageScenarioX on UsageScenario {
   String get id => name;
 
   String get label => switch (this) {
-    UsageScenario.officeDesk => 'Office / Desk',
-    UsageScenario.gymExercise => 'Gym / Exercise',
-    UsageScenario.everydayStairs => 'Everyday / Stairs',
+    UsageScenario.officeDesk => 'Desk Work',
+    UsageScenario.gymExercise => 'Dumbbell Shoulder Shrug',
+    UsageScenario.everydayStairs => 'Backpack Stair Climb',
   };
 
   String get shortLabel => switch (this) {
-    UsageScenario.officeDesk => 'Office',
-    UsageScenario.gymExercise => 'Gym',
+    UsageScenario.officeDesk => 'Desk',
+    UsageScenario.gymExercise => 'Dumbbell',
     UsageScenario.everydayStairs => 'Stairs',
   };
 
   String get description => switch (this) {
     UsageScenario.officeDesk =>
-      'Monitor sustained shoulder imbalance while seated at a desk.',
+      'Monitor shoulder tension while using a mouse and keyboard at a desk.',
     UsageScenario.gymExercise =>
-      'Measure bilateral trapezius activation during controlled exercise.',
+      'Measure left-right upper trapezius activation during controlled dumbbell shrugs.',
     UsageScenario.everydayStairs =>
-      'Observe upper-back symmetry while walking up a flight of stairs.',
+      'Check shoulder-load symmetry while climbing stairs with a backpack.',
   };
 
   int get defaultNotificationDelaySeconds => switch (this) {

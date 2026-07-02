@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/research_context.dart';
+import '../../domain/models/session_summary.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -120,6 +121,15 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             ),
             const SizedBox(height: AppTheme.spaceMD),
             const ResearchContextBanner(compact: true),
+            const SizedBox(height: AppTheme.spaceMD),
+            _ParticipantSummarySelector(
+              participants: state.participants,
+              activeParticipantId: state.activeParticipantId,
+              history: state.history,
+              isRecording: state.isRecording,
+              onSelected: (participantId) =>
+                  context.read<SessionBloc>().selectParticipant(participantId),
+            ),
             const SizedBox(height: AppTheme.spaceMD),
             AppCard(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
@@ -244,6 +254,8 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
               ),
             ),
             const SizedBox(height: AppTheme.spaceLG),
+            _ScenarioBreakdownCard(history: filteredHistory),
+            const SizedBox(height: AppTheme.spaceLG),
             AppCard(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
               child: Column(
@@ -366,6 +378,363 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
               fontWeight: FontWeight.w800,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScenarioBreakdownCard extends StatelessWidget {
+  const _ScenarioBreakdownCard({required this.history});
+
+  final List<SessionSummary> history;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = history.length;
+    final unlabeledCount = history.where((item) {
+      final id = item.scenarioId;
+      return id == null ||
+          !UsageScenario.values.any((scenario) => scenario.id == id);
+    }).length;
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppTheme.spaceMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.assignment_turned_in_outlined,
+                size: 19,
+                color: AppTheme.accentTeal,
+              ),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  'Scenario breakdown',
+                  style: AppTheme.headingMedium.copyWith(
+                    color: context.txtPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Exercise types recorded for this participant in the selected period.',
+            style: AppTheme.bodySmall.copyWith(color: context.txtSecondary),
+          ),
+          const SizedBox(height: AppTheme.spaceMD),
+          if (total == 0)
+            Text(
+              'No recorded scenario sessions in this period.',
+              style: AppTheme.bodyMedium.copyWith(color: context.txtSecondary),
+            )
+          else ...<Widget>[
+            for (final scenario in UsageScenario.values)
+              _ScenarioBreakdownRow(
+                scenario: scenario,
+                count: history
+                    .where((item) => item.scenarioId == scenario.id)
+                    .length,
+                total: total,
+              ),
+            if (unlabeledCount > 0)
+              _UnlabeledScenarioRow(count: unlabeledCount, total: total),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ScenarioBreakdownRow extends StatelessWidget {
+  const _ScenarioBreakdownRow({
+    required this.scenario,
+    required this.count,
+    required this.total,
+  });
+
+  final UsageScenario scenario;
+  final int count;
+  final int total;
+
+  IconData get _icon => switch (scenario) {
+    UsageScenario.officeDesk => Icons.desk_outlined,
+    UsageScenario.gymExercise => Icons.fitness_center_rounded,
+    UsageScenario.everydayStairs => Icons.stairs_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = total == 0 ? 0.0 : count / total;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spaceSM),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppTheme.accentTeal.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(_icon, size: 18, color: AppTheme.accentTeal),
+          ),
+          const SizedBox(width: AppTheme.spaceSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        scenario.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: context.txtPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$count',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: count > 0
+                            ? AppTheme.accentTeal
+                            : context.txtTertiary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    minHeight: 5,
+                    value: fraction,
+                    color: count > 0
+                        ? AppTheme.accentTeal
+                        : context.txtTertiary.withValues(alpha: 0.35),
+                    backgroundColor: context.bgElevated,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnlabeledScenarioRow extends StatelessWidget {
+  const _UnlabeledScenarioRow({required this.count, required this.total});
+
+  final int count;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = total == 0 ? 0.0 : count / total;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spaceSM),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.bgElevated,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.help_outline_rounded,
+              size: 18,
+              color: context.txtTertiary,
+            ),
+          ),
+          const SizedBox(width: AppTheme.spaceSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        'Unlabeled session',
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: context.txtSecondary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$count',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: context.txtTertiary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    minHeight: 5,
+                    value: fraction,
+                    color: context.txtTertiary.withValues(alpha: 0.55),
+                    backgroundColor: context.bgElevated,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticipantSummarySelector extends StatelessWidget {
+  const _ParticipantSummarySelector({
+    required this.participants,
+    required this.activeParticipantId,
+    required this.history,
+    required this.isRecording,
+    required this.onSelected,
+  });
+
+  final List<ParticipantProfile> participants;
+  final String? activeParticipantId;
+  final List<SessionSummary> history;
+  final bool isRecording;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (participants.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    ParticipantProfile? activeParticipant;
+    for (final participant in participants) {
+      if (participant.id == activeParticipantId) {
+        activeParticipant = participant;
+        break;
+      }
+    }
+    final activeSessionCount = history
+        .where((item) => item.participantId == activeParticipantId)
+        .length;
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppTheme.spaceMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.groups_2_outlined,
+                size: 19,
+                color: AppTheme.accentTeal,
+              ),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      activeParticipant?.displayLabel ?? 'Select a participant',
+                      style: AppTheme.headingMedium.copyWith(
+                        color: context.txtPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$activeSessionCount recorded session${activeSessionCount == 1 ? '' : 's'} shown in this summary',
+                      style: AppTheme.bodySmall.copyWith(
+                        color: context.txtSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMD),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: participants
+                  .map((participant) {
+                    final selected = participant.id == activeParticipantId;
+                    final sessionCount = history
+                        .where((item) => item.participantId == participant.id)
+                        .length;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: AppTheme.spaceSM),
+                      child: ChoiceChip(
+                        selected: selected,
+                        onSelected: isRecording || selected
+                            ? null
+                            : (_) => onSelected(participant.id),
+                        avatar: CircleAvatar(
+                          backgroundColor: selected
+                              ? context.bgPrimary
+                              : context.bgElevated,
+                          child: Text(
+                            participant.id.substring(1),
+                            style: AppTheme.labelSmall.copyWith(
+                              color: selected
+                                  ? AppTheme.accentTeal
+                                  : context.txtSecondary,
+                              letterSpacing: 0,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        label: Text(
+                          '$sessionCount session${sessionCount == 1 ? '' : 's'}',
+                        ),
+                        selectedColor: AppTheme.accentTeal.withValues(
+                          alpha: 0.18,
+                        ),
+                        backgroundColor: context.bgElevated,
+                        side: BorderSide(
+                          color: selected
+                              ? AppTheme.accentTeal
+                              : context.dividerClr,
+                        ),
+                        labelStyle: AppTheme.bodySmall.copyWith(
+                          color: selected
+                              ? context.txtPrimary
+                              : context.txtSecondary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        showCheckmark: false,
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+          ),
+          if (isRecording) ...<Widget>[
+            const SizedBox(height: AppTheme.spaceSM),
+            Text(
+              'Stop recording before switching participants.',
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.accentAmber),
+            ),
+          ],
         ],
       ),
     );

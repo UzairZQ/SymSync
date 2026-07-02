@@ -12,7 +12,7 @@ SymSync connects to a biosignalsplux sEMG hub over Bluetooth, streams two synchr
 - **Live Session** — Tabbed interface (Anatomical / Balance) with EMG heatmap overlay, tilt-meter balance gauge, channel-level metrics, and a research-grade signal monitor
 - **Activation Summary** — Imbalance heatmap with period filtering (Today / 7 Days / 30 Days), pattern analysis, average deviation, primary imbalance, and trend computation
 - **Research Participants** — Anonymous sequential participant IDs (P001, P002, …), participant switching, isolated history, and participant-safe deletion
-- **Scenario Validation** — Every recording is tagged as Office / Desk, Gym / Exercise, or Everyday / Stairs
+- **Scenario Validation** — Every recording is tagged as Desk Work, Dumbbell Shoulder Shrug, or Backpack Stair Climb
 - **Local Corrective Notifications** — Configurable sustained-imbalance threshold, scenario-aware delay, cooldown, and directional corrective guidance without Firebase
 - **Accessible Visualisation** — Persistent color-blind mode with a perceptually distinct palette, text labels, and non-colour marker patterns
 - **Exercise Recommendations** — Curated trapezius and scapular exercise videos in Activation Summary with external YouTube playback

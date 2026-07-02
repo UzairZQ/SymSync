@@ -1,11 +1,13 @@
 package com.symsync.emgvalidator
 
 import android.app.Activity
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -158,6 +160,8 @@ class PluxBridge(
 
     // Connect first so the device can be started and stopped without recreating the bridge.
     private fun connect(mac: String) {
+        ensureBluetoothPermissions()
+
         val adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter()
             ?: throw IllegalStateException("Bluetooth is not available on this device")
         if (!adapter.isEnabled) {
@@ -259,6 +263,34 @@ class PluxBridge(
         val values = value as? List<*> ?: return listOf(1)
         val channels = values.mapNotNull { item -> (item as? Number)?.toInt() }
         return if (channels.isEmpty()) listOf(1) else channels
+    }
+
+    private fun ensureBluetoothPermissions() {
+        val missing = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
+                missing += "Nearby devices / Bluetooth connect"
+            }
+            if (!hasPermission(Manifest.permission.BLUETOOTH_SCAN)) {
+                missing += "Nearby devices / Bluetooth scan"
+            }
+        } else if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            missing += "Location"
+        }
+
+        if (missing.isNotEmpty()) {
+            throw IllegalStateException(
+                "Missing ${missing.joinToString(" and ")} permission for biosignalsplux Bluetooth.",
+            )
+        }
+    }
+
+    private fun hasPermission(permission: String): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
     }
 
     // Forwards both channels to the Dart side. When only one source is configured

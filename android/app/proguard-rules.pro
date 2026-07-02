@@ -1,0 +1,3 @@
+-keep class info.plux.** { *; }
+-keep interface info.plux.** { *; }
+-keep class com.symsync.emgvalidator.PluxBridge { *; }
