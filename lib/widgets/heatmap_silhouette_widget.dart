@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_body_atlas/flutter_body_atlas.dart';
 
 import '../utils/heatmap_utils.dart';
-import '../theme/accessibility_provider.dart';
 
 class HeatmapSilhouetteWidget extends StatelessWidget {
   const HeatmapSilhouetteWidget({
@@ -17,11 +17,13 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final left = leftActivation.clamp(0.0, 1.0);
+    final right = rightActivation.clamp(0.0, 1.0);
     return Semantics(
       label:
-          'Upper back muscle activity heatmap. '
-          'Left trapezius ${(leftActivation * 100).round()} percent. '
-          'Right trapezius ${(rightActivation * 100).round()} percent.',
+          'Upper back muscle atlas. '
+          'Left upper trapezius ${(left * 100).round()} percent. '
+          'Right upper trapezius ${(right * 100).round()} percent.',
       image: true,
       child: Center(
         child: FittedBox(
@@ -31,33 +33,38 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                SizedBox(width: width * 0.10),
                 SizedBox(
                   width: width,
                   height: width * 1.5,
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/upper_body_clinical.png',
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _HeatmapPainter(
-                            leftActivation: leftActivation.clamp(0.0, 1.0),
-                            rightActivation: rightActivation.clamp(0.0, 1.0),
-                            colorBlindMode:
-                                AccessibilityProvider.colorBlindMode,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: width * 0.04,
+                            horizontal: width * 0.02,
+                          ),
+                          child: BodyAtlasView<MuscleInfo>(
+                            view: AtlasAsset.musclesBack,
+                            resolver: const MuscleResolver(),
+                            colorMapping: {
+                              MuscleCatalog.byIdOrThrow('trapezius_upper_l'):
+                                  _atlasColor(left),
+                              MuscleCatalog.byIdOrThrow('trapezius_upper_r'):
+                                  _atlasColor(right),
+                            },
+                            hoverColor: (color) =>
+                                color.withValues(alpha: 0.60),
+                            onTapElement: (_) {},
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                _VerticalLegend(height: width * 0.86),
+                SizedBox(width: width * 0.18),
+                _VerticalLegend(height: width * 0.72),
               ],
             ),
           ),
@@ -65,83 +72,14 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
       ),
     );
   }
-}
 
-class _HeatmapPainter extends CustomPainter {
-  const _HeatmapPainter({
-    required this.leftActivation,
-    required this.rightActivation,
-    required this.colorBlindMode,
-  });
-
-  final double leftActivation;
-  final double rightActivation;
-  final bool colorBlindMode;
-
-  static const double _leftCX = 0.36;
-  static const double _rightCX = 0.64;
-  static const double _centreY = 0.42;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final leftCentre = Offset(size.width * _leftCX, size.height * _centreY);
-    final rightCentre = Offset(size.width * _rightCX, size.height * _centreY);
-
-    _drawActivation(canvas, size, leftCentre, leftActivation);
-    _drawActivation(canvas, size, rightCentre, rightActivation);
-  }
-
-  void _drawActivation(
-    Canvas canvas,
-    Size size,
-    Offset centre,
-    double activation,
-  ) {
-    if (activation <= 0.01) return;
-    final radius = size.width * (0.13 + activation * 0.09);
-    final color = HeatmapGradient.at(activation);
-    final heatPaint = Paint()
-      ..shader = RadialGradient(
-        colors: <Color>[
-          color.withValues(alpha: 0.70),
-          color.withValues(alpha: 0.30),
-          color.withValues(alpha: 0.0),
-        ],
-        stops: const <double>[0.0, 0.52, 1.0],
-      ).createShader(Rect.fromCircle(center: centre, radius: radius));
-    canvas.drawCircle(centre, radius, heatPaint);
-
-    final markerPaint = Paint()..color = color;
-    canvas.drawCircle(centre, size.width * 0.023, markerPaint);
-    final markerRing = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.008
-      ..color = Colors.white.withValues(alpha: 0.95);
-    canvas.drawCircle(centre, size.width * 0.029, markerRing);
-    if (colorBlindMode) {
-      final pattern = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * 0.006
-        ..color = Colors.black.withValues(alpha: 0.72);
-      final arm = size.width * 0.018;
-      canvas.drawLine(
-        Offset(centre.dx - arm, centre.dy - arm),
-        Offset(centre.dx + arm, centre.dy + arm),
-        pattern,
-      );
-      canvas.drawLine(
-        Offset(centre.dx + arm, centre.dy - arm),
-        Offset(centre.dx - arm, centre.dy + arm),
-        pattern,
-      );
+  static Color _atlasColor(double activation) {
+    if (activation <= 0.01) {
+      return Colors.blueGrey.withValues(alpha: 0.30);
     }
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeatmapPainter oldDelegate) {
-    return oldDelegate.leftActivation != leftActivation ||
-        oldDelegate.rightActivation != rightActivation ||
-        oldDelegate.colorBlindMode != colorBlindMode;
+    return HeatmapGradient.at(
+      activation,
+    ).withValues(alpha: 0.48 + activation * 0.44);
   }
 }
 
@@ -160,23 +98,23 @@ class _VerticalLegend extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'RELATIVE\nACTIVATION',
+          'MUSCLE\nACTIVITY',
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 7,
             height: 1.15,
-            letterSpacing: 0.6,
+            letterSpacing: 0.5,
             fontWeight: FontWeight.w800,
             color: txtColor,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         Row(
           children: <Widget>[
             Container(
-              width: 14,
+              width: 10,
               height: height,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(5),
                 border: Border.all(
                   color: txtColor.withValues(alpha: 0.22),
                   width: 0.8,
@@ -194,7 +132,7 @@ class _VerticalLegend extends StatelessWidget {
                   Text(
                     '100%',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 7,
                       fontWeight: FontWeight.w700,
                       color: txtColor,
                     ),
@@ -202,7 +140,7 @@ class _VerticalLegend extends StatelessWidget {
                   Text(
                     '50%',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 7,
                       fontWeight: FontWeight.w700,
                       color: txtColor,
                     ),
@@ -210,7 +148,7 @@ class _VerticalLegend extends StatelessWidget {
                   Text(
                     '0%',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 7,
                       fontWeight: FontWeight.w700,
                       color: txtColor,
                     ),

@@ -408,6 +408,9 @@ class SessionBloc extends Cubit<SessionState> {
 
   final Queue<double> _siBuffer = Queue<double>();
   static const int _siBufferSize = 8;
+  static const double _minimumCombinedRmsForBalance = 80.0;
+  static const double _minimumCombinedActivationForBalance = 0.12;
+  static const double _minimumSingleSideActivationForBalance = 0.04;
 
   Future<void> start() async {
     await Future.wait(<Future<void>>[
@@ -1094,13 +1097,49 @@ class SessionBloc extends Cubit<SessionState> {
     if (_windowActivationCount > 0) {
       final leftAvg = _windowActivationSum / _windowActivationCount;
       final rightAvg = _windowActivationSumRight / _windowActivationCount;
+      final peakLeft = _sessionPeakRmsLeft > 0.001 ? _sessionPeakRmsLeft : null;
+      final peakRight = _sessionPeakRmsRight > 0.001
+          ? _sessionPeakRmsRight
+          : null;
+      if (!_hasMeaningfulBalanceSignal(
+        leftLevel: leftAvg,
+        rightLevel: rightAvg,
+        peakLeft: peakLeft,
+        peakRight: peakRight,
+      )) {
+        return null;
+      }
       return _signalProcessor.symmetryIndexFromLevels(
         leftAvg,
         rightAvg,
-        minimumCombinedLevel: 1.0,
+        minimumCombinedLevel: _minimumCombinedRmsForBalance,
       );
     }
     return null;
+  }
+
+  bool _hasMeaningfulBalanceSignal({
+    required double leftLevel,
+    required double rightLevel,
+    required double? peakLeft,
+    required double? peakRight,
+  }) {
+    if ((leftLevel + rightLevel) < _minimumCombinedRmsForBalance) {
+      return false;
+    }
+    final leftActivation = _normalisedLevel(leftLevel, peakLeft);
+    final rightActivation = _normalisedLevel(rightLevel, peakRight);
+    return (leftActivation + rightActivation) >=
+            _minimumCombinedActivationForBalance &&
+        (leftActivation > _minimumSingleSideActivationForBalance ||
+            rightActivation > _minimumSingleSideActivationForBalance);
+  }
+
+  double _normalisedLevel(double level, double? peak) {
+    if (peak == null || peak <= 0.001) {
+      return level.clamp(0.0, 1.0).toDouble();
+    }
+    return (level / peak).clamp(0.0, 1.0).toDouble();
   }
 
   void _emitSnapshot() {
@@ -1124,29 +1163,38 @@ class SessionBloc extends Cubit<SessionState> {
         ? _windowRmsSumRight / _windowActivationCount
         : state.rightTrapRms;
 
+    final peakLeft = _sessionPeakRmsLeft > 0.001 ? _sessionPeakRmsLeft : null;
+    final peakRight = _sessionPeakRmsRight > 0.001
+        ? _sessionPeakRmsRight
+        : null;
+
     if (hasWindowData) {
+      final hasMeaningfulSignal = _hasMeaningfulBalanceSignal(
+        leftLevel: leftAct,
+        rightLevel: rightAct,
+        peakLeft: peakLeft,
+        peakRight: peakRight,
+      );
+      final newSI = hasMeaningfulSignal
+          ? _signalProcessor.symmetryIndexFromLevels(
+              leftAct,
+              rightAct,
+              minimumCombinedLevel: _minimumCombinedRmsForBalance,
+            )
+          : null;
+
       _windowActivationSum = 0;
       _windowActivationSumRight = 0;
       _windowRmsSumLeft = 0;
       _windowRmsSumRight = 0;
       _windowActivationCount = 0;
 
-      final newSI = _signalProcessor.symmetryIndexFromLevels(
-        leftAct,
-        rightAct,
-        minimumCombinedLevel: 1.0,
-      );
       if (newSI != null) {
         _addSymmetryIndex(newSI);
       } else {
         _siBuffer.clear();
       }
     }
-
-    final peakLeft = _sessionPeakRmsLeft > 0.001 ? _sessionPeakRmsLeft : null;
-    final peakRight = _sessionPeakRmsRight > 0.001
-        ? _sessionPeakRmsRight
-        : null;
 
     final smoothedSI = _smoothedSI;
     _evaluateLocalGuidance(smoothedSI);

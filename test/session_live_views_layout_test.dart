@@ -62,7 +62,7 @@ void main() {
         find.byType(Scrollable).first,
       );
       expect(scrollable.position.maxScrollExtent, 0);
-      expect(find.text('TARGET MUSCLE'), findsOneWidget);
+      expect(find.text('See which shoulder is working more.'), findsOneWidget);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await bloc.close();
@@ -84,7 +84,37 @@ void main() {
         find.byType(Scrollable).first,
       );
       expect(scrollable.position.maxScrollExtent, 0);
-      expect(find.text('Right trapezius dominance'), findsOneWidget);
+      expect(find.text('Balance Monitor'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await bloc.close();
+    }
+  });
+
+  testWidgets('balance view hides stale imbalance while activation is tiny', (
+    tester,
+  ) async {
+    final bloc = await _startedBloc();
+    try {
+      bloc.setTestState(
+        bloc.state.copyWith(
+          status: SessionStatus.connected,
+          isRecording: true,
+          symmetryIndex: 100,
+          normalisedLeftActivation: 0.01,
+          normalisedRightActivation: 0.01,
+        ),
+      );
+
+      await _pumpSessionViewport(
+        tester,
+        bloc: bloc,
+        child: const BalanceMonitorContent(),
+      );
+
+      expect(find.text('Move a little more'), findsOneWidget);
+      expect(find.text('Right side is working more'), findsNothing);
+      expect(find.text('+100% relative imbalance'), findsNothing);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await bloc.close();
@@ -92,8 +122,8 @@ void main() {
   });
 }
 
-Future<SessionBloc> _startedBloc() async {
-  final bloc = SessionBloc(
+Future<_TestSessionBloc> _startedBloc() async {
+  final bloc = _TestSessionBloc(
     hardware: _LayoutHardware(),
     historyStore: SessionHistoryStore(),
     researchContextStore: ResearchContextStore(),
@@ -101,6 +131,17 @@ Future<SessionBloc> _startedBloc() async {
   );
   await bloc.start();
   return bloc;
+}
+
+class _TestSessionBloc extends SessionBloc {
+  _TestSessionBloc({
+    required super.hardware,
+    required super.historyStore,
+    required super.researchContextStore,
+    required super.notificationService,
+  });
+
+  void setTestState(SessionState state) => emit(state);
 }
 
 Future<void> _pumpSessionViewport(

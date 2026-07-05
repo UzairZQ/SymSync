@@ -40,16 +40,16 @@ class SignalProcessor {
 
   String correctiveInstruction(double? symmetryIndex) {
     if (symmetryIndex == null) {
-      return 'Awaiting bilateral sensor data';
+      return 'Move a little more so both sensors can compare the shoulders.';
     }
     final value = symmetryIndex.abs();
     if (value < 8) {
-      return 'Balanced activation. Keep your shoulder and upper back movement steady.';
+      return 'Both sides look balanced. Keep your shoulders relaxed and steady.';
     }
     if (symmetryIndex > 0) {
-      return 'Right side is more active. Let the left side catch up.';
+      return 'Right side is working more. Try relaxing the right shoulder.';
     }
-    return 'Left side is more active. Let the right side catch up.';
+    return 'Left side is working more. Try relaxing the left shoulder.';
   }
 
   String trendLabel(double? symmetryIndex) {
