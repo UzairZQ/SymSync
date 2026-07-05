@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../domain/services/signal_processor.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -12,7 +11,6 @@ class AnatomicalViewContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final processor = const SignalProcessor();
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
         final lastSession = state.activeHistory.isNotEmpty
@@ -20,7 +18,7 @@ class AnatomicalViewContent extends StatelessWidget {
             : null;
         final isLive = state.isRecording;
 
-        final displaySymmetryIndex = isLive
+        final rawSymmetryIndex = isLive
             ? state.symmetryIndex
             : lastSession?.averageSymmetryIndex;
         final displayLeftActivation =
@@ -33,14 +31,40 @@ class AnatomicalViewContent extends StatelessWidget {
                     ? state.normalisedRightActivation
                     : (lastSession?.averageRightActivation ?? 0.0))
                 .clamp(0.0, 1.0);
+        final hasEnoughActivity =
+            state.isConnected &&
+            (displayLeftActivation + displayRightActivation) >= 0.12 &&
+            (displayLeftActivation > 0.04 || displayRightActivation > 0.04);
+        final displaySymmetryIndex = hasEnoughActivity
+            ? rawSymmetryIndex
+            : null;
 
-        final imbalanceLabel = displaySymmetryIndex == null
-            ? 'Connect both EMG cables to see bilateral muscle activation.'
-            : displaySymmetryIndex < 0
-            ? 'Left side is ${displaySymmetryIndex.abs().toStringAsFixed(0)}% more active.'
+        final imbalanceLabel = !state.isConnected
+            ? 'Connect the sensors to start.'
+            : displaySymmetryIndex == null
+            ? 'Move a little more to compare both sides.'
+            : displaySymmetryIndex < -8
+            ? 'Left side is working more.'
+            : displaySymmetryIndex > 8
+            ? 'Right side is working more.'
+            : 'Both sides look balanced.';
+        final guidanceText = !state.isConnected
+            ? 'Connect both EMG sensors before comparing the shoulders.'
+            : displaySymmetryIndex == null
+            ? 'Move a little more so the app can compare both sides.'
+            : displaySymmetryIndex.abs() < 8
+            ? 'Keep both shoulders relaxed and steady.'
             : displaySymmetryIndex > 0
-            ? 'Right side is ${displaySymmetryIndex.toStringAsFixed(0)}% more active.'
-            : 'Both sides are balanced.';
+            ? 'Try relaxing the right shoulder or sharing the effort with the left side.'
+            : 'Try relaxing the left shoulder or sharing the effort with the right side.';
+        final signalStatus = state.status == SessionStatus.signalLost
+            ? 'Signal unstable'
+            : state.isConnected
+            ? 'Signal quality OK'
+            : 'Signal offline';
+        final baselineStatus = state.calibratedAt == null
+            ? 'Baseline not calibrated'
+            : 'Baseline calibrated';
 
         return LayoutBuilder(
           key: const PageStorageKey<String>('anatomical'),
@@ -48,9 +72,9 @@ class AnatomicalViewContent extends StatelessWidget {
             final isCompact = constraints.maxHeight < 430;
             final panelPadding = isCompact ? 8.0 : 14.0;
             final visualWidth =
-                (constraints.maxWidth * (isCompact ? 0.46 : 0.58)).clamp(
-                  170.0,
-                  230.0,
+                (constraints.maxWidth * (isCompact ? 0.58 : 0.70)).clamp(
+                  210.0,
+                  310.0,
                 );
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
@@ -77,7 +101,7 @@ class AnatomicalViewContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Live upper-back symmetry map.',
+                                'See which shoulder is working more.',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTheme.bodySmall.copyWith(
@@ -108,89 +132,70 @@ class AnatomicalViewContent extends StatelessWidget {
                     ),
                     SizedBox(height: isCompact ? 6 : 10),
                     Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(panelPadding),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F4F8),
-                          borderRadius: AppTheme.cardRadius,
-                          border: Border.all(color: context.dividerClr),
-                          boxShadow: context.cardShadow,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Expanded(
+                            child: Container(
+                              padding: EdgeInsets.all(panelPadding),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F4F8),
+                                borderRadius: AppTheme.cardRadius,
+                                border: Border.all(color: context.dividerClr),
+                                boxShadow: context.cardShadow,
+                              ),
                               child: HeatmapSilhouetteWidget(
                                 leftActivation: displayLeftActivation,
                                 rightActivation: displayRightActivation,
                                 width: visualWidth,
                               ),
                             ),
-                            SizedBox(height: isCompact ? 6 : 10),
-                            AppCard(
-                              padding: EdgeInsets.all(isCompact ? 10 : 14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Text(
-                                    imbalanceLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.bodyMedium.copyWith(
-                                      color: context.txtPrimary,
-                                      fontWeight: FontWeight.w800,
-                                      height: isCompact ? 1.15 : 1.2,
-                                    ),
-                                  ),
-                                  SizedBox(height: isCompact ? 3 : 5),
-                                  Text(
-                                    displaySymmetryIndex == null
-                                        ? 'Start recording with both channels connected.'
-                                        : processor.correctiveInstruction(
-                                            displaySymmetryIndex,
-                                          ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: context.txtSecondary,
-                                      height: isCompact ? 1.2 : 1.25,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: isCompact ? 6 : 10),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                          ),
+                          SizedBox(height: isCompact ? 6 : 10),
+                          _ActivationMetricsRow(
+                            leftActivation: displayLeftActivation,
+                            rightActivation: displayRightActivation,
+                            compact: isCompact,
+                          ),
+                          SizedBox(height: isCompact ? 6 : 10),
+                          AppCard(
+                            padding: EdgeInsets.all(isCompact ? 10 : 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: <Widget>[
                                 Text(
-                                  'TARGET MUSCLE',
-                                  style: AppTheme.labelSmall.copyWith(
-                                    color: context.txtTertiary,
-                                    letterSpacing: 0.8,
-                                    fontSize: 9,
+                                  imbalanceLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    color: context.txtPrimary,
+                                    fontWeight: FontWeight.w800,
+                                    height: isCompact ? 1.15 : 1.2,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    children: [
-                                      _MuscleChip(
-                                        label: 'Trapezius',
-                                        selected: true,
-                                      ),
-                                      _MuscleChip(label: 'Deltoid'),
-                                      _MuscleChip(label: 'Lat'),
-                                    ],
+                                SizedBox(height: isCompact ? 3 : 5),
+                                Text(
+                                  guidanceText,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: context.txtSecondary,
+                                    height: isCompact ? 1.2 : 1.25,
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          SizedBox(height: isCompact ? 6 : 10),
+                          _SignalQualityRow(
+                            signalStatus: signalStatus,
+                            baselineStatus: baselineStatus,
+                            connected: state.isConnected,
+                            calibrated: state.calibratedAt != null,
+                            compact: isCompact,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -204,31 +209,181 @@ class AnatomicalViewContent extends StatelessWidget {
   }
 }
 
-class _MuscleChip extends StatelessWidget {
-  const _MuscleChip({required this.label, this.selected = false});
+class _ActivationMetricsRow extends StatelessWidget {
+  const _ActivationMetricsRow({
+    required this.leftActivation,
+    required this.rightActivation,
+    required this.compact,
+  });
+
+  final double leftActivation;
+  final double rightActivation;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _MetricPill(
+            label: 'Left Trapezius',
+            value: '${(leftActivation * 100).round()}%',
+            compact: compact,
+          ),
+        ),
+        SizedBox(width: compact ? 5 : 8),
+        Expanded(
+          child: _MetricPill(
+            label: 'Right Trapezius',
+            value: '${(rightActivation * 100).round()}%',
+            compact: compact,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SignalQualityRow extends StatelessWidget {
+  const _SignalQualityRow({
+    required this.signalStatus,
+    required this.baselineStatus,
+    required this.connected,
+    required this.calibrated,
+    required this.compact,
+  });
+
+  final String signalStatus;
+  final String baselineStatus;
+  final bool connected;
+  final bool calibrated;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _StatusPill(
+            icon: Icons.sensors_rounded,
+            label: signalStatus,
+            active: connected,
+            compact: compact,
+          ),
+        ),
+        SizedBox(width: compact ? 5 : 8),
+        Expanded(
+          child: _StatusPill(
+            icon: Icons.tune_rounded,
+            label: baselineStatus,
+            active: calibrated,
+            compact: compact,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({
+    required this.label,
+    required this.value,
+    required this.compact,
+  });
 
   final String label;
-  final bool selected;
+  final String value;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? context.txtPrimary : context.bgCard,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: selected ? context.txtPrimary : context.dividerClr,
-        ),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 10,
+        vertical: compact ? 5 : 7,
       ),
-      child: Text(
-        label,
-        style: AppTheme.labelSmall.copyWith(
-          color: selected ? context.bgPrimary : context.txtSecondary,
-          letterSpacing: 0,
-          fontWeight: FontWeight.w800,
-          fontSize: 10,
-        ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.dividerClr.withValues(alpha: 0.58)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.labelSmall.copyWith(
+              color: context.txtTertiary,
+              fontSize: compact ? 7.5 : 8,
+              letterSpacing: 0.25,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.headingMedium.copyWith(
+              color: context.txtPrimary,
+              fontSize: compact ? 12 : 14,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.compact,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppTheme.accentGreen : AppTheme.accentAmber;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 10,
+        vertical: compact ? 5 : 7,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: compact ? 12 : 14, color: color),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.labelSmall.copyWith(
+                color: color,
+                fontSize: compact ? 8.5 : 9.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

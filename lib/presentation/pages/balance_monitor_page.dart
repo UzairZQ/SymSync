@@ -21,6 +21,12 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
 
   String _balanceLabelWithHysteresis(double? si) {
     final raw = _balanceLabel(si);
+    if (si == null) {
+      _stableLabel = raw;
+      _previousLabel = raw;
+      _consecutiveCount = 0;
+      return raw;
+    }
     if (raw == _previousLabel) {
       _consecutiveCount++;
       if (_consecutiveCount >= 2) {
@@ -44,7 +50,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
         final isRecording = state.isRecording;
         final hasSessionData = lastSession != null;
 
-        final displaySymmetry = isRecording
+        final rawDisplaySymmetry = isRecording
             ? state.symmetryIndex
             : lastSession?.averageSymmetryIndex;
         final leftAct =
@@ -57,10 +63,15 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                     ? state.normalisedRightActivation
                     : (lastSession?.averageRightActivation ?? 0.0))
                 .clamp(0.0, 1.0);
+        final hasEnoughActivity =
+            state.isConnected &&
+            (leftAct + rightAct) >= 0.12 &&
+            (leftAct > 0.04 || rightAct > 0.04);
+        final displaySymmetry = hasEnoughActivity ? rawDisplaySymmetry : null;
 
         final hasData = displaySymmetry != null;
         final balanceSubtitle = isRecording
-            ? 'Live bilateral symmetry'
+            ? 'Live shoulder balance'
             : (hasSessionData
                   ? 'Last session results'
                   : 'Start a session to see your balance');
@@ -223,14 +234,14 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Recording in progress',
+                                    'Move a little more',
                                     style: AppTheme.headingMedium.copyWith(
                                       color: context.txtPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Results will appear when the session ends.',
+                                    'The balance marker appears when both sensors have enough signal.',
                                     textAlign: TextAlign.center,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -278,10 +289,10 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                                         children: <Widget>[
                                           Text(
                                             displaySymmetry < 0
-                                                ? 'Left trapezius dominance'
+                                                ? 'Left side is working more'
                                                 : displaySymmetry > 0
-                                                ? 'Right trapezius dominance'
-                                                : 'Balanced activation',
+                                                ? 'Right side is working more'
+                                                : 'Both sides look balanced',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: AppTheme.headingMedium
@@ -332,21 +343,21 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
       return 'Balanced';
     }
     if (smoothedSI >= -15 && smoothedSI <= -6) {
-      return 'Slightly left dominant';
+      return 'Left slightly higher';
     }
     if (smoothedSI >= -30 && smoothedSI <= -16) {
-      return 'Left dominant';
+      return 'Left side higher';
     }
     if (smoothedSI < -30) {
-      return 'Significantly left dominant';
+      return 'Left side much higher';
     }
     if (smoothedSI >= 6 && smoothedSI <= 15) {
-      return 'Slightly right dominant';
+      return 'Right slightly higher';
     }
     if (smoothedSI >= 16 && smoothedSI <= 30) {
-      return 'Right dominant';
+      return 'Right side higher';
     }
-    return 'Significantly right dominant';
+    return 'Right side much higher';
   }
 }
 
@@ -400,7 +411,7 @@ class _ChannelCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '% peak',
+                  '% active',
                   style: AppTheme.bodySmall.copyWith(
                     color: context.txtTertiary,
                     fontWeight: FontWeight.w700,

@@ -226,7 +226,17 @@ class _SessionActionsBar extends StatelessWidget {
                       ? AppTheme.accentRed
                       : context.txtPrimary,
                   foregroundColor: context.bgPrimary,
-                  disabledBackgroundColor: context.bgElevated,
+                  disabledBackgroundColor: AppTheme.accentRed.withValues(
+                    alpha: 0.16,
+                  ),
+                  disabledForegroundColor: AppTheme.accentRed.withValues(
+                    alpha: 0.62,
+                  ),
+                  side: !isConnected && !isRecording
+                      ? BorderSide(
+                          color: AppTheme.accentRed.withValues(alpha: 0.28),
+                        )
+                      : null,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
@@ -247,7 +257,9 @@ class _SessionActionsBar extends StatelessWidget {
                         style: AppTheme.headingMedium.copyWith(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: isBusy
+                          color: (!isConnected && !isRecording)
+                              ? AppTheme.accentRed.withValues(alpha: 0.62)
+                              : isBusy
                               ? context.txtTertiary
                               : context.bgPrimary,
                         ),
