@@ -3,17 +3,21 @@ import 'package:flutter_body_atlas/flutter_body_atlas.dart';
 
 import '../utils/heatmap_utils.dart';
 
+enum HeatmapDisplayStyle { liveGlow, summaryHeatmap }
+
 class HeatmapSilhouetteWidget extends StatelessWidget {
   const HeatmapSilhouetteWidget({
     super.key,
     required this.leftActivation,
     required this.rightActivation,
     this.width = 220,
+    this.style = HeatmapDisplayStyle.liveGlow,
   });
 
   final double leftActivation;
   final double rightActivation;
   final double width;
+  final HeatmapDisplayStyle style;
 
   @override
   Widget build(BuildContext context) {
@@ -36,27 +40,58 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
                 SizedBox(width: width * 0.10),
                 SizedBox(
                   width: width,
-                  height: width * 1.5,
+                  height: width * 0.96,
                   child: Stack(
-                    children: [
+                    children: <Widget>[
                       Positioned.fill(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            vertical: width * 0.04,
-                            horizontal: width * 0.02,
+                        child: ClipRect(
+                          child: OverflowBox(
+                            alignment: Alignment.topCenter,
+                            minWidth: width * 1.34,
+                            maxWidth: width * 1.34,
+                            minHeight: width * 2.02,
+                            maxHeight: width * 2.02,
+                            child: Transform.translate(
+                              offset: Offset(0, -width * 0.10),
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: width * 0.04,
+                                  horizontal: width * 0.02,
+                                ),
+                                child: BodyAtlasView<MuscleInfo>(
+                                  view: AtlasAsset.musclesBack,
+                                  resolver: const MuscleResolver(),
+                                  colorMapping: {
+                                    MuscleCatalog.byIdOrThrow(
+                                      'trapezius_upper_l',
+                                    ): _atlasColor(
+                                      left,
+                                      style,
+                                    ),
+                                    MuscleCatalog.byIdOrThrow(
+                                      'trapezius_upper_r',
+                                    ): _atlasColor(
+                                      right,
+                                      style,
+                                    ),
+                                  },
+                                  hoverColor: (color) =>
+                                      color.withValues(alpha: 0.60),
+                                  onTapElement: (_) {},
+                                ),
+                              ),
+                            ),
                           ),
-                          child: BodyAtlasView<MuscleInfo>(
-                            view: AtlasAsset.musclesBack,
-                            resolver: const MuscleResolver(),
-                            colorMapping: {
-                              MuscleCatalog.byIdOrThrow('trapezius_upper_l'):
-                                  _atlasColor(left),
-                              MuscleCatalog.byIdOrThrow('trapezius_upper_r'):
-                                  _atlasColor(right),
-                            },
-                            hoverColor: (color) =>
-                                color.withValues(alpha: 0.60),
-                            onTapElement: (_) {},
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: _UpperTrapHeatmapPainter(
+                              leftActivation: left,
+                              rightActivation: right,
+                              style: style,
+                            ),
                           ),
                         ),
                       ),
@@ -64,7 +99,7 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: width * 0.18),
-                _VerticalLegend(height: width * 0.72),
+                _VerticalLegend(height: width * 0.62),
               ],
             ),
           ),
@@ -73,13 +108,130 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
     );
   }
 
-  static Color _atlasColor(double activation) {
+  static Color _atlasColor(double activation, HeatmapDisplayStyle style) {
+    if (style == HeatmapDisplayStyle.summaryHeatmap) {
+      return Colors.blueGrey.withValues(alpha: 0.24);
+    }
     if (activation <= 0.01) {
       return Colors.blueGrey.withValues(alpha: 0.30);
     }
     return HeatmapGradient.at(
       activation,
     ).withValues(alpha: 0.48 + activation * 0.44);
+  }
+}
+
+class _UpperTrapHeatmapPainter extends CustomPainter {
+  const _UpperTrapHeatmapPainter({
+    required this.leftActivation,
+    required this.rightActivation,
+    required this.style,
+  });
+
+  final double leftActivation;
+  final double rightActivation;
+  final HeatmapDisplayStyle style;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _drawUpperTrapHeat(
+      canvas,
+      size,
+      activation: leftActivation,
+      neckAnchor: Offset(size.width * 0.46, size.height * 0.22),
+      shoulderAnchor: Offset(size.width * 0.34, size.height * 0.38),
+      side: -1,
+    );
+    _drawUpperTrapHeat(
+      canvas,
+      size,
+      activation: rightActivation,
+      neckAnchor: Offset(size.width * 0.54, size.height * 0.22),
+      shoulderAnchor: Offset(size.width * 0.66, size.height * 0.38),
+      side: 1,
+    );
+  }
+
+  void _drawUpperTrapHeat(
+    Canvas canvas,
+    Size size, {
+    required double activation,
+    required Offset neckAnchor,
+    required Offset shoulderAnchor,
+    required int side,
+  }) {
+    final value = activation.clamp(0.0, 1.0);
+    if (value <= 0.01) return;
+
+    final color = HeatmapGradient.at(value);
+    final isSummary = style == HeatmapDisplayStyle.summaryHeatmap;
+    final alpha = (isSummary ? 0.30 : 0.16) + value * (isSummary ? 0.42 : 0.24);
+    final radius = size.width * ((isSummary ? 0.22 : 0.17) + value * 0.10);
+
+    _drawBlob(
+      canvas,
+      center: shoulderAnchor,
+      radius: radius,
+      color: color.withValues(alpha: alpha),
+      scaleX: 1.55,
+      scaleY: 0.72,
+      rotation: side * -0.42,
+    );
+    _drawBlob(
+      canvas,
+      center: Offset.lerp(neckAnchor, shoulderAnchor, 0.45)!,
+      radius: radius * 0.76,
+      color: color.withValues(alpha: alpha * 0.72),
+      scaleX: 0.92,
+      scaleY: 1.22,
+      rotation: side * -0.22,
+    );
+
+    if (isSummary) {
+      _drawBlob(
+        canvas,
+        center: neckAnchor,
+        radius: radius * 0.56,
+        color: color.withValues(alpha: alpha * 0.58),
+        scaleX: 0.82,
+        scaleY: 1.18,
+        rotation: side * -0.14,
+      );
+    }
+  }
+
+  void _drawBlob(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required Color color,
+    required double scaleX,
+    required double scaleY,
+    required double rotation,
+  }) {
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: <Color>[
+          color,
+          color.withValues(alpha: color.a * 0.42),
+          color.withValues(alpha: 0),
+        ],
+        stops: const <double>[0, 0.48, 1],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: radius));
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+    canvas.scale(scaleX, scaleY);
+    canvas.drawCircle(Offset.zero, radius, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _UpperTrapHeatmapPainter oldDelegate) {
+    return oldDelegate.leftActivation != leftActivation ||
+        oldDelegate.rightActivation != rightActivation ||
+        oldDelegate.style != style;
   }
 }
 

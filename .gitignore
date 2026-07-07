@@ -51,3 +51,13 @@ build/
 
 # AI session context — local only, never push to remote
 CONTEXT.md
+
+# Local study/report/presentation artifacts
+/Material EMG App/
+/presentation_assets/
+/study_questionnaires/
+/scripts/
+/Intermediate_presentation*.pptx
+/SymSync_Project_Report*.docx
+/~$*.pptx
+/~$*.docx

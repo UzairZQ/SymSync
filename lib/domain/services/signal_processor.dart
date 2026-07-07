@@ -31,6 +31,15 @@ class SignalProcessor {
     return ((right - left) / denominator) * 100.0;
   }
 
+  double activationDifferenceIndex(
+    double leftActivation,
+    double rightActivation,
+  ) {
+    final left = leftActivation.clamp(0.0, 1.0);
+    final right = rightActivation.clamp(0.0, 1.0);
+    return ((right - left) * 100.0).clamp(-100.0, 100.0).toDouble();
+  }
+
   double balancePositionFromSymmetry(double symmetryIndex) {
     return ((symmetryIndex.clamp(-100.0, 100.0) + 100.0) / 200.0).clamp(
       0.0,

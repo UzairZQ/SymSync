@@ -91,7 +91,7 @@ void main() {
     }
   });
 
-  testWidgets('balance view hides stale imbalance while activation is tiny', (
+  testWidgets('balance view centers stale imbalance while activation is tiny', (
     tester,
   ) async {
     final bloc = await _startedBloc();
@@ -112,7 +112,9 @@ void main() {
         child: const BalanceMonitorContent(),
       );
 
-      expect(find.text('Move a little more'), findsOneWidget);
+      expect(find.text('Both sides look balanced'), findsOneWidget);
+      expect(find.text('Left Trap'), findsOneWidget);
+      expect(find.text('Right Trap'), findsOneWidget);
       expect(find.text('Right side is working more'), findsNothing);
       expect(find.text('+100% relative imbalance'), findsNothing);
     } finally {

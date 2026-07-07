@@ -30,6 +30,24 @@ void main() {
       expect(processor.balancePositionFromSymmetry(0), 0.5);
       expect(processor.balancePositionFromSymmetry(100), 1);
     });
+
+    test(
+      'computes user-facing activation difference without ratio blow-up',
+      () {
+        expect(
+          processor.activationDifferenceIndex(0.16, 0.0),
+          closeTo(-16, 0.001),
+        );
+        expect(
+          processor.activationDifferenceIndex(0.0, 0.16),
+          closeTo(16, 0.001),
+        );
+        expect(
+          processor.activationDifferenceIndex(0.35, 0.40),
+          closeTo(5, 0.001),
+        );
+      },
+    );
   });
 
   test('filter rejects DC and retains an EMG-band waveform', () {

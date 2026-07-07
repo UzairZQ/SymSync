@@ -137,7 +137,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Text(
-                    'Imbalance heatmap',
+                    'Anatomical heatmap',
                     style: AppTheme.labelSmall.copyWith(
                       color: context.txtTertiary,
                       letterSpacing: 1.2,
@@ -151,6 +151,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                             leftActivation: leftAvg.clamp(0.0, 1.0),
                             rightActivation: rightAvg.clamp(0.0, 1.0),
                             width: 200,
+                            style: HeatmapDisplayStyle.summaryHeatmap,
                           )
                         : const _EmptyHeatmap(),
                   ),

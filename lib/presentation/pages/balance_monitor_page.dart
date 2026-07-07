@@ -67,9 +67,21 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
             state.isConnected &&
             (leftAct + rightAct) >= 0.12 &&
             (leftAct > 0.04 || rightAct > 0.04);
-        final displaySymmetry = hasEnoughActivity ? rawDisplaySymmetry : null;
+        final displaySymmetry = isRecording && state.isConnected
+            ? (hasEnoughActivity ? rawDisplaySymmetry ?? 0.0 : 0.0)
+            : rawDisplaySymmetry;
 
         final hasData = displaySymmetry != null;
+        final guidanceTitle = !hasData
+            ? 'Connect the sensors to start'
+            : displaySymmetry < 0
+            ? 'Left side is working more'
+            : displaySymmetry > 0
+            ? 'Right side is working more'
+            : 'Both sides look balanced';
+        final guidanceText = hasData
+            ? processor.correctiveInstruction(displaySymmetry)
+            : 'Live balance appears when the EMG device is connected.';
         final balanceSubtitle = isRecording
             ? 'Live shoulder balance'
             : (hasSessionData
@@ -219,111 +231,67 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                     ),
                     SizedBox(height: isTight ? 4 : 10),
                     Expanded(
-                      child: isRecording && !hasData
-                          ? AppCard(
+                      child: Column(
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: _ChannelCard(
+                                  label: 'Left Trap',
+                                  activation: leftAct,
+                                  activity: activityLabel(leftAct),
+                                  color: AppTheme.leftTrap,
+                                  dense: isTight,
+                                ),
+                              ),
+                              SizedBox(width: isTight ? 6 : 12),
+                              Expanded(
+                                child: _ChannelCard(
+                                  label: 'Right Trap',
+                                  activation: rightAct,
+                                  activity: activityLabel(rightAct),
+                                  color: AppTheme.rightTrap,
+                                  dense: isTight,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: isTight ? 4 : 6),
+                          Flexible(
+                            child: AppCard(
                               padding: EdgeInsets.all(isTight ? 8 : 10),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: <Widget>[
-                                  Icon(
-                                    Icons.fiber_manual_record,
-                                    size: isTight ? 22 : 28,
-                                    color: AppTheme.accentAmber.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
                                   Text(
-                                    'Move a little more',
+                                    guidanceTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: AppTheme.headingMedium.copyWith(
                                       color: context.txtPrimary,
+                                      fontSize: isTight ? 13 : 14,
+                                      height: 1.1,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    'The balance marker appears when both sensors have enough signal.',
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: context.txtSecondary,
+                                  Flexible(
+                                    child: Text(
+                                      guidanceText,
+                                      maxLines: isTight ? 1 : 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTheme.bodySmall.copyWith(
+                                        color: context.txtSecondary,
+                                        height: 1.18,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                            )
-                          : Column(
-                              children: <Widget>[
-                                Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: _ChannelCard(
-                                        label: 'Left Trap',
-                                        activation: leftAct,
-                                        activity: activityLabel(leftAct),
-                                        color: AppTheme.leftTrap,
-                                        dense: isTight,
-                                      ),
-                                    ),
-                                    SizedBox(width: isTight ? 6 : 12),
-                                    Expanded(
-                                      child: _ChannelCard(
-                                        label: 'Right Trap',
-                                        activation: rightAct,
-                                        activity: activityLabel(rightAct),
-                                        color: AppTheme.rightTrap,
-                                        dense: isTight,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (hasData) ...[
-                                  SizedBox(height: isTight ? 4 : 6),
-                                  Flexible(
-                                    child: AppCard(
-                                      padding: EdgeInsets.all(isTight ? 8 : 10),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: <Widget>[
-                                          Text(
-                                            displaySymmetry < 0
-                                                ? 'Left side is working more'
-                                                : displaySymmetry > 0
-                                                ? 'Right side is working more'
-                                                : 'Both sides look balanced',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: AppTheme.headingMedium
-                                                .copyWith(
-                                                  color: context.txtPrimary,
-                                                  fontSize: isTight ? 13 : 14,
-                                                  height: 1.1,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Flexible(
-                                            child: Text(
-                                              processor.correctiveInstruction(
-                                                displaySymmetry,
-                                              ),
-                                              maxLines: isTight ? 1 : 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: AppTheme.bodySmall
-                                                  .copyWith(
-                                                    color: context.txtSecondary,
-                                                    height: 1.18,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
                             ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

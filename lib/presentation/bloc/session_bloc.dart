@@ -1101,18 +1101,19 @@ class SessionBloc extends Cubit<SessionState> {
       final peakRight = _sessionPeakRmsRight > 0.001
           ? _sessionPeakRmsRight
           : null;
+      final leftActivation = _normalisedLevel(leftAvg, peakLeft);
+      final rightActivation = _normalisedLevel(rightAvg, peakRight);
       if (!_hasMeaningfulBalanceSignal(
         leftLevel: leftAvg,
         rightLevel: rightAvg,
         peakLeft: peakLeft,
         peakRight: peakRight,
       )) {
-        return null;
+        return 0.0;
       }
-      return _signalProcessor.symmetryIndexFromLevels(
-        leftAvg,
-        rightAvg,
-        minimumCombinedLevel: _minimumCombinedRmsForBalance,
+      return _signalProcessor.activationDifferenceIndex(
+        leftActivation,
+        rightActivation,
       );
     }
     return null;
@@ -1169,6 +1170,8 @@ class SessionBloc extends Cubit<SessionState> {
         : null;
 
     if (hasWindowData) {
+      final leftActivation = _normalisedLevel(leftAct, peakLeft);
+      final rightActivation = _normalisedLevel(rightAct, peakRight);
       final hasMeaningfulSignal = _hasMeaningfulBalanceSignal(
         leftLevel: leftAct,
         rightLevel: rightAct,
@@ -1176,12 +1179,11 @@ class SessionBloc extends Cubit<SessionState> {
         peakRight: peakRight,
       );
       final newSI = hasMeaningfulSignal
-          ? _signalProcessor.symmetryIndexFromLevels(
-              leftAct,
-              rightAct,
-              minimumCombinedLevel: _minimumCombinedRmsForBalance,
+          ? _signalProcessor.activationDifferenceIndex(
+              leftActivation,
+              rightActivation,
             )
-          : null;
+          : 0.0;
 
       _windowActivationSum = 0;
       _windowActivationSumRight = 0;
@@ -1189,11 +1191,10 @@ class SessionBloc extends Cubit<SessionState> {
       _windowRmsSumRight = 0;
       _windowActivationCount = 0;
 
-      if (newSI != null) {
-        _addSymmetryIndex(newSI);
-      } else {
+      if (!hasMeaningfulSignal) {
         _siBuffer.clear();
       }
+      _addSymmetryIndex(newSI);
     }
 
     final smoothedSI = _smoothedSI;
