@@ -47,18 +47,22 @@ class SignalProcessor {
     );
   }
 
-  String correctiveInstruction(double? symmetryIndex) {
+  String correctiveInstruction(
+    double? symmetryIndex, {
+    String bodyAreaLabel = 'shoulder',
+  }) {
+    final pluralArea = bodyAreaLabel == 'arm' ? 'arms' : 'shoulders';
     if (symmetryIndex == null) {
-      return 'Both sides are symmetrical. Keep your shoulders relaxed and steady.';
+      return 'Both sides are symmetrical. Keep both $pluralArea relaxed and steady.';
     }
     final value = symmetryIndex.abs();
     if (value < 8) {
-      return 'Both sides are symmetrical. Keep your shoulders relaxed and steady.';
+      return 'Both sides are symmetrical. Keep both $pluralArea relaxed and steady.';
     }
     if (symmetryIndex > 0) {
-      return 'Right side is working more. Try relaxing the right shoulder.';
+      return 'Right side is working more. Try relaxing the right $bodyAreaLabel.';
     }
-    return 'Left side is working more. Try relaxing the left shoulder.';
+    return 'Left side is working more. Try relaxing the left $bodyAreaLabel.';
   }
 
   String trendLabel(double? symmetryIndex) {

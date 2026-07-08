@@ -74,7 +74,7 @@ class TermsGlossarySheet extends StatelessWidget {
         _GlossaryTerm(
           name: 'Heatmap',
           simple:
-              'A color view of relative muscle activity on the left and right upper back.',
+              'A color view of relative muscle activity on the selected left and right muscles.',
           detail:
               'Cool colors represent lower relative activity and warm colors represent higher relative activity. Compare colors only within the same scale and session.',
         ),

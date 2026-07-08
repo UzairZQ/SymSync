@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/models/target_muscle.dart';
 import '../../domain/services/signal_processor.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
@@ -49,6 +50,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
             : null;
         final isRecording = state.isRecording;
         final hasSessionData = lastSession != null;
+        final targetMuscle = state.targetMuscle;
 
         final rawDisplaySymmetry = isRecording
             ? state.symmetryIndex
@@ -75,15 +77,18 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
         final guidanceTitle = !hasData
             ? 'Connect the sensors to start'
             : displaySymmetry < 0
-            ? 'Left side is working more'
+            ? targetMuscle.sideWorkingMoreLabel(false)
             : displaySymmetry > 0
-            ? 'Right side is working more'
+            ? targetMuscle.sideWorkingMoreLabel(true)
             : 'Both sides are symmetrical';
         final guidanceText = hasData
-            ? processor.correctiveInstruction(displaySymmetry)
+            ? processor.correctiveInstruction(
+                displaySymmetry,
+                bodyAreaLabel: targetMuscle.bodyAreaLabel,
+              )
             : 'Live balance appears when the EMG device is connected.';
         final balanceSubtitle = isRecording
-            ? 'Live shoulder balance'
+            ? targetMuscle.balanceSubtitle
             : (hasSessionData
                   ? 'Last session results'
                   : 'Start a session to see your balance');
@@ -216,14 +221,36 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Expanded(
+                        Expanded(
                           child: Wrap(
                             spacing: 6,
                             runSpacing: 4,
                             children: <Widget>[
-                              _MuscleChip(label: 'Trapezius', selected: true),
-                              _MuscleChip(label: 'Deltoid'),
-                              _MuscleChip(label: 'Lat'),
+                              _MuscleChip(
+                                label: TargetMuscle.trapezius.chipLabel,
+                                selected:
+                                    targetMuscle == TargetMuscle.trapezius,
+                                onTap: () => context
+                                    .read<SessionBloc>()
+                                    .selectTargetMuscle(TargetMuscle.trapezius),
+                              ),
+                              _MuscleChip(
+                                label: TargetMuscle.biceps.chipLabel,
+                                selected: targetMuscle == TargetMuscle.biceps,
+                                onTap: () => context
+                                    .read<SessionBloc>()
+                                    .selectTargetMuscle(TargetMuscle.biceps),
+                              ),
+                              const Tooltip(
+                                message: 'Coming soon',
+                                triggerMode: TooltipTriggerMode.tap,
+                                child: _MuscleChip(label: 'Deltoid'),
+                              ),
+                              const Tooltip(
+                                message: 'Coming soon',
+                                triggerMode: TooltipTriggerMode.tap,
+                                child: _MuscleChip(label: 'Lat'),
+                              ),
                             ],
                           ),
                         ),
@@ -237,7 +264,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                             children: <Widget>[
                               Expanded(
                                 child: _ChannelCard(
-                                  label: 'Left Trap',
+                                  label: targetMuscle.leftShortLabel,
                                   activation: leftAct,
                                   currentRms: isRecording
                                       ? state.leftTrapRms
@@ -250,7 +277,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                               SizedBox(width: isTight ? 6 : 12),
                               Expanded(
                                 child: _ChannelCard(
-                                  label: 'Right Trap',
+                                  label: targetMuscle.rightShortLabel,
                                   activation: rightAct,
                                   currentRms: isRecording
                                       ? state.rightTrapRms
@@ -460,29 +487,42 @@ class _ActivityBadge extends StatelessWidget {
 }
 
 class _MuscleChip extends StatelessWidget {
-  const _MuscleChip({required this.label, this.selected = false});
+  const _MuscleChip({required this.label, this.selected = false, this.onTap});
 
   final String label;
   final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? context.txtPrimary : context.bgCard,
+    final enabled = onTap != null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: selected ? context.txtPrimary : context.dividerClr,
-        ),
-      ),
-      child: Text(
-        label,
-        style: AppTheme.labelSmall.copyWith(
-          color: selected ? context.bgPrimary : context.txtSecondary,
-          letterSpacing: 0,
-          fontWeight: FontWeight.w800,
-          fontSize: 10,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? context.txtPrimary : context.bgCard,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? context.txtPrimary : context.dividerClr,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTheme.labelSmall.copyWith(
+              color: selected
+                  ? context.bgPrimary
+                  : enabled
+                  ? context.txtSecondary
+                  : context.txtTertiary,
+              letterSpacing: 0,
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+            ),
+          ),
         ),
       ),
     );

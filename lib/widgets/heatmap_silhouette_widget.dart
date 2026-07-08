@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_body_atlas/flutter_body_atlas.dart';
 
+import '../domain/models/target_muscle.dart';
 import '../utils/heatmap_utils.dart';
 
 enum HeatmapDisplayStyle { liveGlow, summaryHeatmap }
@@ -12,22 +13,22 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
     required this.rightActivation,
     this.width = 220,
     this.style = HeatmapDisplayStyle.liveGlow,
+    this.targetMuscle = TargetMuscle.trapezius,
   });
 
   final double leftActivation;
   final double rightActivation;
   final double width;
   final HeatmapDisplayStyle style;
+  final TargetMuscle targetMuscle;
 
   @override
   Widget build(BuildContext context) {
     final left = leftActivation.clamp(0.0, 1.0);
     final right = rightActivation.clamp(0.0, 1.0);
+    final isBiceps = targetMuscle == TargetMuscle.biceps;
     return Semantics(
-      label:
-          'Upper back muscle atlas. '
-          'Left upper trapezius ${(left * 100).round()} percent. '
-          'Right upper trapezius ${(right * 100).round()} percent.',
+      label: _semanticLabel(left, right),
       image: true,
       child: Center(
         child: FittedBox(
@@ -40,41 +41,38 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
                 SizedBox(width: width * 0.10),
                 SizedBox(
                   width: width,
-                  height: width * 0.96,
+                  height: width * (isBiceps ? 1.04 : 0.96),
                   child: Stack(
                     children: <Widget>[
                       Positioned.fill(
                         child: ClipRect(
                           child: OverflowBox(
                             alignment: Alignment.topCenter,
-                            minWidth: width * 1.34,
-                            maxWidth: width * 1.34,
+                            minWidth: width * (isBiceps ? 1.42 : 1.34),
+                            maxWidth: width * (isBiceps ? 1.42 : 1.34),
                             minHeight: width * 2.02,
                             maxHeight: width * 2.02,
                             child: Transform.translate(
-                              offset: Offset(0, -width * 0.10),
+                              offset: Offset(
+                                0,
+                                -width * (isBiceps ? 0.06 : 0.10),
+                              ),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(
                                   vertical: width * 0.04,
                                   horizontal: width * 0.02,
                                 ),
                                 child: BodyAtlasView<MuscleInfo>(
-                                  view: AtlasAsset.musclesBack,
+                                  view: isBiceps
+                                      ? AtlasAsset.musclesFront
+                                      : AtlasAsset.musclesBack,
                                   resolver: const MuscleResolver(),
-                                  colorMapping: {
-                                    MuscleCatalog.byIdOrThrow(
-                                      'trapezius_upper_l',
-                                    ): _atlasColor(
-                                      left,
-                                      style,
-                                    ),
-                                    MuscleCatalog.byIdOrThrow(
-                                      'trapezius_upper_r',
-                                    ): _atlasColor(
-                                      right,
-                                      style,
-                                    ),
-                                  },
+                                  colorMapping: _atlasMapping(
+                                    left: left,
+                                    right: right,
+                                    style: style,
+                                    targetMuscle: targetMuscle,
+                                  ),
                                   hoverColor: (color) =>
                                       color.withValues(alpha: 0.60),
                                   onTapElement: (_) {},
@@ -87,10 +85,11 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
                       Positioned.fill(
                         child: IgnorePointer(
                           child: CustomPaint(
-                            painter: _UpperTrapHeatmapPainter(
+                            painter: _TargetMuscleHeatmapPainter(
                               leftActivation: left,
                               rightActivation: right,
                               style: style,
+                              targetMuscle: targetMuscle,
                             ),
                           ),
                         ),
@@ -108,6 +107,41 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
     );
   }
 
+  String _semanticLabel(double left, double right) {
+    return switch (targetMuscle) {
+      TargetMuscle.trapezius =>
+        'Upper back muscle atlas. '
+            'Left upper trapezius ${(left * 100).round()} percent. '
+            'Right upper trapezius ${(right * 100).round()} percent.',
+      TargetMuscle.biceps =>
+        'Front arm muscle atlas. '
+            'Left biceps ${(left * 100).round()} percent. '
+            'Right biceps ${(right * 100).round()} percent.',
+    };
+  }
+
+  static Map<MuscleInfo, Color> _atlasMapping({
+    required double left,
+    required double right,
+    required HeatmapDisplayStyle style,
+    required TargetMuscle targetMuscle,
+  }) {
+    final leftColor = _atlasColor(left, style);
+    final rightColor = _atlasColor(right, style);
+    return switch (targetMuscle) {
+      TargetMuscle.trapezius => <MuscleInfo, Color>{
+        MuscleCatalog.byIdOrThrow('trapezius_upper_l'): leftColor,
+        MuscleCatalog.byIdOrThrow('trapezius_upper_r'): rightColor,
+      },
+      TargetMuscle.biceps => <MuscleInfo, Color>{
+        MuscleCatalog.byIdOrThrow('biceps_brachii_caput_breve_l'): leftColor,
+        MuscleCatalog.byIdOrThrow('biceps_brachii_caput_longum_l'): leftColor,
+        MuscleCatalog.byIdOrThrow('biceps_brachii_caput_breve_r'): rightColor,
+        MuscleCatalog.byIdOrThrow('biceps_brachii_caput_longum_r'): rightColor,
+      },
+    };
+  }
+
   static Color _atlasColor(double activation, HeatmapDisplayStyle style) {
     if (style == HeatmapDisplayStyle.summaryHeatmap) {
       return Colors.blueGrey.withValues(alpha: 0.24);
@@ -121,34 +155,92 @@ class HeatmapSilhouetteWidget extends StatelessWidget {
   }
 }
 
-class _UpperTrapHeatmapPainter extends CustomPainter {
-  const _UpperTrapHeatmapPainter({
+class _TargetMuscleHeatmapPainter extends CustomPainter {
+  const _TargetMuscleHeatmapPainter({
     required this.leftActivation,
     required this.rightActivation,
     required this.style,
+    required this.targetMuscle,
   });
 
   final double leftActivation;
   final double rightActivation;
   final HeatmapDisplayStyle style;
+  final TargetMuscle targetMuscle;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (targetMuscle == TargetMuscle.biceps) {
+      _drawBicepsHeat(
+        canvas,
+        size,
+        activation: leftActivation,
+        center: Offset(size.width * 0.28, size.height * 0.39),
+        side: -1,
+      );
+      _drawBicepsHeat(
+        canvas,
+        size,
+        activation: rightActivation,
+        center: Offset(size.width * 0.72, size.height * 0.39),
+        side: 1,
+      );
+      return;
+    }
+
     _drawUpperTrapHeat(
       canvas,
       size,
       activation: leftActivation,
-      neckAnchor: Offset(size.width * 0.46, size.height * 0.22),
-      shoulderAnchor: Offset(size.width * 0.34, size.height * 0.38),
+      neckAnchor: Offset(size.width * 0.46, size.height * 0.20),
+      shoulderAnchor: Offset(size.width * 0.36, size.height * 0.32),
       side: -1,
     );
     _drawUpperTrapHeat(
       canvas,
       size,
       activation: rightActivation,
-      neckAnchor: Offset(size.width * 0.54, size.height * 0.22),
-      shoulderAnchor: Offset(size.width * 0.66, size.height * 0.38),
+      neckAnchor: Offset(size.width * 0.54, size.height * 0.20),
+      shoulderAnchor: Offset(size.width * 0.64, size.height * 0.32),
       side: 1,
+    );
+  }
+
+  void _drawBicepsHeat(
+    Canvas canvas,
+    Size size, {
+    required double activation,
+    required Offset center,
+    required int side,
+  }) {
+    final value = activation.clamp(0.0, 1.0);
+    if (value <= 0.01) return;
+
+    final color = HeatmapGradient.at(value);
+    final isSummary = style == HeatmapDisplayStyle.summaryHeatmap;
+    final visualValue = value < 0.08 ? value * 0.65 : value;
+    final alpha =
+        (isSummary ? 0.34 : 0.18) + visualValue * (isSummary ? 0.40 : 0.22);
+    final radius =
+        size.width * ((isSummary ? 0.13 : 0.10) + visualValue * 0.06);
+
+    _drawBlob(
+      canvas,
+      center: center,
+      radius: radius,
+      color: color.withValues(alpha: alpha),
+      scaleX: isSummary ? 0.62 : 0.54,
+      scaleY: isSummary ? 1.22 : 1.10,
+      rotation: side * -0.12,
+    );
+    _drawBlob(
+      canvas,
+      center: center.translate(side * size.width * 0.025, size.height * 0.04),
+      radius: radius * 0.72,
+      color: color.withValues(alpha: alpha * 0.60),
+      scaleX: 0.46,
+      scaleY: 0.95,
+      rotation: side * -0.10,
     );
   }
 
@@ -165,36 +257,39 @@ class _UpperTrapHeatmapPainter extends CustomPainter {
 
     final color = HeatmapGradient.at(value);
     final isSummary = style == HeatmapDisplayStyle.summaryHeatmap;
-    final alpha = (isSummary ? 0.30 : 0.16) + value * (isSummary ? 0.42 : 0.24);
-    final radius = size.width * ((isSummary ? 0.22 : 0.17) + value * 0.10);
+    final visualValue = value < 0.08 ? value * 0.65 : value;
+    final alpha =
+        (isSummary ? 0.34 : 0.18) + visualValue * (isSummary ? 0.40 : 0.22);
+    final radius =
+        size.width * ((isSummary ? 0.14 : 0.11) + visualValue * 0.07);
 
     _drawBlob(
       canvas,
       center: shoulderAnchor,
       radius: radius,
       color: color.withValues(alpha: alpha),
-      scaleX: 1.55,
-      scaleY: 0.72,
-      rotation: side * -0.42,
+      scaleX: isSummary ? 1.22 : 1.10,
+      scaleY: isSummary ? 0.58 : 0.52,
+      rotation: side * -0.48,
     );
     _drawBlob(
       canvas,
       center: Offset.lerp(neckAnchor, shoulderAnchor, 0.45)!,
-      radius: radius * 0.76,
-      color: color.withValues(alpha: alpha * 0.72),
-      scaleX: 0.92,
-      scaleY: 1.22,
-      rotation: side * -0.22,
+      radius: radius * 0.68,
+      color: color.withValues(alpha: alpha * 0.68),
+      scaleX: 0.72,
+      scaleY: 1.05,
+      rotation: side * -0.24,
     );
 
     if (isSummary) {
       _drawBlob(
         canvas,
         center: neckAnchor,
-        radius: radius * 0.56,
-        color: color.withValues(alpha: alpha * 0.58),
-        scaleX: 0.82,
-        scaleY: 1.18,
+        radius: radius * 0.45,
+        color: color.withValues(alpha: alpha * 0.46),
+        scaleX: 0.62,
+        scaleY: 0.92,
         rotation: side * -0.14,
       );
     }
@@ -228,10 +323,11 @@ class _UpperTrapHeatmapPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _UpperTrapHeatmapPainter oldDelegate) {
+  bool shouldRepaint(covariant _TargetMuscleHeatmapPainter oldDelegate) {
     return oldDelegate.leftActivation != leftActivation ||
         oldDelegate.rightActivation != rightActivation ||
-        oldDelegate.style != style;
+        oldDelegate.style != style ||
+        oldDelegate.targetMuscle != targetMuscle;
   }
 }
 

@@ -269,6 +269,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
 
   Widget _buildMonitoringWidget() {
     final state = context.watch<SessionBloc>().state;
+    final targetMuscle = state.targetMuscle;
     final channelAIsLeft = state.channelMapping['A'] == 'left';
     final ch1Samples = state.rawPoints.length >= 200
         ? state.rawPoints.sublist(state.rawPoints.length - 200)
@@ -284,7 +285,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
         _buildBaselineProtocolCard(state),
         const SizedBox(height: 16),
         _buildChannelRow(
-          channelLabel: 'CH1 — ${channelAIsLeft ? 'Left' : 'Right'} Trapezius',
+          channelLabel:
+              'CH1 — ${channelAIsLeft ? targetMuscle.leftLongLabel : targetMuscle.rightLongLabel}',
           status: _ch1Status,
           noiseRms: _ch1NoiseRms,
           samples: ch1Samples,
@@ -292,7 +294,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
         ),
         const SizedBox(height: 16),
         _buildChannelRow(
-          channelLabel: 'CH3 — ${channelAIsLeft ? 'Right' : 'Left'} Trapezius',
+          channelLabel:
+              'CH3 — ${channelAIsLeft ? targetMuscle.rightLongLabel : targetMuscle.leftLongLabel}',
           status: _ch3Status,
           noiseRms: _ch3NoiseRms,
           samples: ch3Samples,

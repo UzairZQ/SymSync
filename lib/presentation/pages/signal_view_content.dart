@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/emg/emg_hardware.dart';
 import '../../domain/models/emg_frame.dart';
+import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/emg_chart.dart';
 
@@ -80,6 +81,7 @@ class _SignalViewContentState extends State<SignalViewContent> {
 
   @override
   Widget build(BuildContext context) {
+    final targetMuscle = context.watch<SessionBloc>().state.targetMuscle;
     return ValueListenableBuilder<String>(
       valueListenable: _modeNotifier,
       builder: (context, mode, child) {
@@ -97,7 +99,7 @@ class _SignalViewContentState extends State<SignalViewContent> {
                   frameStream: context.read<EmgHardware>().frames,
                   channelIndex: 1,
                   lineColor: AppTheme.leftTrap,
-                  channelLabel: 'Left Trapezius',
+                  channelLabel: targetMuscle.leftLongLabel,
                   mode: mode,
                 ),
               ),
@@ -108,7 +110,7 @@ class _SignalViewContentState extends State<SignalViewContent> {
                   frameStream: context.read<EmgHardware>().frames,
                   channelIndex: 0,
                   lineColor: AppTheme.rightTrap,
-                  channelLabel: 'Right Trapezius',
+                  channelLabel: targetMuscle.rightLongLabel,
                   mode: mode,
                 ),
               ),
@@ -136,7 +138,9 @@ class _SignalViewContentState extends State<SignalViewContent> {
                   frameStream: context.read<EmgHardware>().frames,
                   channelIndex: showCh3 ? 1 : 0,
                   lineColor: showCh3 ? AppTheme.leftTrap : AppTheme.rightTrap,
-                  channelLabel: showCh3 ? 'Left Trapezius' : 'Right Trapezius',
+                  channelLabel: showCh3
+                      ? targetMuscle.leftLongLabel
+                      : targetMuscle.rightLongLabel,
                   mode: mode,
                 ),
               ),

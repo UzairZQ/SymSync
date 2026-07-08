@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/models/target_muscle.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -17,6 +18,7 @@ class AnatomicalViewContent extends StatelessWidget {
             ? state.activeHistory.first
             : null;
         final isLive = state.isRecording;
+        final targetMuscle = state.targetMuscle;
 
         final rawSymmetryIndex = isLive
             ? state.symmetryIndex
@@ -44,19 +46,19 @@ class AnatomicalViewContent extends StatelessWidget {
             : displaySymmetryIndex == null
             ? 'Both sides are symmetrical.'
             : displaySymmetryIndex < -8
-            ? 'Left side is working more.'
+            ? '${targetMuscle.sideWorkingMoreLabel(false)}.'
             : displaySymmetryIndex > 8
-            ? 'Right side is working more.'
+            ? '${targetMuscle.sideWorkingMoreLabel(true)}.'
             : 'Both sides are symmetrical.';
         final guidanceText = !state.isConnected
-            ? 'Connect both EMG sensors before comparing the shoulders.'
+            ? 'Connect both EMG sensors before comparing the ${targetMuscle.bodyAreaLabel}s.'
             : displaySymmetryIndex == null
-            ? 'Keep both shoulders relaxed and steady.'
+            ? 'Keep both ${targetMuscle.bodyAreaLabel == 'arm' ? 'arms' : 'shoulders'} relaxed and steady.'
             : displaySymmetryIndex.abs() < 8
-            ? 'Keep both shoulders relaxed and steady.'
+            ? 'Keep both ${targetMuscle.bodyAreaLabel == 'arm' ? 'arms' : 'shoulders'} relaxed and steady.'
             : displaySymmetryIndex > 0
-            ? 'Try relaxing the right shoulder or sharing the effort with the left side.'
-            : 'Try relaxing the left shoulder or sharing the effort with the right side.';
+            ? 'Try relaxing the right ${targetMuscle.bodyAreaLabel} or sharing the effort with the left side.'
+            : 'Try relaxing the left ${targetMuscle.bodyAreaLabel} or sharing the effort with the right side.';
         final signalStatus = state.status == SessionStatus.signalLost
             ? 'Signal unstable'
             : state.isConnected
@@ -101,7 +103,7 @@ class AnatomicalViewContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'See which shoulder is working more.',
+                                targetMuscle.anatomicalSubtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTheme.bodySmall.copyWith(
@@ -148,6 +150,7 @@ class AnatomicalViewContent extends StatelessWidget {
                                 leftActivation: displayLeftActivation,
                                 rightActivation: displayRightActivation,
                                 width: visualWidth,
+                                targetMuscle: targetMuscle,
                               ),
                             ),
                           ),
@@ -157,6 +160,7 @@ class AnatomicalViewContent extends StatelessWidget {
                             rightActivation: displayRightActivation,
                             leftRms: isLive ? state.leftTrapRms : null,
                             rightRms: isLive ? state.rightTrapRms : null,
+                            targetMuscle: targetMuscle,
                             compact: isCompact,
                           ),
                           SizedBox(height: isCompact ? 6 : 10),
@@ -217,6 +221,7 @@ class _ActivationMetricsRow extends StatelessWidget {
     required this.rightActivation,
     required this.leftRms,
     required this.rightRms,
+    required this.targetMuscle,
     required this.compact,
   });
 
@@ -224,6 +229,7 @@ class _ActivationMetricsRow extends StatelessWidget {
   final double rightActivation;
   final double? leftRms;
   final double? rightRms;
+  final TargetMuscle targetMuscle;
   final bool compact;
 
   @override
@@ -232,7 +238,7 @@ class _ActivationMetricsRow extends StatelessWidget {
       children: <Widget>[
         Expanded(
           child: _MetricPill(
-            label: 'Left Trapezius',
+            label: targetMuscle.leftLongLabel,
             value: '${(leftActivation * 100).round()}%',
             rms: leftRms,
             compact: compact,
@@ -241,7 +247,7 @@ class _ActivationMetricsRow extends StatelessWidget {
         SizedBox(width: compact ? 5 : 8),
         Expanded(
           child: _MetricPill(
-            label: 'Right Trapezius',
+            label: targetMuscle.rightLongLabel,
             value: '${(rightActivation * 100).round()}%',
             rms: rightRms,
             compact: compact,

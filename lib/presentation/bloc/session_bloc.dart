@@ -13,6 +13,7 @@ import '../../domain/models/emg_frame.dart';
 import '../../domain/models/research_context.dart';
 import '../../domain/models/session_summary.dart';
 import '../../domain/models/session_tab.dart';
+import '../../domain/models/target_muscle.dart';
 import '../../domain/services/signal_processor.dart';
 
 enum SessionStatus {
@@ -60,6 +61,7 @@ class SessionState extends Equatable {
     required this.participants,
     required this.activeParticipantId,
     required this.selectedScenario,
+    required this.targetMuscle,
     required this.notificationPreferences,
     this.calibratedAt,
   });
@@ -102,6 +104,7 @@ class SessionState extends Equatable {
       participants: const <ParticipantProfile>[],
       activeParticipantId: null,
       selectedScenario: UsageScenario.officeDesk,
+      targetMuscle: TargetMuscle.trapezius,
       notificationPreferences: const NotificationPreferences(),
       calibratedAt: null,
     );
@@ -136,6 +139,7 @@ class SessionState extends Equatable {
   final List<ParticipantProfile> participants;
   final String? activeParticipantId;
   final UsageScenario selectedScenario;
+  final TargetMuscle targetMuscle;
   final NotificationPreferences notificationPreferences;
   final DateTime? calibratedAt;
 
@@ -202,6 +206,7 @@ class SessionState extends Equatable {
     String? activeParticipantId,
     bool clearActiveParticipantId = false,
     UsageScenario? selectedScenario,
+    TargetMuscle? targetMuscle,
     NotificationPreferences? notificationPreferences,
     DateTime? calibratedAt,
     bool clearCalibratedAt = false,
@@ -246,6 +251,7 @@ class SessionState extends Equatable {
           ? null
           : (activeParticipantId ?? this.activeParticipantId),
       selectedScenario: selectedScenario ?? this.selectedScenario,
+      targetMuscle: targetMuscle ?? this.targetMuscle,
       notificationPreferences:
           notificationPreferences ?? this.notificationPreferences,
       calibratedAt: clearCalibratedAt
@@ -284,6 +290,7 @@ class SessionState extends Equatable {
     participants,
     activeParticipantId,
     selectedScenario,
+    targetMuscle,
     notificationPreferences,
     calibratedAt,
   ];
@@ -510,6 +517,10 @@ class SessionBloc extends Cubit<SessionState> {
     }
     await _researchContextStore.saveScenario(scenario);
     emit(state.copyWith(selectedScenario: scenario));
+  }
+
+  void selectTargetMuscle(TargetMuscle muscle) {
+    emit(state.copyWith(targetMuscle: muscle));
   }
 
   Future<void> saveBaselineReference(BaselineReferencePosition position) async {
