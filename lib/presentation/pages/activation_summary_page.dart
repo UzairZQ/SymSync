@@ -63,17 +63,8 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             ) ??
             0.0;
 
-        // Primary imbalance label
-        String primaryImbalance;
-        if (avgSI == null) {
-          primaryImbalance = 'Pending';
-        } else if (avgSI < -15) {
-          primaryImbalance = 'Left Trap Dominance';
-        } else if (avgSI > 15) {
-          primaryImbalance = 'Right Trap Dominance';
-        } else {
-          primaryImbalance = 'Balanced';
-        }
+        final primaryImbalance = _primaryImbalanceLabel(avgSI);
+        final primaryImbalanceColor = _primaryImbalanceColor(avgSI, context);
 
         return ListView(
           key: const PageStorageKey<String>('summary'),
@@ -217,11 +208,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                           context: context,
                           label: 'Dominance',
                           value: periodDominance,
-                          color: avgSI == null
-                              ? context.txtTertiary
-                              : avgSI.abs() < 8
-                              ? AppTheme.accentLime
-                              : AppTheme.accentAmber,
+                          color: primaryImbalanceColor,
                         ),
                       ),
                     ],
@@ -324,9 +311,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                         context: context,
                         title: 'Primary Imbalance',
                         value: primaryImbalance,
-                        valueColor: primaryImbalance == 'Balanced'
-                            ? AppTheme.accentLime
-                            : AppTheme.accentAmber,
+                        valueColor: primaryImbalanceColor,
                       ),
                     ],
                   ),
@@ -443,10 +428,43 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
     }
     final value = averageSymmetryIndex.abs();
     if (value < 8) {
-      return 'Even';
+      return 'Symmetrical';
     }
     final direction = averageSymmetryIndex > 0 ? 'Right' : 'Left';
-    return '$direction +${value.toStringAsFixed(0)}%';
+    final strength = value < 16 ? 'slight' : 'clear';
+    return '$direction +${value.toStringAsFixed(0)}% $strength';
+  }
+
+  String _primaryImbalanceLabel(double? averageSymmetryIndex) {
+    if (averageSymmetryIndex == null) {
+      return 'Pending';
+    }
+    final value = averageSymmetryIndex.abs();
+    if (value < 8) {
+      return 'Both sides symmetrical';
+    }
+    final direction = averageSymmetryIndex > 0 ? 'Right' : 'Left';
+    if (value < 16) {
+      return '$direction Trap Slight Dominance';
+    }
+    return '$direction Trap Dominance';
+  }
+
+  Color _primaryImbalanceColor(
+    double? averageSymmetryIndex,
+    BuildContext context,
+  ) {
+    if (averageSymmetryIndex == null) {
+      return context.txtTertiary;
+    }
+    final value = averageSymmetryIndex.abs();
+    if (value < 8) {
+      return AppTheme.accentLime;
+    }
+    if (value < 16) {
+      return AppTheme.accentAmber;
+    }
+    return AppTheme.accentRed;
   }
 
   Widget _summaryMetric({
@@ -1276,7 +1294,7 @@ class _ExerciseRecommendations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final guidance = primaryImbalance == 'Balanced'
+    final guidance = primaryImbalance == 'Both sides symmetrical'
         ? 'Maintain balanced movement with gentle mobility and control.'
         : 'Use these as general educational exercises for $scenarioLabel. '
               'Stop if an exercise causes pain and consult a clinician when needed.';

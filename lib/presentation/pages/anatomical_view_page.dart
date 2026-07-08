@@ -42,16 +42,16 @@ class AnatomicalViewContent extends StatelessWidget {
         final imbalanceLabel = !state.isConnected
             ? 'Connect the sensors to start.'
             : displaySymmetryIndex == null
-            ? 'Move a little more to compare both sides.'
+            ? 'Both sides are symmetrical.'
             : displaySymmetryIndex < -8
             ? 'Left side is working more.'
             : displaySymmetryIndex > 8
             ? 'Right side is working more.'
-            : 'Both sides look balanced.';
+            : 'Both sides are symmetrical.';
         final guidanceText = !state.isConnected
             ? 'Connect both EMG sensors before comparing the shoulders.'
             : displaySymmetryIndex == null
-            ? 'Move a little more so the app can compare both sides.'
+            ? 'Keep both shoulders relaxed and steady.'
             : displaySymmetryIndex.abs() < 8
             ? 'Keep both shoulders relaxed and steady.'
             : displaySymmetryIndex > 0

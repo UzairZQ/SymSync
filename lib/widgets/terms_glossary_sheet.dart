@@ -57,7 +57,7 @@ class TermsGlossarySheet extends StatelessWidget {
           simple:
               'The side that was usually more active during the selected period.',
           detail:
-              'Dominance describes the EMG pattern only. It does not by itself mean weakness, injury, or poor movement.',
+              'Below 8% is treated as symmetrical. 8-15% is slight dominance, and 16% or more is clear dominance. Dominance describes the EMG pattern only. It does not by itself mean weakness, injury, or poor movement.',
         ),
       ],
     ),

@@ -112,7 +112,7 @@ void main() {
         child: const BalanceMonitorContent(),
       );
 
-      expect(find.text('Both sides look balanced'), findsOneWidget);
+      expect(find.text('Both sides are symmetrical'), findsOneWidget);
       expect(find.text('Left Trap'), findsOneWidget);
       expect(find.text('Right Trap'), findsOneWidget);
       expect(find.text('Right side is working more'), findsNothing);

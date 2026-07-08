@@ -78,7 +78,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
             ? 'Left side is working more'
             : displaySymmetry > 0
             ? 'Right side is working more'
-            : 'Both sides look balanced';
+            : 'Both sides are symmetrical';
         final guidanceText = hasData
             ? processor.correctiveInstruction(displaySymmetry)
             : 'Live balance appears when the EMG device is connected.';

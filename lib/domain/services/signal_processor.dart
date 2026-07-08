@@ -49,11 +49,11 @@ class SignalProcessor {
 
   String correctiveInstruction(double? symmetryIndex) {
     if (symmetryIndex == null) {
-      return 'Move a little more so both sensors can compare the shoulders.';
+      return 'Both sides are symmetrical. Keep your shoulders relaxed and steady.';
     }
     final value = symmetryIndex.abs();
     if (value < 8) {
-      return 'Both sides look balanced. Keep your shoulders relaxed and steady.';
+      return 'Both sides are symmetrical. Keep your shoulders relaxed and steady.';
     }
     if (symmetryIndex > 0) {
       return 'Right side is working more. Try relaxing the right shoulder.';
