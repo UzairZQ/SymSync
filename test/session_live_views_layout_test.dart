@@ -12,6 +12,7 @@ import 'package:sym_sync/data/research/research_context_store.dart';
 import 'package:sym_sync/domain/models/emg_frame.dart';
 import 'package:sym_sync/domain/models/research_context.dart';
 import 'package:sym_sync/domain/models/session_summary.dart';
+import 'package:sym_sync/domain/models/target_muscle.dart';
 import 'package:sym_sync/presentation/bloc/session_bloc.dart';
 import 'package:sym_sync/presentation/pages/anatomical_view_page.dart';
 import 'package:sym_sync/presentation/pages/balance_monitor_page.dart';
@@ -91,6 +92,32 @@ void main() {
     }
   });
 
+  testWidgets('anatomical view renders biceps target mode', (tester) async {
+    final bloc = await _startedBloc();
+    try {
+      bloc.setTestState(
+        bloc.state.copyWith(
+          targetMuscle: TargetMuscle.biceps,
+          normalisedLeftActivation: 0.38,
+          normalisedRightActivation: 0.52,
+        ),
+      );
+
+      await _pumpSessionViewport(
+        tester,
+        bloc: bloc,
+        child: const AnatomicalViewContent(),
+      );
+
+      expect(find.text('See which biceps is working more.'), findsOneWidget);
+      expect(find.text('Left Biceps'), findsOneWidget);
+      expect(find.text('Right Biceps'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await bloc.close();
+    }
+  });
+
   testWidgets('balance view centers stale imbalance while activation is tiny', (
     tester,
   ) async {
@@ -117,6 +144,39 @@ void main() {
       expect(find.text('Right Trap'), findsOneWidget);
       expect(find.text('Right side is working more'), findsNothing);
       expect(find.text('+100% relative imbalance'), findsNothing);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await bloc.close();
+    }
+  });
+
+  testWidgets('balance view switches channel labels to biceps mode', (
+    tester,
+  ) async {
+    final bloc = await _startedBloc();
+    try {
+      bloc.setTestState(
+        bloc.state.copyWith(
+          status: SessionStatus.connected,
+          isRecording: true,
+          normalisedLeftActivation: 0.32,
+          normalisedRightActivation: 0.36,
+        ),
+      );
+
+      await _pumpSessionViewport(
+        tester,
+        bloc: bloc,
+        child: const BalanceMonitorContent(),
+      );
+
+      await tester.tap(find.text('Biceps'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Left Biceps'), findsOneWidget);
+      expect(find.text('Right Biceps'), findsOneWidget);
+      expect(find.text('Left Trap'), findsNothing);
+      expect(find.text('Right Trap'), findsNothing);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await bloc.close();

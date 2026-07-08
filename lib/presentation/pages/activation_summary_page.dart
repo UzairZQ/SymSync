@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/research_context.dart';
 import '../../domain/models/session_summary.dart';
+import '../../domain/models/target_muscle.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -44,6 +45,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
         );
         final avgDeviation = avgSI == null ? null : avgSI.abs();
         final periodDominance = _dominanceValue(avgSI);
+        final targetMuscle = state.targetMuscle;
 
         final trendPercent = _trendPercent(filteredHistory);
         final trendingUp = trendPercent == null ? null : trendPercent >= 0;
@@ -63,7 +65,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             ) ??
             0.0;
 
-        final primaryImbalance = _primaryImbalanceLabel(avgSI);
+        final primaryImbalance = _primaryImbalanceLabel(avgSI, targetMuscle);
         final primaryImbalanceColor = _primaryImbalanceColor(avgSI, context);
 
         return ListView(
@@ -168,6 +170,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                             rightActivation: rightAvg.clamp(0.0, 1.0),
                             width: 200,
                             style: HeatmapDisplayStyle.summaryHeatmap,
+                            targetMuscle: targetMuscle,
                           )
                         : const _EmptyHeatmap(),
                   ),
@@ -176,9 +179,23 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      _MuscleChip(label: 'Trapezius', isActive: true),
+                      _MuscleChip(
+                        label: TargetMuscle.trapezius.chipLabel,
+                        isActive: targetMuscle == TargetMuscle.trapezius,
+                        onTap: () => context
+                            .read<SessionBloc>()
+                            .selectTargetMuscle(TargetMuscle.trapezius),
+                      ),
                       const SizedBox(width: AppTheme.spaceSM),
-                      Tooltip(
+                      _MuscleChip(
+                        label: TargetMuscle.biceps.chipLabel,
+                        isActive: targetMuscle == TargetMuscle.biceps,
+                        onTap: () => context
+                            .read<SessionBloc>()
+                            .selectTargetMuscle(TargetMuscle.biceps),
+                      ),
+                      const SizedBox(width: AppTheme.spaceSM),
+                      const Tooltip(
                         message: 'Coming soon',
                         triggerMode: TooltipTriggerMode.tap,
                         child: _MuscleChip(label: 'Deltoid', isActive: false),
@@ -322,6 +339,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             _ExerciseRecommendations(
               primaryImbalance: primaryImbalance,
               scenarioLabel: _scenarioScopeLabel(filteredHistory),
+              targetMuscle: targetMuscle,
             ),
           ],
         );
@@ -435,7 +453,10 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
     return '$direction +${value.toStringAsFixed(0)}% $strength';
   }
 
-  String _primaryImbalanceLabel(double? averageSymmetryIndex) {
+  String _primaryImbalanceLabel(
+    double? averageSymmetryIndex,
+    TargetMuscle targetMuscle,
+  ) {
     if (averageSymmetryIndex == null) {
       return 'Pending';
     }
@@ -445,9 +466,9 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
     }
     final direction = averageSymmetryIndex > 0 ? 'Right' : 'Left';
     if (value < 16) {
-      return '$direction Trap Slight Dominance';
+      return targetMuscle.dominanceLabel(direction == 'Right', slight: true);
     }
-    return '$direction Trap Dominance';
+    return targetMuscle.dominanceLabel(direction == 'Right', slight: false);
   }
 
   Color _primaryImbalanceColor(
@@ -1200,31 +1221,44 @@ class _BaselineReferenceRow extends StatelessWidget {
 class _MuscleChip extends StatelessWidget {
   final String label;
   final bool isActive;
+  final VoidCallback? onTap;
 
-  const _MuscleChip({required this.label, required this.isActive});
+  const _MuscleChip({required this.label, required this.isActive, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spaceMD,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: isActive
-            ? AppTheme.accentTeal.withValues(alpha: 0.16)
-            : context.bgElevated,
+    final enabled = onTap != null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        border: Border.all(
-          color: isActive ? AppTheme.accentTeal : context.dividerClr,
-        ),
-      ),
-      child: Text(
-        label,
-        style: AppTheme.bodySmall.copyWith(
-          color: isActive ? AppTheme.accentTeal : context.txtTertiary,
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppTheme.accentTeal.withValues(alpha: 0.16)
+                : context.bgElevated,
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            border: Border.all(
+              color: isActive ? AppTheme.accentTeal : context.dividerClr,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTheme.bodySmall.copyWith(
+              color: isActive
+                  ? AppTheme.accentTeal
+                  : enabled
+                  ? context.txtSecondary
+                  : context.txtTertiary,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
+          ),
         ),
       ),
     );
@@ -1266,10 +1300,12 @@ class _ExerciseRecommendations extends StatelessWidget {
   const _ExerciseRecommendations({
     required this.primaryImbalance,
     required this.scenarioLabel,
+    required this.targetMuscle,
   });
 
   final String primaryImbalance;
   final String scenarioLabel;
+  final TargetMuscle targetMuscle;
 
   static const _videos = <_ExerciseVideo>[
     _ExerciseVideo(
@@ -1294,6 +1330,29 @@ class _ExerciseRecommendations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (targetMuscle == TargetMuscle.biceps) {
+      return AppCard(
+        padding: const EdgeInsets.all(AppTheme.spaceLG),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Biceps testing mode',
+              style: AppTheme.headingLarge.copyWith(color: context.txtPrimary),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'The same left-right EMG logic is being used for biceps. Place CH1 and CH3 on matching left/right biceps positions, then compare activation, RMS, and dominance in this summary.',
+              style: AppTheme.bodySmall.copyWith(
+                color: context.txtSecondary,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final guidance = primaryImbalance == 'Both sides symmetrical'
         ? 'Maintain balanced movement with gentle mobility and control.'
         : 'Use these as general educational exercises for $scenarioLabel. '
