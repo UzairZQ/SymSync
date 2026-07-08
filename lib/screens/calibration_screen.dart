@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../domain/models/research_context.dart';
 import '../presentation/bloc/session_bloc.dart';
 import '../presentation/pages/session_page.dart';
 import '../theme/app_theme.dart';
@@ -117,12 +118,34 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   }
 
   void _beginSession() {
-    context.read<SessionBloc>().calibrate();
+    final bloc = context.read<SessionBloc>();
+    final straightAhead = bloc.state.activeParticipant?.baselineFor(
+      BaselineReferencePosition.straightAhead,
+    );
+    if (straightAhead == null) {
+      bloc.calibrate();
+    } else {
+      bloc.saveCalibration(
+        baselineLeft: straightAhead.leftRms,
+        baselineRight: straightAhead.rightRms,
+      );
+    }
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const SessionScreen()),
     );
+  }
+
+  Future<void> _saveBaseline(BaselineReferencePosition position) async {
+    try {
+      await context.read<SessionBloc>().saveBaselineReference(position);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   double _calculateStdDev(List<int> samples, int count) {
@@ -258,6 +281,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildBaselineProtocolCard(state),
+        const SizedBox(height: 16),
         _buildChannelRow(
           channelLabel: 'CH1 — ${channelAIsLeft ? 'Left' : 'Right'} Trapezius',
           status: _ch1Status,
@@ -274,6 +299,61 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           color: const Color(0xFFC56D5D),
         ),
       ],
+    );
+  }
+
+  Widget _buildBaselineProtocolCard(SessionState state) {
+    final participant = state.activeParticipant;
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.assignment_turned_in_outlined,
+                color: context.txtPrimary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Baseline reference protocol',
+                  style: TextStyle(
+                    color: context.txtPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'For each posture, hold still for 10 seconds, then save the current left/right ADC RMS values.',
+            style: TextStyle(color: context.txtSecondary, fontSize: 12.5),
+          ),
+          const SizedBox(height: 12),
+          for (final position in BaselineReferencePosition.values) ...[
+            _BaselineCaptureRow(
+              position: position,
+              reference: participant?.baselineFor(position),
+              enabled: state.isConnected && participant != null,
+              onSave: () => _saveBaseline(position),
+            ),
+            if (position != BaselineReferencePosition.values.last)
+              const SizedBox(height: 8),
+          ],
+          if (participant == null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Select or create a participant before saving baseline references.',
+              style: TextStyle(color: AppTheme.accentAmber, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -398,6 +478,79 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           color: context.txtSecondary,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+class _BaselineCaptureRow extends StatelessWidget {
+  const _BaselineCaptureRow({
+    required this.position,
+    required this.reference,
+    required this.enabled,
+    required this.onSave,
+  });
+
+  final BaselineReferencePosition position;
+  final BaselineReference? reference;
+  final bool enabled;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = reference == null
+        ? 'Not saved'
+        : 'L ${reference!.leftRms.toStringAsFixed(0)} / R ${reference!.rightRms.toStringAsFixed(0)} ADC RMS';
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: context.bgElevated,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.dividerClr),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  position.label,
+                  style: TextStyle(
+                    color: context.txtPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  position.instruction,
+                  style: TextStyle(color: context.txtSecondary, fontSize: 11),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: reference == null
+                        ? context.txtTertiary
+                        : AppTheme.accentTeal,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.tonal(
+            onPressed: enabled ? onSave : null,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(74, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }

@@ -60,6 +60,36 @@ void main() {
     expect(loaded.notificationPreferences.enabled, isFalse);
   });
 
+  test('participant JSON retains baseline reference recordings', () {
+    final participant = ParticipantProfile(
+      id: 'P003',
+      createdAt: DateTime(2026, 6, 20),
+      baselineReferences: <BaselineReference>[
+        BaselineReference(
+          position: BaselineReferencePosition.straightAhead,
+          leftRms: 1020,
+          rightRms: 980,
+          recordedAt: DateTime(2026, 7, 8, 10),
+        ),
+        BaselineReference(
+          position: BaselineReferencePosition.farRight,
+          leftRms: 1350,
+          rightRms: 1180,
+          recordedAt: DateTime(2026, 7, 8, 10, 1),
+        ),
+      ],
+    );
+
+    final decoded = ParticipantProfile.fromJson(participant.toJson());
+
+    expect(decoded, participant);
+    expect(
+      decoded.baselineFor(BaselineReferencePosition.straightAhead)?.leftRms,
+      1020,
+    );
+    expect(decoded.baselineFor(BaselineReferencePosition.farLeft), isNull);
+  });
+
   test('active history never mixes participant measurements', () {
     final first = _summary('P001', UsageScenario.officeDesk);
     final second = _summary('P002', UsageScenario.gymExercise);

@@ -155,6 +155,8 @@ class AnatomicalViewContent extends StatelessWidget {
                           _ActivationMetricsRow(
                             leftActivation: displayLeftActivation,
                             rightActivation: displayRightActivation,
+                            leftRms: isLive ? state.leftTrapRms : null,
+                            rightRms: isLive ? state.rightTrapRms : null,
                             compact: isCompact,
                           ),
                           SizedBox(height: isCompact ? 6 : 10),
@@ -213,11 +215,15 @@ class _ActivationMetricsRow extends StatelessWidget {
   const _ActivationMetricsRow({
     required this.leftActivation,
     required this.rightActivation,
+    required this.leftRms,
+    required this.rightRms,
     required this.compact,
   });
 
   final double leftActivation;
   final double rightActivation;
+  final double? leftRms;
+  final double? rightRms;
   final bool compact;
 
   @override
@@ -228,6 +234,7 @@ class _ActivationMetricsRow extends StatelessWidget {
           child: _MetricPill(
             label: 'Left Trapezius',
             value: '${(leftActivation * 100).round()}%',
+            rms: leftRms,
             compact: compact,
           ),
         ),
@@ -236,6 +243,7 @@ class _ActivationMetricsRow extends StatelessWidget {
           child: _MetricPill(
             label: 'Right Trapezius',
             value: '${(rightActivation * 100).round()}%',
+            rms: rightRms,
             compact: compact,
           ),
         ),
@@ -289,11 +297,13 @@ class _MetricPill extends StatelessWidget {
   const _MetricPill({
     required this.label,
     required this.value,
+    required this.rms,
     required this.compact,
   });
 
   final String label;
   final String value;
+  final double? rms;
   final bool compact;
 
   @override
@@ -333,6 +343,20 @@ class _MetricPill extends StatelessWidget {
               height: 1,
             ),
           ),
+          if (rms != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'RMS ${rms!.toStringAsFixed(0)} ADC',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.labelSmall.copyWith(
+                color: context.txtTertiary,
+                fontSize: compact ? 7 : 8,
+                letterSpacing: 0,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );

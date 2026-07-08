@@ -239,6 +239,9 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                                 child: _ChannelCard(
                                   label: 'Left Trap',
                                   activation: leftAct,
+                                  currentRms: isRecording
+                                      ? state.leftTrapRms
+                                      : null,
                                   activity: activityLabel(leftAct),
                                   color: AppTheme.leftTrap,
                                   dense: isTight,
@@ -249,6 +252,9 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                                 child: _ChannelCard(
                                   label: 'Right Trap',
                                   activation: rightAct,
+                                  currentRms: isRecording
+                                      ? state.rightTrapRms
+                                      : null,
                                   activity: activityLabel(rightAct),
                                   color: AppTheme.rightTrap,
                                   dense: isTight,
@@ -332,6 +338,7 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
 class _ChannelCard extends StatelessWidget {
   final String label;
   final double activation;
+  final double? currentRms;
   final String activity;
   final Color color;
   final bool dense;
@@ -339,6 +346,7 @@ class _ChannelCard extends StatelessWidget {
   const _ChannelCard({
     required this.label,
     required this.activation,
+    required this.currentRms,
     required this.activity,
     required this.color,
     this.dense = false,
@@ -391,6 +399,20 @@ class _ChannelCard extends StatelessWidget {
           ),
           SizedBox(height: dense ? 3 : 6),
           _ActivityBadge(level: activity, color: color),
+          if (currentRms != null) ...[
+            SizedBox(height: dense ? 3 : 5),
+            Text(
+              'Current RMS ${currentRms!.toStringAsFixed(0)} ADC',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.labelSmall.copyWith(
+                color: context.txtTertiary,
+                letterSpacing: 0,
+                fontSize: dense ? 8 : 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           SizedBox(height: dense ? 3 : 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),

@@ -402,6 +402,8 @@ class SessionBloc extends Cubit<SessionState> {
   double _windowRmsSumLeft = 0;
   double _windowRmsSumRight = 0;
   int _windowActivationCount = 0;
+  double _sessionSymmetrySum = 0.0;
+  int _sessionSymmetryCount = 0;
 
   final _leftFilter = SignalFilterState();
   final _rightFilter = SignalFilterState();
@@ -508,6 +510,51 @@ class SessionBloc extends Cubit<SessionState> {
     }
     await _researchContextStore.saveScenario(scenario);
     emit(state.copyWith(selectedScenario: scenario));
+  }
+
+  Future<void> saveBaselineReference(BaselineReferencePosition position) async {
+    final participantId = state.activeParticipantId;
+    if (participantId == null) {
+      throw StateError('Select a participant before saving baseline values.');
+    }
+    if (!state.isConnected) {
+      throw StateError(
+        'Connect the EMG sensors before saving baseline values.',
+      );
+    }
+
+    final reference = BaselineReference(
+      position: position,
+      leftRms: state.leftTrapRms,
+      rightRms: state.rightTrapRms,
+      recordedAt: DateTime.now(),
+    );
+    final participants = state.participants
+        .map(
+          (participant) => participant.id == participantId
+              ? participant.copyWithBaseline(reference)
+              : participant,
+        )
+        .toList(growable: false);
+
+    await _researchContextStore.saveParticipants(participants, participantId);
+
+    emit(
+      state.copyWith(
+        participants: List<ParticipantProfile>.unmodifiable(participants),
+        baselineRmsLeft: position == BaselineReferencePosition.straightAhead
+            ? reference.leftRms
+            : state.baselineRmsLeft,
+        baselineRmsRight: position == BaselineReferencePosition.straightAhead
+            ? reference.rightRms
+            : state.baselineRmsRight,
+        calibratedAt: position == BaselineReferencePosition.straightAhead
+            ? reference.recordedAt
+            : state.calibratedAt,
+        notice:
+            '${position.label} baseline saved (${reference.leftRms.toStringAsFixed(0)} / ${reference.rightRms.toStringAsFixed(0)} ADC RMS)',
+      ),
+    );
   }
 
   Future<bool> setNotificationsEnabled(bool enabled) async {
@@ -737,6 +784,8 @@ class SessionBloc extends Cubit<SessionState> {
     _windowRmsSumLeft = 0;
     _windowRmsSumRight = 0;
     _windowActivationCount = 0;
+    _sessionSymmetrySum = 0.0;
+    _sessionSymmetryCount = 0;
     _autoSaveCounter = 0;
     _imbalanceStartedAt = null;
     _lastGuidanceNotificationAt = null;
@@ -781,6 +830,8 @@ class SessionBloc extends Cubit<SessionState> {
     _windowRmsSumLeft = 0;
     _windowRmsSumRight = 0;
     _windowActivationCount = 0;
+    _sessionSymmetrySum = 0.0;
+    _sessionSymmetryCount = 0;
     _autoSaveCounter = 0;
     _imbalanceStartedAt = null;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
@@ -947,8 +998,10 @@ class SessionBloc extends Cubit<SessionState> {
         ? ((_activationSumRight / _activationCount) / _sessionPeakRmsRight)
               .clamp(0.0, 1.0)
         : 0.0;
-    // Calculate right activation average by using final session corrected SI if possible
-    final double? finalSymmetryIndex = _smoothedSI ?? _calculateSymmetryIndex();
+    final double? finalSymmetryIndex =
+        _sessionAverageSymmetryIndex ??
+        _smoothedSI ??
+        _calculateSymmetryIndex();
 
     final summary = SessionSummary(
       startedAt: _sessionStartedAt!,
@@ -989,7 +1042,10 @@ class SessionBloc extends Cubit<SessionState> {
         ? ((_activationSumRight / _activationCount) / _sessionPeakRmsRight)
               .clamp(0.0, 1.0)
         : 0.0;
-    final double? finalSymmetryIndex = _smoothedSI ?? _calculateSymmetryIndex();
+    final double? finalSymmetryIndex =
+        _sessionAverageSymmetryIndex ??
+        _smoothedSI ??
+        _calculateSymmetryIndex();
     final summary = SessionSummary(
       startedAt: _sessionStartedAt!,
       endedAt: now,
@@ -1047,6 +1103,8 @@ class SessionBloc extends Cubit<SessionState> {
     _windowRmsSumLeft = 0;
     _windowRmsSumRight = 0;
     _windowActivationCount = 0;
+    _sessionSymmetrySum = 0.0;
+    _sessionSymmetryCount = 0;
     _imbalanceStartedAt = null;
     _rawPoints.fillRange(0, _rawPoints.length, SignalProcessor.adcMidpoint);
     _rawPoints3.fillRange(0, _rawPoints3.length, SignalProcessor.adcMidpoint);
@@ -1077,6 +1135,17 @@ class SessionBloc extends Cubit<SessionState> {
     if (_siBuffer.length > _siBufferSize) {
       _siBuffer.removeFirst();
     }
+    if (state.isRecording) {
+      _sessionSymmetrySum += newSI;
+      _sessionSymmetryCount++;
+    }
+  }
+
+  double? get _sessionAverageSymmetryIndex {
+    if (_sessionSymmetryCount == 0) {
+      return null;
+    }
+    return _sessionSymmetrySum / _sessionSymmetryCount;
   }
 
   double? get _smoothedSI {

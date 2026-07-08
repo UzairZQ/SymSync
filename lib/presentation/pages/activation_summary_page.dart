@@ -19,57 +19,49 @@ class ActivationSummaryPage extends StatefulWidget {
   State<ActivationSummaryPage> createState() => _ActivationSummaryPageState();
 }
 
+enum _SummaryScope { all, latest, selected }
+
 class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
-  int _periodIndex = 1;
+  int _periodIndex = 0;
+  _SummaryScope _summaryScope = _SummaryScope.all;
+  int? _selectedSessionMs;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SessionBloc, SessionState>(
       builder: (context, state) {
-        final now = DateTime.now();
-        final periods = <Duration>[
-          const Duration(days: 1),
-          const Duration(days: 7),
-          const Duration(days: 30),
-        ];
-        final cutoff = now.subtract(periods[_periodIndex]);
-        final filteredHistory = state.activeHistory
-            .where((s) => s.startedAt.isAfter(cutoff))
-            .toList();
+        final periodHistory = _filterHistoryForPeriod(
+          state.activeHistory,
+          _periodIndex,
+        );
+        final filteredHistory = _historyForScope(periodHistory);
 
         final historyCount = filteredHistory.length;
 
-        final symmetryScores = filteredHistory
-            .map((s) => s.averageSymmetryIndex)
-            .whereType<double>()
-            .toList();
-        final avgSI = symmetryScores.isEmpty
-            ? null
-            : symmetryScores.reduce((a, b) => a + b) / symmetryScores.length;
+        final avgSI = _durationWeightedAverage(
+          filteredHistory,
+          (session) => session.averageSymmetryIndex,
+        );
         final avgDeviation = avgSI == null ? null : avgSI.abs();
+        final periodDominance = _dominanceValue(avgSI);
 
         final trendPercent = _trendPercent(filteredHistory);
         final trendingUp = trendPercent == null ? null : trendPercent >= 0;
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
 
-        // Compute time-averaged left / right activations from filtered history
-        double leftAvg = 0.0;
-        double rightAvg = 0.0;
-        if (filteredHistory.isNotEmpty) {
-          final leftVals = filteredHistory
-              .map((s) => s.averageLeftActivation)
-              .whereType<double>();
-          final rightVals = filteredHistory
-              .map((s) => s.averageRightActivation)
-              .whereType<double>();
-          if (leftVals.isNotEmpty) {
-            leftAvg = leftVals.reduce((a, b) => a + b) / leftVals.length;
-          }
-          if (rightVals.isNotEmpty) {
-            rightAvg = rightVals.reduce((a, b) => a + b) / rightVals.length;
-          }
-        }
+        final leftAvg =
+            _durationWeightedAverage(
+              filteredHistory,
+              (session) => session.averageLeftActivation,
+            ) ??
+            0.0;
+        final rightAvg =
+            _durationWeightedAverage(
+              filteredHistory,
+              (session) => session.averageRightActivation,
+            ) ??
+            0.0;
 
         // Primary imbalance label
         String primaryImbalance;
@@ -130,6 +122,29 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
               onSelected: (participantId) =>
                   context.read<SessionBloc>().selectParticipant(participantId),
             ),
+            if (state.activeParticipant != null) ...[
+              const SizedBox(height: AppTheme.spaceMD),
+              _BaselineReferenceCard(participant: state.activeParticipant!),
+            ],
+            const SizedBox(height: AppTheme.spaceMD),
+            _SummaryScopeCard(
+              periodHistory: periodHistory,
+              scopedHistory: filteredHistory,
+              scope: _summaryScope,
+              selectedSessionMs: _selectedSessionMs,
+              onScopeChanged: (scope) => setState(() {
+                _summaryScope = scope;
+                if (scope == _SummaryScope.selected &&
+                    _selectedSession(periodHistory) == null &&
+                    periodHistory.isNotEmpty) {
+                  _selectedSessionMs = _sessionKey(periodHistory.first);
+                }
+              }),
+              onSessionSelected: (sessionMs) => setState(() {
+                _summaryScope = _SummaryScope.selected;
+                _selectedSessionMs = sessionMs;
+              }),
+            ),
             const SizedBox(height: AppTheme.spaceMD),
             AppCard(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
@@ -141,6 +156,16 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                     style: AppTheme.labelSmall.copyWith(
                       color: context.txtTertiary,
                       letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Aggregate of all recorded scenarios in the selected period.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.bodySmall.copyWith(
+                      color: context.txtSecondary,
+                      height: 1.25,
                     ),
                   ),
                   const SizedBox(height: AppTheme.spaceSM),
@@ -190,13 +215,13 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       Expanded(
                         child: _summaryMetric(
                           context: context,
-                          label: 'Trend',
-                          value: trendPercent == null
-                              ? '—'
-                              : '${trendingUp! ? '+' : ''}${trendPercent.toStringAsFixed(0)}%',
-                          color: trendPercent == null || !trendingUp!
-                              ? AppTheme.accentRed
-                              : AppTheme.accentLime,
+                          label: 'Dominance',
+                          value: periodDominance,
+                          color: avgSI == null
+                              ? context.txtTertiary
+                              : avgSI.abs() < 8
+                              ? AppTheme.accentLime
+                              : AppTheme.accentAmber,
                         ),
                       ),
                     ],
@@ -311,7 +336,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             const SizedBox(height: AppTheme.spaceLG),
             _ExerciseRecommendations(
               primaryImbalance: primaryImbalance,
-              scenarioLabel: state.selectedScenario.shortLabel,
+              scenarioLabel: _scenarioScopeLabel(filteredHistory),
             ),
           ],
         );
@@ -330,6 +355,98 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
     final prior = scores[1].abs();
     if (prior == 0) return 0;
     return ((prior - recent) / prior) * 100;
+  }
+
+  List<SessionSummary> _filterHistoryForPeriod(
+    List<SessionSummary> history,
+    int periodIndex,
+  ) {
+    final now = DateTime.now();
+    final DateTime cutoff = switch (periodIndex) {
+      0 => DateTime(now.year, now.month, now.day),
+      1 => now.subtract(const Duration(days: 7)),
+      _ => now.subtract(const Duration(days: 30)),
+    };
+    return history
+        .where((session) => !session.startedAt.isBefore(cutoff))
+        .toList(growable: false);
+  }
+
+  List<SessionSummary> _historyForScope(List<SessionSummary> periodHistory) {
+    if (periodHistory.isEmpty) {
+      return const <SessionSummary>[];
+    }
+    return switch (_summaryScope) {
+      _SummaryScope.all => periodHistory,
+      _SummaryScope.latest => <SessionSummary>[periodHistory.first],
+      _SummaryScope.selected => <SessionSummary>[
+        _selectedSession(periodHistory) ?? periodHistory.first,
+      ],
+    };
+  }
+
+  SessionSummary? _selectedSession(List<SessionSummary> periodHistory) {
+    final selectedMs = _selectedSessionMs;
+    if (selectedMs == null) {
+      return null;
+    }
+    for (final session in periodHistory) {
+      if (_sessionKey(session) == selectedMs) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  int _sessionKey(SessionSummary session) =>
+      session.startedAt.millisecondsSinceEpoch;
+
+  double? _durationWeightedAverage(
+    List<SessionSummary> history,
+    double? Function(SessionSummary session) valueOf,
+  ) {
+    var weightedSum = 0.0;
+    var totalWeight = 0.0;
+    for (final session in history) {
+      final value = valueOf(session);
+      if (value == null) continue;
+      final weight = session.durationSeconds <= 0
+          ? 1.0
+          : session.durationSeconds.toDouble();
+      weightedSum += value * weight;
+      totalWeight += weight;
+    }
+    if (totalWeight == 0) {
+      return null;
+    }
+    return weightedSum / totalWeight;
+  }
+
+  String _scenarioScopeLabel(List<SessionSummary> history) {
+    final scenarioIds = history
+        .map((session) => session.scenarioId)
+        .whereType<String>()
+        .toSet();
+    if (scenarioIds.length <= 1) {
+      final id = scenarioIds.isEmpty ? null : scenarioIds.first;
+      final scenario = UsageScenario.values.where((item) => item.id == id);
+      return scenario.isEmpty
+          ? 'the selected period'
+          : scenario.first.shortLabel;
+    }
+    return 'all recorded scenarios';
+  }
+
+  String _dominanceValue(double? averageSymmetryIndex) {
+    if (averageSymmetryIndex == null) {
+      return '—';
+    }
+    final value = averageSymmetryIndex.abs();
+    if (value < 8) {
+      return 'Even';
+    }
+    final direction = averageSymmetryIndex > 0 ? 'Right' : 'Left';
+    return '$direction +${value.toStringAsFixed(0)}%';
   }
 
   Widget _summaryMetric({
@@ -380,6 +497,211 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SummaryScopeCard extends StatelessWidget {
+  const _SummaryScopeCard({
+    required this.periodHistory,
+    required this.scopedHistory,
+    required this.scope,
+    required this.selectedSessionMs,
+    required this.onScopeChanged,
+    required this.onSessionSelected,
+  });
+
+  final List<SessionSummary> periodHistory;
+  final List<SessionSummary> scopedHistory;
+  final _SummaryScope scope;
+  final int? selectedSessionMs;
+  final ValueChanged<_SummaryScope> onScopeChanged;
+  final ValueChanged<int?> onSessionSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedValue = _selectedDropdownValue;
+    return AppCard(
+      padding: const EdgeInsets.all(AppTheme.spaceMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.filter_alt_outlined,
+                size: 19,
+                color: AppTheme.accentTeal,
+              ),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  'Summary scope',
+                  style: AppTheme.headingMedium.copyWith(
+                    color: context.txtPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _scopeDescription,
+            style: AppTheme.bodySmall.copyWith(
+              color: context.txtSecondary,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceMD),
+          Wrap(
+            spacing: AppTheme.spaceSM,
+            runSpacing: AppTheme.spaceSM,
+            children: <Widget>[
+              _ScopeChip(
+                label: 'All',
+                selected: scope == _SummaryScope.all,
+                onTap: () => onScopeChanged(_SummaryScope.all),
+              ),
+              _ScopeChip(
+                label: 'Latest',
+                selected: scope == _SummaryScope.latest,
+                onTap: () => onScopeChanged(_SummaryScope.latest),
+              ),
+              _ScopeChip(
+                label: 'Session',
+                selected: scope == _SummaryScope.selected,
+                onTap: () => onScopeChanged(_SummaryScope.selected),
+              ),
+            ],
+          ),
+          if (scope == _SummaryScope.selected) ...<Widget>[
+            const SizedBox(height: AppTheme.spaceMD),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSM),
+              decoration: BoxDecoration(
+                color: context.bgElevated,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                border: Border.all(color: context.dividerClr),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: selectedValue,
+                  isExpanded: true,
+                  hint: Text(
+                    periodHistory.isEmpty
+                        ? 'No sessions in this period'
+                        : 'Choose a session',
+                  ),
+                  items: periodHistory
+                      .map(
+                        (session) => DropdownMenuItem<int>(
+                          value: session.startedAt.millisecondsSinceEpoch,
+                          child: Text(
+                            _sessionLabel(session),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: periodHistory.isEmpty ? null : onSessionSelected,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int? get _selectedDropdownValue {
+    if (periodHistory.isEmpty) {
+      return null;
+    }
+    final selected = selectedSessionMs;
+    if (selected != null &&
+        periodHistory.any(
+          (session) => session.startedAt.millisecondsSinceEpoch == selected,
+        )) {
+      return selected;
+    }
+    return periodHistory.first.startedAt.millisecondsSinceEpoch;
+  }
+
+  String get _scopeDescription {
+    if (periodHistory.isEmpty) {
+      return 'No sessions are available in the selected period.';
+    }
+    if (scope == _SummaryScope.all) {
+      return 'Showing aggregate data from all ${periodHistory.length} sessions in this period.';
+    }
+    if (scope == _SummaryScope.latest) {
+      return 'Showing only the most recent session in this period.';
+    }
+    final session = scopedHistory.isEmpty
+        ? periodHistory.first
+        : scopedHistory.first;
+    return 'Showing one selected session: ${_sessionLabel(session)}.';
+  }
+
+  String _sessionLabel(SessionSummary session) {
+    final time = TimeOfDay.fromDateTime(session.startedAt);
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    final scenario = _scenarioLabel(session.scenarioId);
+    final dominance = _dominanceLabel(session.averageSymmetryIndex);
+    return '$hour:$minute $period · $scenario · $dominance';
+  }
+
+  String _scenarioLabel(String? scenarioId) {
+    for (final scenario in UsageScenario.values) {
+      if (scenario.id == scenarioId) {
+        return scenario.shortLabel;
+      }
+    }
+    return 'Unlabeled';
+  }
+
+  String _dominanceLabel(double? si) {
+    if (si == null) {
+      return 'Pending';
+    }
+    if (si.abs() < 8) {
+      return 'Even';
+    }
+    return si > 0
+        ? 'Right +${si.abs().toStringAsFixed(0)}%'
+        : 'Left +${si.abs().toStringAsFixed(0)}%';
+  }
+}
+
+class _ScopeChip extends StatelessWidget {
+  const _ScopeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      selected: selected,
+      onSelected: (_) => onTap(),
+      label: Text(label),
+      selectedColor: AppTheme.accentTeal.withValues(alpha: 0.18),
+      backgroundColor: context.bgElevated,
+      side: BorderSide(
+        color: selected ? AppTheme.accentTeal : context.dividerClr,
+      ),
+      showCheckmark: false,
+      labelStyle: AppTheme.bodySmall.copyWith(
+        color: selected ? context.txtPrimary : context.txtSecondary,
+        fontWeight: FontWeight.w800,
       ),
     );
   }
@@ -738,6 +1060,121 @@ class _ParticipantSummarySelector extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _BaselineReferenceCard extends StatelessWidget {
+  const _BaselineReferenceCard({required this.participant});
+
+  final ParticipantProfile participant;
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = BaselineReferencePosition.values
+        .where((position) => participant.baselineFor(position) != null)
+        .length;
+    return AppCard(
+      padding: const EdgeInsets.all(AppTheme.spaceMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.fact_check_outlined,
+                size: 19,
+                color: AppTheme.accentTeal,
+              ),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Baseline references',
+                      style: AppTheme.headingMedium.copyWith(
+                        color: context.txtPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$completed of 3 posture references saved for ${participant.id}',
+                      style: AppTheme.bodySmall.copyWith(
+                        color: context.txtSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceSM),
+          for (final position in BaselineReferencePosition.values) ...[
+            _BaselineReferenceRow(
+              position: position,
+              reference: participant.baselineFor(position),
+            ),
+            if (position != BaselineReferencePosition.values.last)
+              Divider(height: AppTheme.spaceMD, color: context.dividerClr),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BaselineReferenceRow extends StatelessWidget {
+  const _BaselineReferenceRow({
+    required this.position,
+    required this.reference,
+  });
+
+  final BaselineReferencePosition position;
+  final BaselineReference? reference;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = reference == null
+        ? 'Not recorded'
+        : 'L ${reference!.leftRms.toStringAsFixed(0)} / R ${reference!.rightRms.toStringAsFixed(0)} ADC RMS';
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                position.label,
+                style: AppTheme.bodyMedium.copyWith(
+                  color: context.txtPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                position.instruction,
+                style: AppTheme.bodySmall.copyWith(
+                  color: context.txtSecondary,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppTheme.spaceSM),
+        Text(
+          value,
+          textAlign: TextAlign.end,
+          style: AppTheme.labelSmall.copyWith(
+            color: reference == null
+                ? context.txtTertiary
+                : AppTheme.accentTeal,
+            letterSpacing: 0,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
