@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../data/export/research_data_export_service.dart';
 import '../../domain/models/research_context.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/accessibility_provider.dart';
@@ -208,6 +209,13 @@ class ProfilePage extends StatelessWidget {
               onTap: () => showParticipantManagerSheet(context),
             ),
             _ActionRow(
+              icon: Icons.file_download_outlined,
+              title: 'Export research data',
+              body:
+                  'Share CSV and JSON copies of all saved participants, scenarios, session durations, and summary metrics.',
+              onTap: () => _exportResearchData(context, state),
+            ),
+            _ActionRow(
               icon: Icons.tune_rounded,
               title: 'Notification thresholds',
               body:
@@ -331,6 +339,62 @@ class ProfilePage extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _exportResearchData(
+    BuildContext context,
+    SessionState state,
+  ) async {
+    if (state.history.isEmpty && state.participants.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('There is no research data to export.')),
+        );
+      return;
+    }
+
+    final shouldExport = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.ios_share_outlined),
+        title: const Text('Export research data?'),
+        content: Text(
+          'This creates read-only copies of ${state.participants.length} '
+          'participant records and ${state.history.length} saved sessions. '
+          'The files include pseudonymous IDs and biometric summaries, but no '
+          'raw EMG waveform. Your data will remain stored in SymSync.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.file_download_outlined),
+            label: const Text('Create export'),
+          ),
+        ],
+      ),
+    );
+    if (shouldExport != true || !context.mounted) return;
+
+    try {
+      const service = ResearchDataExportService();
+      final bundle = service.buildBundle(
+        participants: state.participants,
+        sessions: state.history,
+      );
+      await service.share(bundle);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Could not export research data: $error')),
+        );
+    }
   }
 
   Future<void> _confirmClearSessionData(

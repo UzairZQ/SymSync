@@ -53,6 +53,8 @@ build/
 CONTEXT.md
 
 # Local study/report/presentation artifacts
+/graphify-out/
+/outputs/
 /Material EMG App/
 /presentation_assets/
 /study_questionnaires/

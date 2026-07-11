@@ -1,194 +1,147 @@
 # SymSync
 
-**Real-time bilateral muscle symmetry monitoring for athletes, rehabilitation, and clinical use.**
+### Making bilateral muscle activity easier to understand
 
-SymSync connects to a biosignalsplux sEMG hub over Bluetooth, streams two synchronized EMG channels, computes a real-time symmetry index (0–100 scale), and surfaces it through a radial gauge, anatomical heatmap, session history, and trend analysis.
+SymSync is a Flutter research prototype that turns two live surface-EMG signals into clear left-versus-right muscle feedback. It was created for a Human–Computer Interaction study exploring how people understand bilateral muscle activity during everyday and exercise scenarios.
 
----
+The app connects to a biosignalsplux device on Android, guides the user through sensor placement and baseline calibration, and presents the signal through two complementary views: an anatomical heatmap and a balance monitor. On other platforms, simulated input keeps the interface available for development and demonstration.
 
-## Features
+> SymSync is an educational research prototype. It is not a medical device and should not be used for diagnosis or treatment.
 
-- **Live Dashboard** — Time-of-day greeting, symmetry index radial gauge, quick-start session controls, channel status bars, and recent session history with performance tags
-- **Live Session** — Tabbed interface (Anatomical / Balance) with EMG heatmap overlay, tilt-meter balance gauge, channel-level metrics, and a research-grade signal monitor
-- **Activation Summary** — Imbalance heatmap with period filtering (Today / 7 Days / 30 Days), pattern analysis, average deviation, primary imbalance, and trend computation
-- **Research Participants** — Anonymous sequential participant IDs (P001, P002, …), participant switching, isolated history, and participant-safe deletion
-- **Scenario Validation** — Every recording is tagged as Desk Work, Dumbbell Shoulder Shrug, or Backpack Stair Climb
-- **Local Corrective Notifications** — Configurable sustained-imbalance threshold, scenario-aware delay, cooldown, and directional corrective guidance without Firebase
-- **Accessible Visualisation** — Persistent color-blind mode with a perceptually distinct palette, text labels, and non-colour marker patterns
-- **Exercise Recommendations** — Curated trapezius and scapular exercise videos in Activation Summary with external YouTube playback
-- **Profile** — Participant statistics, research controls, notification settings, dark/color-blind themes, glossary, placement guide, and clean-data controls
-- **Onboarding** — 7-slide walkthrough covering EMG basics, electrode placement, user type, and cable assignment
-- **Calibration Screen** — Two-phase device calibration with noise-floor monitoring, signal quality badges, and sparkline previews
-- **Dark & Light Themes** — Full design system with theme-aware context extension
-- **Landing Page** — Self-contained `index3.html` with phone mockups, feature showcase, and inline heatmap visualization
+## The experience
 
----
+Users begin with a short introduction to EMG and electrode placement. After calibration, they can record a scenario and watch the balance between both muscles change in real time. Every completed session is stored locally and summarized in language intended for non-experts.
 
-## Screenshots
+The current prototype includes:
 
-Captured on the iPhone 17 simulator. Each source image is `1206 x 2622 px`, which corresponds to the actual mobile logical screen size of `402 x 874 pt @3x`. Click any screenshot to open the full-resolution capture.
+- live bilateral EMG monitoring for upper trapezius and biceps demonstrations
+- guided placement, connection and baseline calibration
+- anatomical and balance-based feedback conditions
+- anonymous participant and scenario management
+- session history, activation summaries and accessibility settings
+- CSV and JSON research-data export with baseline and task-duration values
 
-| Screen | Screen |
-|---|---|
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.26.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.26.png" alt="Onboarding - Welcome" width="201" height="437"></a><br><sub>Onboarding - Welcome<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.31.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.31.png" alt="Onboarding - EMG Made Simple" width="201" height="437"></a><br><sub>Onboarding - EMG Made Simple<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.36.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.36.png" alt="Onboarding - Sensor Placement" width="201" height="437"></a><br><sub>Onboarding - Sensor Placement<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.38.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.38.png" alt="Onboarding - Muscle Symmetry" width="201" height="437"></a><br><sub>Onboarding - Muscle Symmetry<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.42.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.42.png" alt="Onboarding - User Type" width="201" height="437"></a><br><sub>Onboarding - User Type<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.45.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.45.png" alt="Onboarding - Cable Assignment" width="201" height="437"></a><br><sub>Onboarding - Cable Assignment<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.48.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.48.png" alt="Onboarding - Ready State" width="201" height="437"></a><br><sub>Onboarding - Ready State<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.55.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.55.png" alt="Research Setup" width="201" height="437"></a><br><sub>Research Setup<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.06.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.06.png" alt="Dashboard Overview" width="201" height="437"></a><br><sub>Dashboard Overview<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.12.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.12.png" alt="Dashboard Quick Start" width="201" height="437"></a><br><sub>Dashboard Quick Start<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.19.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.19.png" alt="Live Session - Anatomical" width="201" height="437"></a><br><sub>Live Session - Anatomical<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.32.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.32.png" alt="Live Session - Balance" width="201" height="437"></a><br><sub>Live Session - Balance<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.43.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.43.png" alt="Activation Summary - Empty" width="201" height="437"></a><br><sub>Activation Summary - Empty<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.46.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.46.png" alt="Activation Summary - Exercises" width="201" height="437"></a><br><sub>Activation Summary - Exercises<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
-| <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.53.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.53.png" alt="Profile Overview" width="201" height="437"></a><br><sub>Profile Overview<br>1206 x 2622 px · 402 x 874 pt @3x</sub> | <a href="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.56.png"><img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.56.png" alt="Profile Preferences" width="201" height="437"></a><br><sub>Profile Preferences<br>1206 x 2622 px · 402 x 874 pt @3x</sub> |
+## A closer look
 
----
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.26.png" alt="SymSync onboarding" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.31.png" alt="EMG introduction" width="240">
+</p>
 
-## Technology
+<p align="center"><sub>A welcoming introduction to SymSync and EMG</sub></p>
 
-| Layer | Choice |
-|---|---|
-| Framework | Flutter 3.x (Dart) |
-| State management | flutter_bloc (Cubit) |
-| Charts | fl_chart |
-| Persistence | shared_preferences (JSON) |
-| Fonts | Google Fonts (Inter, JetBrains Mono) |
-| Hardware | biosignalsplux sEMG Hub via PLUX BLE SDK |
-| Onboarding | smooth_page_indicator |
-| Permissions | permission_handler |
-| Local notifications | flutter_local_notifications |
-| External exercise videos | url_launcher |
-| Launcher icons | flutter_launcher_icons |
+<br><br>
 
----
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.36.png" alt="Sensor placement guidance" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.38.png" alt="Muscle symmetry explanation" width="240">
+</p>
 
-## Hardware
+<p align="center"><sub>Sensor placement and muscle-symmetry guidance</sub></p>
 
-**Primary device:** biosignalsplux sEMG Hub
-- 2 synchronized channels at 1000 Hz
-- 16-bit ADC (0–65535 range, 32768 midpoint)
-- Bluetooth BLE connection
+<br><br>
 
-**Android:** Native BLE via `pluxapi-0.2.0.jar` through Flutter MethodChannel  
-**iOS / Simulator:** Falls back to simulated EMG (sine-wave + noise at 50 Hz with configurable asymmetry)
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.42.png" alt="User type selection" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.45.png" alt="Cable assignment guidance" width="240">
+</p>
 
-> The device MAC address is hardcoded in `lib/presentation/pages/home_shell_page.dart`. Update it to match your device.
+<p align="center"><sub>Personalising the experience and assigning sensor channels</sub></p>
 
----
+<br><br>
 
-## Architecture
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.48.png" alt="Onboarding completion" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.18.55.png" alt="Research participant setup" width="240">
+</p>
 
-```
-lib/
-├── main.dart                     # Entry point
-├── plux_service.dart             # MethodChannel bridge to native BLE SDK
-├── app/
-│   └── sym_sync_app.dart         # Root widget, providers, theme, routing
-├── config/
-│   └── app_config.dart           # Feature flags (showResearcherTools)
-├── data/
-│   ├── emg/                      # Hardware abstraction + implementations
-│   ├── history/                  # Session persistence (JSON via SharedPreferences)
-│   ├── notifications/            # Local corrective notification delivery
-│   └── research/                 # Participant/scenario/preferences persistence
-├── domain/
-│   ├── models/                   # EMG, session, participant, and scenario models
-│   └── services/                 # SignalProcessor, SignalFilterState, SessionAggregator
-├── presentation/
-│   ├── bloc/
-│   │   └── session_bloc.dart     # Single Cubit managing all app state
-│   └── pages/                    # Onboarding, Dashboard, Session, Summary, Profile, etc.
-├── screens/
-│   └── calibration_screen.dart   # Device setup + signal quality check
-├── theme/
-│   ├── app_theme.dart            # Full design system + ThemeContext extension
-│   ├── accessibility_provider.dart # Persistent color-blind mode
-│   └── theme_provider.dart       # ThemeMode persistence
-├── utils/
-│   └── heatmap_utils.dart        # Activation colour mapping
-└── widgets/                      # Reusable components (cards, charts, badges, nav)
-```
+<p align="center"><sub>Completing onboarding and preparing a research session</sub></p>
 
----
+<br><br>
 
-## Design System
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.06.png" alt="SymSync dashboard" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.12.png" alt="Dashboard quick start" width="240">
+</p>
 
-### Colours
+<p align="center"><sub>The dashboard and quick-start workflow</sub></p>
 
-| Token | Dark | Light |
-|---|---|---|
-| Background primary | `#171916` | `#FDF9EC` |
-| Card | `#22241F` | `#FFFFFF` |
-| Elevated | `#2C2E2A` | `#F8F3E6` |
-| Text primary | `#FDF9EC` | `#171916` |
-| Divider | `#3A3D36` | `#E9E2D0` |
+<br><br>
 
-**Accents:** Teal `#5C8F88`, Blue `#2F80ED`, Amber `#D99058`, Red `#BA1A1A`, Green `#2E6C00`, Lime `#ADF67F`
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.19.png" alt="Anatomical muscle feedback" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.32.png" alt="Bilateral balance feedback" width="240">
+</p>
 
-Theme-aware colours via `context.bgPrimary`, `context.txtPrimary`, etc. — never hardcode dark values in widgets.
+<p align="center"><sub>The anatomical and balance-monitor feedback conditions</sub></p>
 
-### Typography
-- **Inter** for all UI text
-- **JetBrains Mono** for numeric/monospace values
-- Weights: 400–900
+<br><br>
 
-### Spacing & Radii
-- Spacing: 4 / 8 / 16 / 24 / 32 / 48 px
-- Radii: 8 / 20 / 28 / 32 px (cards use 32 px)
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.43.png" alt="Activation summary" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.46.png" alt="Exercise recommendations" width="240">
+</p>
 
----
+<p align="center"><sub>Session insights and supporting exercise guidance</sub></p>
 
-## Getting Started
+<br><br>
+
+<p align="center">
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.53.png" alt="Profile overview" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="symsync%20screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20-%202026-06-23%20at%2023.19.56.png" alt="Profile preferences" width="240">
+</p>
+
+<p align="center"><sub>Research controls, preferences and accessibility options</sub></p>
+
+## How it works
+
+Two synchronized channels are sampled from the biosignalsplux sEMG hub. SymSync filters and baseline-corrects the signal, calculates activation for each side, and converts the difference into visual feedback. Session state is managed with Flutter Bloc, while participant context, preferences and summaries remain on the device through SharedPreferences.
+
+The Android build communicates with the PLUX SDK through a Flutter MethodChannel. The hardware layer is abstracted so the same interface can use simulated EMG during UI development and testing.
+
+## Run the project
+
+You will need Flutter and a supported Dart SDK. Real sensor streaming requires an Android device and the biosignalsplux hardware; the simulated implementation is used elsewhere.
 
 ```bash
-# Clone
 git clone https://github.com/UzairZQ/SymSync.git
 cd SymSync
-
-# Install dependencies
 flutter pub get
-
-# Generate launcher icons
-dart run flutter_launcher_icons
-
-# Run (Android — BLE supported)
-flutter run -d android
-
-# Run (iOS — simulated hardware)
-flutter run -d ios
+flutter run
 ```
 
-## Build
+To create an Android release build:
 
 ```bash
-# Android APK
-flutter build apk
-
-# iOS
-flutter build ios
+flutter build apk --release
 ```
 
----
+## Project structure
 
-## Landing Page
+- `lib/data` contains hardware, persistence, notification and export services.
+- `lib/domain` contains the session models and signal-processing logic.
+- `lib/presentation` contains the app state and user-facing screens.
+- `lib/widgets` contains reusable charts, feedback views and controls.
+- `test` covers signal processing, persistence, export and mobile layouts.
 
-`index3.html` — self-contained landing page with dark theme matching the app. Open directly in a browser:
+## Data and privacy
 
-```bash
-open index3.html
-```
+SymSync does not require an account or collect participant names. Research records use anonymous participant codes, and saved sessions remain local until the researcher explicitly exports them. Exports contain summarized measurements rather than raw EMG waveforms.
 
-Features: sticky nav, phone mockups, feature pillars, heatmap visualization (inline JS), use cases, science section, and CTA.
+Because this is a local research prototype, its SharedPreferences-based storage is not intended for clinical deployment or multi-device synchronization.
 
----
+## Built with
 
-## Data and Privacy
-
-- Participant identities are anonymous local codes; the app does not request names or accounts.
-- EMG processing and session storage remain local to the device.
-- Existing untagged sessions are not assigned to a new participant automatically.
-- Profile offers separate controls to clear recorded sessions or reset the participant registry and all research data.
-- SharedPreferences JSON storage is intended for the current local research prototype, not multi-device clinical deployment.
-
----
+Flutter, Dart, Flutter Bloc, SharedPreferences, fl_chart, the PLUX Android SDK and local notifications.
 
 ## License
 
-Private package. Update `publish_to` in `pubspec.yaml` to publish.
+This repository is currently maintained as a private academic project and is not published as a reusable package.
