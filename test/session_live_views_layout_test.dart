@@ -92,6 +92,40 @@ void main() {
     }
   });
 
+  testWidgets('both live views remain usable with larger system text', (
+    tester,
+  ) async {
+    final bloc = await _startedBloc();
+    try {
+      await _pumpSessionViewport(
+        tester,
+        bloc: bloc,
+        textScaleFactor: 1.3,
+        child: const AnatomicalViewContent(),
+      );
+      expect(tester.takeException(), isNull);
+      final anatomicalScroll = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      expect(anatomicalScroll.position.maxScrollExtent, 0);
+
+      await _pumpSessionViewport(
+        tester,
+        bloc: bloc,
+        textScaleFactor: 1.3,
+        child: const BalanceMonitorContent(),
+      );
+      expect(tester.takeException(), isNull);
+      final balanceScroll = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      expect(balanceScroll.position.maxScrollExtent, 0);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await bloc.close();
+    }
+  });
+
   testWidgets('anatomical view renders biceps target mode', (tester) async {
     final bloc = await _startedBloc();
     try {
@@ -158,7 +192,7 @@ void main() {
       bloc.setTestState(
         bloc.state.copyWith(
           status: SessionStatus.connected,
-          isRecording: true,
+          isRecording: false,
           normalisedLeftActivation: 0.32,
           normalisedRightActivation: 0.36,
         ),
@@ -210,6 +244,7 @@ Future<void> _pumpSessionViewport(
   WidgetTester tester, {
   required SessionBloc bloc,
   required Widget child,
+  double textScaleFactor = 1,
 }) async {
   tester.view.physicalSize = const Size(412, 500);
   tester.view.devicePixelRatio = 1;
@@ -219,9 +254,12 @@ Future<void> _pumpSessionViewport(
   await tester.pumpWidget(
     BlocProvider<SessionBloc>.value(
       value: bloc,
-      child: MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: Scaffold(body: SizedBox.expand(child: child)),
+      child: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScaleFactor)),
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(body: SizedBox.expand(child: child)),
+        ),
       ),
     ),
   );
@@ -234,6 +272,9 @@ class _LayoutHardware implements EmgHardware {
 
   @override
   Stream<EmgFrame> get frames => _frames.stream;
+
+  @override
+  bool get isSimulated => false;
 
   @override
   Future<void> connect(String macAddress) async {}

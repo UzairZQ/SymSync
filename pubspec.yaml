@@ -1,5 +1,5 @@
 name: sym_sync
-description: "A new Flutter project."
+description: "A bilateral surface-EMG feedback research prototype."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.1+2
+version: 1.1.0+3
 
 environment:
   sdk: ^3.11.4
@@ -30,22 +30,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8
   fl_chart: ^1.2.0
-  flutter_bloc: ^8.1.6
-  equatable: ^2.0.8
-  permission_handler: ^12.0.1
+  flutter_bloc: ^9.1.1
+  equatable: ^2.1.0
+  permission_handler: ^12.0.3
   shared_preferences: ^2.5.5
   google_fonts: ^8.1.0
-  smooth_page_indicator: ^1.1.0
-  bodychart_heatmap: ^1.1.0
+  smooth_page_indicator: ^2.0.1
   flutter_local_notifications: ^22.0.1
   url_launcher: ^6.3.2
   flutter_body_atlas: ^0.1.4
+  # 12.x+ requires a newer Android Gradle stack than this Flutter project.
   share_plus: ^11.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
 
 # For information on the generic Dart part of this file, see the
@@ -60,7 +62,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/upper_body.png
     - assets/images/upper_body_clinical.png
     - assets/images/onboarding/welcome.png
     - assets/images/onboarding/emg.png

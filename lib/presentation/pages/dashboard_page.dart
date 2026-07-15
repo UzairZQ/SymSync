@@ -1,9 +1,13 @@
 import 'dart:math';
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/models/session_summary.dart';
+import '../../domain/models/feedback_view.dart';
+import '../../domain/models/research_context.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/heatmap_utils.dart';
 import '../../widgets/app_card.dart';
@@ -22,14 +26,12 @@ class DashboardPage extends StatelessWidget {
     required this.onOpenSummary,
     required this.onConnect,
     required this.onDisconnect,
-    required this.onCalibrate,
   });
 
   final VoidCallback onOpenSession;
   final VoidCallback onOpenSummary;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
-  final VoidCallback onCalibrate;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +57,9 @@ class DashboardPage extends StatelessWidget {
                   .toStringAsFixed(0);
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
+        final sourceLabel = state.isSimulatedHardware
+            ? 'SIMULATED EMG'
+            : 'BIOSIGNALSPLUX';
         final isDisconnecting = state.status == SessionStatus.disconnecting;
         final hasAnyData = participantHistory.isNotEmpty || hasSymmetry;
         final recent = participantHistory.take(3).toList();
@@ -219,7 +224,11 @@ class DashboardPage extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     isConnected
-                        ? 'Sensors are streaming. Open a session to begin bilateral analysis.'
+                        ? state.isSimulatedHardware
+                              ? 'Demo signals are streaming. Open a session to explore both views.'
+                              : 'Sensors are streaming. Open a session to begin bilateral analysis.'
+                        : state.isSimulatedHardware
+                        ? 'Start simulated EMG to explore the interface without physical sensors.'
                         : 'Connect your biosignalsplux sensors to start a real-time session.',
                     style: AppTheme.bodyMedium.copyWith(
                       color: context.bgPrimary.withValues(alpha: 0.78),
@@ -250,10 +259,10 @@ class DashboardPage extends StatelessWidget {
                         Expanded(
                           child: Text(
                             isConnecting
-                                ? 'BIOSIGNALSPLUX: CONNECTING…'
+                                ? '$sourceLabel: CONNECTING…'
                                 : (isConnected
-                                      ? 'BIOSIGNALSPLUX: CONNECTED'
-                                      : 'BIOSIGNALSPLUX: NOT CONNECTED'),
+                                      ? '$sourceLabel: CONNECTED'
+                                      : '$sourceLabel: NOT CONNECTED'),
                             style: AppTheme.labelSmall.copyWith(
                               color: context.bgPrimary,
                               letterSpacing: 0.5,
@@ -281,6 +290,8 @@ class DashboardPage extends StatelessWidget {
                           ? 'Disconnecting…'
                           : (isConnected
                                 ? 'Disconnect Device'
+                                : state.isSimulatedHardware
+                                ? 'Start Demo Signal'
                                 : 'Connect Device'),
                     ),
                   ),
@@ -290,18 +301,26 @@ class DashboardPage extends StatelessWidget {
                       Expanded(
                         child: FilledButton.icon(
                           onPressed: () {
+                            if (!isConnected) {
+                              onConnect();
+                              return;
+                            }
                             if (isConnected && isCalibratedRecently) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const SessionScreen(),
+                              unawaited(
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SessionScreen(),
+                                  ),
                                 ),
                               );
                             } else {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const CalibrationScreen(),
+                              unawaited(
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CalibrationScreen(),
+                                  ),
                                 ),
                               );
                             }
@@ -406,6 +425,9 @@ class DashboardPage extends StatelessWidget {
                     for (final s in recent)
                       _SessionListItem(
                         title: s.note.isNotEmpty ? s.note : _defaultTitle(s),
+                        subtitle:
+                            '${_scenarioLabel(s.scenarioId)} · '
+                            '${s.feedbackView?.label ?? 'View not recorded'}',
                         tag: _tagFor(s),
                       ),
                 ],
@@ -443,6 +465,13 @@ class DashboardPage extends StatelessWidget {
     if (score >= 90) return 'Optimal';
     if (score >= 75) return 'Fair';
     return 'Critical';
+  }
+
+  String _scenarioLabel(String? scenarioId) {
+    for (final scenario in UsageScenario.values) {
+      if (scenario.id == scenarioId) return scenario.label;
+    }
+    return 'Scenario not recorded';
   }
 }
 
@@ -609,9 +638,14 @@ class _ActivationStatusRow extends StatelessWidget {
 }
 
 class _SessionListItem extends StatelessWidget {
-  const _SessionListItem({required this.title, required this.tag});
+  const _SessionListItem({
+    required this.title,
+    required this.subtitle,
+    required this.tag,
+  });
 
   final String title;
+  final String subtitle;
   final String tag;
 
   @override
@@ -641,12 +675,28 @@ class _SessionListItem extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              title,
-              style: AppTheme.bodyMedium.copyWith(
-                color: context.txtPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: context.txtPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.bodySmall.copyWith(
+                    color: context.txtSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
           Container(

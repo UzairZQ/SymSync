@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -32,21 +33,26 @@ class _SymSyncAppState extends State<SymSyncApp> {
   @override
   void initState() {
     super.initState();
-    _init();
+    unawaited(_init());
   }
 
   Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    await Future.wait(<Future<void>>[
-      ThemeProvider.init(),
-      AccessibilityProvider.init(),
-    ]);
-    if (mounted) {
-      setState(() {
-        _onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
-        _loading = false;
-      });
+    var onboardingComplete = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+      await Future.wait(<Future<void>>[
+        ThemeProvider.init(),
+        AccessibilityProvider.init(),
+      ]);
+    } catch (_) {
+      // Start with safe defaults if local preferences are unavailable.
     }
+    if (!mounted) return;
+    setState(() {
+      _onboardingComplete = onboardingComplete;
+      _loading = false;
+    });
   }
 
   EmgHardware _buildHardware() {
@@ -72,12 +78,16 @@ class _SymSyncAppState extends State<SymSyncApp> {
         RepositoryProvider<EmgHardware>(create: (_) => _buildHardware()),
       ],
       child: BlocProvider(
-        create: (ctx) => SessionBloc(
-          hardware: ctx.read<EmgHardware>(),
-          historyStore: ctx.read<SessionHistoryStore>(),
-          researchContextStore: ctx.read<ResearchContextStore>(),
-          notificationService: ctx.read<LocalNotificationService>(),
-        )..start(),
+        create: (ctx) {
+          final bloc = SessionBloc(
+            hardware: ctx.read<EmgHardware>(),
+            historyStore: ctx.read<SessionHistoryStore>(),
+            researchContextStore: ctx.read<ResearchContextStore>(),
+            notificationService: ctx.read<LocalNotificationService>(),
+          );
+          unawaited(bloc.start());
+          return bloc;
+        },
         child: ValueListenableBuilder<ThemeMode>(
           valueListenable: ThemeProvider.themeNotifier,
           builder: (context, themeMode, _) {

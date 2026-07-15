@@ -124,6 +124,11 @@ To create an Android release build:
 flutter build apk --release
 ```
 
+For distribution, copy `android/key.properties.example` to
+`android/key.properties` and point it to a private release keystore. Without
+that file, the build intentionally uses the debug key so it remains compatible
+with locally installed development APKs.
+
 ## Project structure
 
 - `lib/data` contains hardware, persistence, notification and export services.

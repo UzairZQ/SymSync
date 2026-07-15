@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sym_sync/data/export/research_data_export_service.dart';
 import 'package:sym_sync/domain/models/research_context.dart';
+import 'package:sym_sync/domain/models/feedback_view.dart';
 import 'package:sym_sync/domain/models/session_summary.dart';
+import 'package:sym_sync/domain/models/target_muscle.dart';
 
 void main() {
   const service = ResearchDataExportService();
@@ -37,6 +39,9 @@ void main() {
     },
     participantId: participant.id,
     scenarioId: UsageScenario.everydayStairs.id,
+    feedbackView: FeedbackView.anatomicalHeatmap,
+    targetMuscle: TargetMuscle.biceps,
+    simulatedInput: false,
   );
 
   test('exports historical scenario duration and summary metrics to CSV', () {
@@ -52,7 +57,12 @@ void main() {
     final csv = utf8.decode(sessionFile.bytes).replaceFirst('\u{feff}', '');
 
     expect(csv, contains('duration_seconds,duration_minutes'));
+    expect(csv, contains('feedback_view_id,feedback_view_label'));
+    expect(csv, contains('target_muscle_id,target_muscle_label'));
+    expect(csv, contains('simulated_input'));
     expect(csv, contains('P012,everydayStairs,Backpack Stair Climb'));
+    expect(csv, contains('anatomical_heatmap,Anatomical Heatmap'));
+    expect(csv, contains('biceps,Biceps'));
     expect(csv, contains(',95,1.583,2410,0.48,-7.5,7.5,'));
     expect(csv, contains('"Saved, complete"'));
   });
@@ -75,6 +85,8 @@ void main() {
     expect(decoded['sessionCount'], 1);
     expect(decoded['sessions'][0]['durationSeconds'], 95);
     expect(decoded['sessions'][0]['scenarioLabel'], 'Backpack Stair Climb');
+    expect(decoded['sessions'][0]['feedbackViewLabel'], 'Anatomical Heatmap');
+    expect(decoded['sessions'][0]['targetMuscleLabel'], 'Biceps');
     expect(participant.toJson(), originalParticipant);
     expect(session.toJson(), originalSession);
   });

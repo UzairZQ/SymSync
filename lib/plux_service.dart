@@ -33,4 +33,8 @@ class PluxService {
   Future<void> disconnect() {
     return _methodChannel.invokeMethod<void>('disconnect');
   }
+
+  Future<int?> androidSdkInt() {
+    return _methodChannel.invokeMethod<int>('androidSdkInt');
+  }
 }

@@ -21,6 +21,9 @@ class SimulatedEmgHardware implements EmgHardware {
   Stream<EmgFrame> get frames => _controller.stream;
 
   @override
+  bool get isSimulated => true;
+
+  @override
   Future<void> connect(String macAddress) async {
     _connected = true;
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +11,7 @@ import '../../data/history/session_history_store.dart';
 import '../../data/notifications/local_notification_service.dart';
 import '../../data/research/research_context_store.dart';
 import '../../domain/models/emg_frame.dart';
+import '../../domain/models/feedback_view.dart';
 import '../../domain/models/research_context.dart';
 import '../../domain/models/session_summary.dart';
 import '../../domain/models/session_tab.dart';
@@ -62,11 +64,13 @@ class SessionState extends Equatable {
     required this.activeParticipantId,
     required this.selectedScenario,
     required this.targetMuscle,
+    required this.selectedFeedbackView,
+    required this.isSimulatedHardware,
     required this.notificationPreferences,
     this.calibratedAt,
   });
 
-  factory SessionState.initial() {
+  factory SessionState.initial({required bool isSimulatedHardware}) {
     return SessionState(
       status: SessionStatus.disconnected,
       selectedTab: SessionTab.dashboard,
@@ -105,6 +109,8 @@ class SessionState extends Equatable {
       activeParticipantId: null,
       selectedScenario: UsageScenario.officeDesk,
       targetMuscle: TargetMuscle.trapezius,
+      selectedFeedbackView: FeedbackView.anatomicalHeatmap,
+      isSimulatedHardware: isSimulatedHardware,
       notificationPreferences: const NotificationPreferences(),
       calibratedAt: null,
     );
@@ -140,6 +146,8 @@ class SessionState extends Equatable {
   final String? activeParticipantId;
   final UsageScenario selectedScenario;
   final TargetMuscle targetMuscle;
+  final FeedbackView? selectedFeedbackView;
+  final bool isSimulatedHardware;
   final NotificationPreferences notificationPreferences;
   final DateTime? calibratedAt;
 
@@ -207,6 +215,9 @@ class SessionState extends Equatable {
     bool clearActiveParticipantId = false,
     UsageScenario? selectedScenario,
     TargetMuscle? targetMuscle,
+    FeedbackView? selectedFeedbackView,
+    bool clearSelectedFeedbackView = false,
+    bool? isSimulatedHardware,
     NotificationPreferences? notificationPreferences,
     DateTime? calibratedAt,
     bool clearCalibratedAt = false,
@@ -252,6 +263,10 @@ class SessionState extends Equatable {
           : (activeParticipantId ?? this.activeParticipantId),
       selectedScenario: selectedScenario ?? this.selectedScenario,
       targetMuscle: targetMuscle ?? this.targetMuscle,
+      selectedFeedbackView: clearSelectedFeedbackView
+          ? null
+          : (selectedFeedbackView ?? this.selectedFeedbackView),
+      isSimulatedHardware: isSimulatedHardware ?? this.isSimulatedHardware,
       notificationPreferences:
           notificationPreferences ?? this.notificationPreferences,
       calibratedAt: clearCalibratedAt
@@ -291,12 +306,16 @@ class SessionState extends Equatable {
     activeParticipantId,
     selectedScenario,
     targetMuscle,
+    selectedFeedbackView,
+    isSimulatedHardware,
     notificationPreferences,
     calibratedAt,
   ];
 }
 
 class SessionBloc extends Cubit<SessionState> {
+  static const int _maxSavedSessions = 500;
+
   SessionBloc({
     required EmgHardware hardware,
     required SessionHistoryStore historyStore,
@@ -307,7 +326,7 @@ class SessionBloc extends Cubit<SessionState> {
        _researchContextStore = researchContextStore,
        _notificationService = notificationService,
        _signalProcessor = const SignalProcessor(),
-       super(SessionState.initial()) {
+       super(SessionState.initial(isSimulatedHardware: hardware.isSimulated)) {
     _rebuildTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (isClosed) {
         return;
@@ -327,9 +346,10 @@ class SessionBloc extends Cubit<SessionState> {
             .clamp(0, 9999);
         emit(state.copyWith(sessionSeconds: seconds));
         _autoSaveCounter++;
-        if (_autoSaveCounter >= 30) {
+        if (_autoSaveCounter >= 30 && !_autoSaveInFlight) {
           _autoSaveCounter = 0;
-          _autoSaveSession();
+          _autoSaveInFlight = true;
+          unawaited(_runAutoSave());
         }
       }
     });
@@ -384,6 +404,7 @@ class SessionBloc extends Cubit<SessionState> {
   final List<SessionSummary> _history = <SessionSummary>[];
 
   DateTime? _sessionStartedAt;
+  FeedbackView? _recordingFeedbackView;
   DateTime? _connectedAt;
   DateTime? _lastFrameAt;
   int _samplesThisSecond = 0;
@@ -399,6 +420,7 @@ class SessionBloc extends Cubit<SessionState> {
   DateTime? _imbalanceStartedAt;
   DateTime? _lastGuidanceNotificationAt;
   bool _notificationInFlight = false;
+  bool _autoSaveInFlight = false;
 
   double _sessionPeakLeft = 0.0;
   double _sessionPeakRight = 0.0;
@@ -422,12 +444,32 @@ class SessionBloc extends Cubit<SessionState> {
   static const double _minimumSingleSideActivationForBalance = 0.04;
 
   Future<void> start() async {
-    await Future.wait(<Future<void>>[
-      _loadHistory(),
-      _loadResearchContext(),
-      _loadChannelMapping(),
-      _notificationService.initialize(),
-    ]);
+    final failures = <String>[];
+    final steps = <(String, Future<void> Function())>[
+      ('session history', _loadHistory),
+      ('research settings', _loadResearchContext),
+      ('channel mapping', _loadChannelMapping),
+      ('notifications', _notificationService.initialize),
+    ];
+    for (final (label, action) in steps) {
+      try {
+        await action();
+      } catch (_) {
+        failures.add(label);
+      }
+    }
+    if (!isClosed && failures.isNotEmpty) {
+      emit(
+        state.copyWith(
+          researchContextLoaded:
+              state.researchContextLoaded ||
+              failures.contains('research settings'),
+          errorMessage:
+              'Some local features could not be initialized: '
+              '${failures.join(', ')}.',
+        ),
+      );
+    }
   }
 
   Future<void> _loadResearchContext() async {
@@ -443,6 +485,10 @@ class SessionBloc extends Cubit<SessionState> {
         clearActiveParticipantId: snapshot.activeParticipantId == null,
         selectedScenario: snapshot.scenario,
         notificationPreferences: snapshot.notificationPreferences,
+        errorMessage: snapshot.rejectedEntryCount == 0
+            ? state.errorMessage
+            : '${snapshot.rejectedEntryCount} unreadable research setting '
+                  '${snapshot.rejectedEntryCount == 1 ? 'entry was' : 'entries were'} ignored.',
       ),
     );
   }
@@ -520,10 +566,29 @@ class SessionBloc extends Cubit<SessionState> {
   }
 
   void selectTargetMuscle(TargetMuscle muscle) {
+    if (state.isRecording) {
+      throw StateError('Stop recording before changing the target muscle.');
+    }
     emit(state.copyWith(targetMuscle: muscle));
   }
 
-  Future<void> saveBaselineReference(BaselineReferencePosition position) async {
+  void selectFeedbackView(FeedbackView? feedbackView) {
+    if (state.isRecording) {
+      throw StateError('Stop recording before changing the feedback view.');
+    }
+    emit(
+      state.copyWith(
+        selectedFeedbackView: feedbackView,
+        clearSelectedFeedbackView: feedbackView == null,
+      ),
+    );
+  }
+
+  Future<void> saveBaselineReference(
+    BaselineReferencePosition position, {
+    double? leftRms,
+    double? rightRms,
+  }) async {
     final participantId = state.activeParticipantId;
     if (participantId == null) {
       throw StateError('Select a participant before saving baseline values.');
@@ -533,11 +598,24 @@ class SessionBloc extends Cubit<SessionState> {
         'Connect the EMG sensors before saving baseline values.',
       );
     }
+    final lastFrameMs = state.lastFrameMs;
+    final hasRecentSignal =
+        lastFrameMs != null &&
+        DateTime.now().millisecondsSinceEpoch - lastFrameMs < 2000;
+    final capturedLeft = leftRms ?? state.leftTrapRms;
+    final capturedRight = rightRms ?? state.rightTrapRms;
+    if (!hasRecentSignal ||
+        !capturedLeft.isFinite ||
+        !capturedRight.isFinite ||
+        capturedLeft <= 0 ||
+        capturedRight <= 0) {
+      throw StateError('Wait for a stable signal before saving a baseline.');
+    }
 
     final reference = BaselineReference(
       position: position,
-      leftRms: state.leftTrapRms,
-      rightRms: state.rightTrapRms,
+      leftRms: capturedLeft,
+      rightRms: capturedRight,
       recordedAt: DateTime.now(),
     );
     final participants = state.participants
@@ -600,8 +678,8 @@ class SessionBloc extends Cubit<SessionState> {
     final storedA = prefs.getString('channel_mapping.A');
     final storedB = prefs.getString('channel_mapping.B');
 
-    if ((storedA != null && storedB != null) && !isClosed) {
-      final mapping = {'A': storedA, 'B': storedB};
+    if (_isValidChannelMapping(storedA, storedB) && !isClosed) {
+      final mapping = {'A': storedA!, 'B': storedB!};
       if (mapping != state.channelMapping) {
         emit(state.copyWith(channelMapping: mapping));
       }
@@ -609,6 +687,12 @@ class SessionBloc extends Cubit<SessionState> {
   }
 
   Future<void> setChannelMapping(String channelA, String channelB) async {
+    if (state.isRecording) {
+      throw StateError('Stop recording before changing channel mapping.');
+    }
+    if (!_isValidChannelMapping(channelA, channelB)) {
+      throw ArgumentError('Channels must map once each to left and right.');
+    }
     final mapping = {'A': channelA, 'B': channelB};
     emit(state.copyWith(channelMapping: mapping));
 
@@ -620,6 +704,14 @@ class SessionBloc extends Cubit<SessionState> {
   bool get isChannelMappingConfigured {
     final mapping = state.channelMapping;
     return mapping['A'] != null && mapping['B'] != null;
+  }
+
+  bool _isValidChannelMapping(String? channelA, String? channelB) {
+    return <String?>{
+          channelA,
+          channelB,
+        }.containsAll(<String>{'left', 'right'}) &&
+        channelA != channelB;
   }
 
   Future<void> connect(String macAddress) async {
@@ -660,11 +752,19 @@ class SessionBloc extends Cubit<SessionState> {
         ),
       );
     } catch (error) {
+      await _bestEffort(
+        () => _frameSubscription?.cancel() ?? Future<void>.value(),
+        const Duration(seconds: 1),
+      );
+      _frameSubscription = null;
+      await _bestEffort(_hardware.stopAcquisition, const Duration(seconds: 2));
+      await _bestEffort(_hardware.disconnect, const Duration(seconds: 3));
+      _connectedAt = null;
       emit(
         state.copyWith(
           status: SessionStatus.error,
           busy: false,
-          errorMessage: error.toString(),
+          errorMessage: _displayError(error),
           clearNotice: true,
         ),
       );
@@ -767,7 +867,7 @@ class SessionBloc extends Cubit<SessionState> {
     emit(state.copyWith(selectedTab: tab));
   }
 
-  Future<void> startRecording() async {
+  Future<void> startRecording({required FeedbackView feedbackView}) async {
     if (_busy || state.isRecording || !state.isConnected) {
       return;
     }
@@ -775,6 +875,7 @@ class SessionBloc extends Cubit<SessionState> {
       throw StateError('Select a participant before recording.');
     }
     _busy = true;
+    _recordingFeedbackView = feedbackView;
     _sessionStartedAt = DateTime.now();
     _lastFrameAt = _sessionStartedAt;
     _samplesThisSecond = 0;
@@ -820,12 +921,15 @@ class SessionBloc extends Cubit<SessionState> {
       return;
     }
     _busy = true;
+    final hadSamples = _activationCount > 0;
+    Object? persistenceError;
     try {
       await _persistSessionIfNeeded();
-    } catch (_) {
-      // Best-effort persistence
+    } catch (error) {
+      persistenceError = error;
     }
     _sessionStartedAt = null;
+    _recordingFeedbackView = null;
     _lastFrameAt = null;
     _samplesThisSecond = 0;
     _samplesPerSecond = 0;
@@ -854,8 +958,16 @@ class SessionBloc extends Cubit<SessionState> {
         sessionSeconds: 0,
         symmetryIndex: null,
         lastFrameMs: null,
-        notice: 'Recording saved',
-        clearErrorMessage: true,
+        history: List<SessionSummary>.unmodifiable(_history),
+        notice: persistenceError != null
+            ? 'Recording stopped'
+            : hadSamples
+            ? 'Recording saved'
+            : 'Recording stopped — no samples were captured',
+        errorMessage: persistenceError == null
+            ? state.errorMessage
+            : 'Recording could not be saved: ${_displayError(persistenceError)}',
+        clearErrorMessage: persistenceError == null,
       ),
     );
   }
@@ -928,24 +1040,54 @@ class SessionBloc extends Cubit<SessionState> {
 
   void _onFrameError(Object error, StackTrace stackTrace) {
     addError(error, stackTrace);
+    unawaited(_handleFrameError(error));
+  }
+
+  Future<void> _handleFrameError(Object error) async {
+    if (_busy || isClosed) return;
+    _busy = true;
+    await _bestEffort(_persistSessionIfNeeded, const Duration(seconds: 2));
+    await _bestEffort(
+      () => _frameSubscription?.cancel() ?? Future<void>.value(),
+      const Duration(seconds: 1),
+    );
+    _frameSubscription = null;
+    await _bestEffort(_hardware.stopAcquisition, const Duration(seconds: 2));
+    await _bestEffort(_hardware.disconnect, const Duration(seconds: 3));
+    _resetSession();
+    _busy = false;
+    if (isClosed) return;
     emit(
       state.copyWith(
         status: SessionStatus.error,
         busy: false,
-        errorMessage: error.toString(),
+        isRecording: false,
+        history: List<SessionSummary>.unmodifiable(_history),
+        clearConnectedAtMs: true,
+        clearLastFrameMs: true,
+        errorMessage: 'Sensor stream stopped: ${_displayError(error)}',
+        clearNotice: true,
       ),
     );
   }
 
   Future<void> _loadHistory() async {
-    final loaded = await _historyStore.load();
+    final result = await _historyStore.loadWithReport();
     _history
       ..clear()
-      ..addAll(loaded);
+      ..addAll(result.sessions.take(_maxSavedSessions));
     if (isClosed) {
       return;
     }
-    emit(state.copyWith(history: List<SessionSummary>.unmodifiable(_history)));
+    emit(
+      state.copyWith(
+        history: List<SessionSummary>.unmodifiable(_history),
+        errorMessage: result.rejectedEntryCount == 0
+            ? state.errorMessage
+            : '${result.rejectedEntryCount} unreadable saved session '
+                  '${result.rejectedEntryCount == 1 ? 'was' : 'records were'} ignored.',
+      ),
+    );
   }
 
   Future<void> clearSessionHistory() async {
@@ -1027,6 +1169,9 @@ class SessionBloc extends Cubit<SessionState> {
       channelMapping: Map<String, String>.from(state.channelMapping),
       participantId: state.activeParticipantId,
       scenarioId: state.selectedScenario.id,
+      feedbackView: _recordingFeedbackView,
+      targetMuscle: state.targetMuscle,
+      simulatedInput: state.isSimulatedHardware,
     );
     _history.removeWhere(
       (item) =>
@@ -1034,7 +1179,8 @@ class SessionBloc extends Cubit<SessionState> {
           item.participantId == state.activeParticipantId,
     );
     _history.insert(0, summary);
-    await _historyStore.save(_history.take(500).toList(growable: false));
+    _trimHistory();
+    await _historyStore.save(_history);
   }
 
   Future<void> _autoSaveSession() async {
@@ -1070,6 +1216,9 @@ class SessionBloc extends Cubit<SessionState> {
       channelMapping: Map<String, String>.from(state.channelMapping),
       participantId: state.activeParticipantId,
       scenarioId: state.selectedScenario.id,
+      feedbackView: _recordingFeedbackView,
+      targetMuscle: state.targetMuscle,
+      simulatedInput: state.isSimulatedHardware,
     );
     final existingIndex = _history.indexWhere(
       (item) =>
@@ -1081,7 +1230,8 @@ class SessionBloc extends Cubit<SessionState> {
     } else {
       _history[existingIndex] = summary;
     }
-    await _historyStore.save(_history.take(500).toList(growable: false));
+    _trimHistory();
+    await _historyStore.save(_history);
     if (!isClosed) {
       emit(
         state.copyWith(history: List<SessionSummary>.unmodifiable(_history)),
@@ -1089,8 +1239,27 @@ class SessionBloc extends Cubit<SessionState> {
     }
   }
 
+  Future<void> _runAutoSave() async {
+    try {
+      await _autoSaveSession();
+    } catch (error) {
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: 'Automatic save failed: $error'));
+      }
+    } finally {
+      _autoSaveInFlight = false;
+    }
+  }
+
+  void _trimHistory() {
+    if (_history.length > _maxSavedSessions) {
+      _history.removeRange(_maxSavedSessions, _history.length);
+    }
+  }
+
   void _resetSession() {
     _sessionStartedAt = null;
+    _recordingFeedbackView = null;
     _connectedAt = null;
     _lastFrameAt = null;
     _samplesThisSecond = 0;
@@ -1138,7 +1307,10 @@ class SessionBloc extends Cubit<SessionState> {
     ];
     final day = startedAt.day.toString().padLeft(2, '0');
     final month = months[startedAt.month - 1];
-    return 'Upper back symmetry - $day $month ${startedAt.year}';
+    final area = state.targetMuscle == TargetMuscle.biceps
+        ? 'Biceps'
+        : 'Upper back';
+    return '$area symmetry - $day $month ${startedAt.year}';
   }
 
   void _addSymmetryIndex(double newSI) {
@@ -1352,15 +1524,39 @@ class SessionBloc extends Cubit<SessionState> {
     _lastGuidanceNotificationAt = now;
     _imbalanceStartedAt = null;
     unawaited(
-      _notificationService
-          .showCorrectiveGuidance(
-            participantId: participantId,
-            scenario: state.selectedScenario.shortLabel,
-            symmetryIndex: symmetryIndex,
-            instruction: _signalProcessor.correctiveInstruction(symmetryIndex),
-          )
-          .whenComplete(() => _notificationInFlight = false),
+      _showGuidanceNotification(
+        participantId: participantId,
+        symmetryIndex: symmetryIndex,
+      ),
     );
+  }
+
+  Future<void> _showGuidanceNotification({
+    required String participantId,
+    required double symmetryIndex,
+  }) async {
+    try {
+      await _notificationService.showCorrectiveGuidance(
+        participantId: participantId,
+        scenario: state.selectedScenario.shortLabel,
+        symmetryIndex: symmetryIndex,
+        instruction: _signalProcessor.correctiveInstruction(symmetryIndex),
+      );
+    } catch (_) {
+      // Guidance is optional; a platform notification failure must not stop EMG.
+    } finally {
+      _notificationInFlight = false;
+    }
+  }
+
+  String _displayError(Object error) {
+    if (error is PlatformException) {
+      return error.message ?? error.code;
+    }
+    if (error is StateError) {
+      return error.message.toString();
+    }
+    return error.toString();
   }
 
   @override
@@ -1369,8 +1565,8 @@ class SessionBloc extends Cubit<SessionState> {
     _rebuildTimer?.cancel();
     _spsTimer?.cancel();
     _signalLossTimer?.cancel();
-    unawaited(_hardware.stopAcquisition());
-    unawaited(_hardware.disconnect());
+    await _bestEffort(_hardware.stopAcquisition, const Duration(seconds: 2));
+    await _bestEffort(_hardware.disconnect, const Duration(seconds: 3));
     return super.close();
   }
 }

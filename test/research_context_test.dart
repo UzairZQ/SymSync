@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sym_sync/data/research/research_context_store.dart';
 import 'package:sym_sync/domain/models/research_context.dart';
 import 'package:sym_sync/domain/models/session_summary.dart';
+import 'package:sym_sync/domain/models/feedback_view.dart';
 import 'package:sym_sync/presentation/bloc/session_bloc.dart';
 
 void main() {
@@ -60,6 +63,44 @@ void main() {
     expect(loaded.notificationPreferences.enabled, isFalse);
   });
 
+  test(
+    'corrupted research entries fall back without blocking startup',
+    () async {
+      final validParticipant = ParticipantProfile(
+        id: 'P001',
+        createdAt: DateTime(2026, 6, 20),
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'sym_sync.participants.v1': <String>[
+          '{broken',
+          jsonEncode(validParticipant.toJson()),
+        ],
+        'sym_sync.notification_preferences.v1': '[]',
+        'sym_sync.active_participant.v1': 'missing',
+      });
+
+      final snapshot = await ResearchContextStore().load();
+
+      expect(snapshot.participants, <ParticipantProfile>[validParticipant]);
+      expect(snapshot.activeParticipantId, validParticipant.id);
+      expect(snapshot.notificationPreferences, const NotificationPreferences());
+      expect(snapshot.rejectedEntryCount, 2);
+    },
+  );
+
+  test('notification preference values are clamped to supported ranges', () {
+    final preferences = NotificationPreferences.fromJson(<String, dynamic>{
+      'enabled': true,
+      'imbalanceThreshold': -5,
+      'sustainedSeconds': 999,
+      'cooldownMinutes': 0,
+    });
+
+    expect(preferences.imbalanceThreshold, 10);
+    expect(preferences.sustainedSeconds, 60);
+    expect(preferences.cooldownMinutes, 1);
+  });
+
   test('participant JSON retains baseline reference recordings', () {
     final participant = ParticipantProfile(
       id: 'P003',
@@ -93,7 +134,7 @@ void main() {
   test('active history never mixes participant measurements', () {
     final first = _summary('P001', UsageScenario.officeDesk);
     final second = _summary('P002', UsageScenario.gymExercise);
-    final state = SessionState.initial().copyWith(
+    final state = SessionState.initial(isSimulatedHardware: false).copyWith(
       participants: <ParticipantProfile>[
         ParticipantProfile(id: 'P001', createdAt: DateTime(2026, 6, 20)),
         ParticipantProfile(id: 'P002', createdAt: DateTime(2026, 6, 20)),
@@ -107,17 +148,33 @@ void main() {
   });
 
   test('session JSON retains anonymous participant and scenario tags', () {
-    final summary = _summary('P007', UsageScenario.everydayStairs);
+    final summary = _summary(
+      'P007',
+      UsageScenario.everydayStairs,
+      feedbackView: FeedbackView.balanceMonitor,
+    );
 
     final decoded = SessionSummary.fromJson(summary.toJson());
 
     expect(decoded, summary);
     expect(decoded.participantId, 'P007');
     expect(decoded.scenarioId, UsageScenario.everydayStairs.id);
+    expect(decoded.feedbackView, FeedbackView.balanceMonitor);
+  });
+
+  test('historical session JSON without a feedback view stays readable', () {
+    final json = _summary('P001', UsageScenario.officeDesk).toJson()
+      ..remove('feedbackViewId');
+
+    expect(SessionSummary.fromJson(json).feedbackView, isNull);
   });
 }
 
-SessionSummary _summary(String participantId, UsageScenario scenario) {
+SessionSummary _summary(
+  String participantId,
+  UsageScenario scenario, {
+  FeedbackView? feedbackView,
+}) {
   final startedAt = DateTime(2026, 6, 20, 12);
   return SessionSummary(
     startedAt: startedAt,
@@ -131,5 +188,6 @@ SessionSummary _summary(String participantId, UsageScenario scenario) {
     note: 'Research session',
     participantId: participantId,
     scenarioId: scenario.id,
+    feedbackView: feedbackView,
   );
 }

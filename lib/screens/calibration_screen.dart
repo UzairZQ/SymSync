@@ -24,12 +24,15 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   int _connectionElapsedSeconds = 0;
 
   Timer? _monitoringTimer;
+  Timer? _baselineTimer;
   String _ch1Status = '—';
   String _ch3Status = '—';
   double _ch1NoiseRms = 0;
   double _ch3NoiseRms = 0;
-
-  static const String _deviceMac = '00:07:80:8C:0A:27';
+  BaselineReferencePosition? _capturingPosition;
+  int _baselineCaptureSamples = 0;
+  final List<double> _baselineLeftSamples = <double>[];
+  final List<double> _baselineRightSamples = <double>[];
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   void dispose() {
     _connectionTimer?.cancel();
     _monitoringTimer?.cancel();
+    _baselineTimer?.cancel();
     super.dispose();
   }
 
@@ -52,7 +56,16 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
 
     final bloc = context.read<SessionBloc>();
     if (!bloc.state.isConnected) {
-      bloc.connect(_deviceMac);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connect the sensor from the dashboard first.'),
+          ),
+        );
+        Navigator.pop(context);
+      });
+      return;
     }
 
     _connectionTimer?.cancel();
@@ -75,8 +88,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'Could not reach biosignalsplux ($_deviceMac). Check power and range.',
+        content: const Text(
+          'The sensor connection was lost. Reconnect from the dashboard.',
         ),
       ),
     );
@@ -123,29 +136,101 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       BaselineReferencePosition.straightAhead,
     );
     if (straightAhead == null) {
-      bloc.calibrate();
-    } else {
-      bloc.saveCalibration(
-        baselineLeft: straightAhead.leftRms,
-        baselineRight: straightAhead.rightRms,
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Save the Straight Ahead baseline before continuing.'),
+        ),
       );
+      return;
     }
+    bloc.saveCalibration(
+      baselineLeft: straightAhead.leftRms,
+      baselineRight: straightAhead.rightRms,
+    );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const SessionScreen()),
+    unawaited(
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SessionScreen()),
+      ),
     );
   }
 
   Future<void> _saveBaseline(BaselineReferencePosition position) async {
-    try {
-      await context.read<SessionBloc>().saveBaselineReference(position);
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
-    }
+    if (_capturingPosition != null) return;
+    setState(() {
+      _capturingPosition = position;
+      _baselineCaptureSamples = 0;
+      _baselineLeftSamples.clear();
+      _baselineRightSamples.clear();
+    });
+    _baselineTimer?.cancel();
+    _baselineTimer = Timer.periodic(const Duration(milliseconds: 250), (
+      timer,
+    ) async {
+      final state = context.read<SessionBloc>().state;
+      final lastFrameMs = state.lastFrameMs;
+      final validSignal =
+          state.isConnected &&
+          lastFrameMs != null &&
+          DateTime.now().millisecondsSinceEpoch - lastFrameMs < 2000 &&
+          state.leftTrapRms.isFinite &&
+          state.rightTrapRms.isFinite &&
+          state.leftTrapRms > 0 &&
+          state.rightTrapRms > 0;
+      if (!validSignal) {
+        timer.cancel();
+        _finishBaselineCapture();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Signal was lost. Baseline was not saved.'),
+          ),
+        );
+        return;
+      }
+
+      _baselineLeftSamples.add(state.leftTrapRms);
+      _baselineRightSamples.add(state.rightTrapRms);
+      if (mounted) {
+        setState(() => _baselineCaptureSamples++);
+      }
+      if (_baselineCaptureSamples < 40) return;
+
+      timer.cancel();
+      final leftAverage =
+          _baselineLeftSamples.reduce((a, b) => a + b) /
+          _baselineLeftSamples.length;
+      final rightAverage =
+          _baselineRightSamples.reduce((a, b) => a + b) /
+          _baselineRightSamples.length;
+      try {
+        await context.read<SessionBloc>().saveBaselineReference(
+          position,
+          leftRms: leftAverage,
+          rightRms: rightAverage,
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.toString())));
+        }
+      } finally {
+        _finishBaselineCapture();
+      }
+    });
+  }
+
+  void _finishBaselineCapture() {
+    _baselineTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _capturingPosition = null;
+      _baselineCaptureSamples = 0;
+      _baselineLeftSamples.clear();
+      _baselineRightSamples.clear();
+    });
   }
 
   double _calculateStdDev(List<int> samples, int count) {
@@ -254,7 +339,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'biosignalsplux\nMAC: $_deviceMac',
+            'Waiting for the biosignalsplux stream',
             textAlign: TextAlign.center,
             style: TextStyle(color: context.txtTertiary),
           ),
@@ -342,7 +427,13 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
             _BaselineCaptureRow(
               position: position,
               reference: participant?.baselineFor(position),
-              enabled: state.isConnected && participant != null,
+              enabled:
+                  state.isConnected &&
+                  participant != null &&
+                  _capturingPosition == null,
+              captureProgress: _capturingPosition == position
+                  ? _baselineCaptureSamples / 40
+                  : null,
               onSave: () => _saveBaseline(position),
             ),
             if (position != BaselineReferencePosition.values.last)
@@ -492,12 +583,14 @@ class _BaselineCaptureRow extends StatelessWidget {
     required this.reference,
     required this.enabled,
     required this.onSave,
+    required this.captureProgress,
   });
 
   final BaselineReferencePosition position;
   final BaselineReference? reference;
   final bool enabled;
   final VoidCallback onSave;
+  final double? captureProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -551,7 +644,11 @@ class _BaselineCaptureRow extends StatelessWidget {
               minimumSize: const Size(74, 40),
               padding: const EdgeInsets.symmetric(horizontal: 12),
             ),
-            child: const Text('Save'),
+            child: Text(
+              captureProgress == null
+                  ? 'Save'
+                  : '${(captureProgress! * 10).toStringAsFixed(0)}s',
+            ),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   String? _selectedUserType = 'athlete';
   String _channelA = 'left';
   String _channelB = 'right';
+  bool _isCompleting = false;
 
   late final AnimationController _entryCtrl;
 
@@ -35,7 +37,8 @@ class _OnboardingPageState extends State<OnboardingPage>
     _entryCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
-    )..forward();
+    );
+    unawaited(_entryCtrl.forward());
   }
 
   @override
@@ -47,32 +50,46 @@ class _OnboardingPageState extends State<OnboardingPage>
 
   void _nextPage() {
     if (_currentPage < 6) {
-      _pageCtrl.nextPage(
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
+      unawaited(
+        _pageCtrl.nextPage(
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutCubic,
+        ),
       );
     }
   }
 
   void _skipToLast() {
-    _pageCtrl.animateToPage(
-      6,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeOutCubic,
+    unawaited(
+      _pageCtrl.animateToPage(
+        6,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      ),
     );
   }
 
   Future<void> _complete() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_complete', true);
-    await prefs.setString('channel_mapping.A', _channelA);
-    await prefs.setString('channel_mapping.B', _channelB);
-    if (_selectedUserType != null) {
-      await prefs.setString('user_type', _selectedUserType!);
+    if (_isCompleting) return;
+    setState(() => _isCompleting = true);
+    try {
+      await context.read<SessionBloc>().setChannelMapping(_channelA, _channelB);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_complete', true);
+      if (_selectedUserType != null) {
+        await prefs.setString('user_type', _selectedUserType!);
+      }
+      if (!mounted) return;
+      widget.onComplete();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Setup could not be saved. Please try again.'),
+        ),
+      );
+      setState(() => _isCompleting = false);
     }
-    if (!mounted) return;
-    await context.read<SessionBloc>().setChannelMapping(_channelA, _channelB);
-    widget.onComplete();
   }
 
   bool get _canProceedSlide4 => true;
@@ -157,7 +174,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                 onPageChanged: (i) {
                   setState(() => _currentPage = i);
                   _entryCtrl.reset();
-                  _entryCtrl.forward();
+                  unawaited(_entryCtrl.forward());
                 },
                 children: <Widget>[
                   _SlideImage(
@@ -200,8 +217,14 @@ class _OnboardingPageState extends State<OnboardingPage>
                     entry: _entryCtrl,
                     channelA: _channelA,
                     channelB: _channelB,
-                    onChannelAChanged: (v) => setState(() => _channelA = v),
-                    onChannelBChanged: (v) => setState(() => _channelB = v),
+                    onChannelAChanged: (value) => setState(() {
+                      _channelA = value;
+                      _channelB = value == 'left' ? 'right' : 'left';
+                    }),
+                    onChannelBChanged: (value) => setState(() {
+                      _channelB = value;
+                      _channelA = value == 'left' ? 'right' : 'left';
+                    }),
                   ),
                   _SlideReady(
                     key: const ValueKey<String>('ready'),
@@ -240,7 +263,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                       width: double.infinity,
                       height: 56,
                       child: FilledButton(
-                        onPressed: _complete,
+                        onPressed: _isCompleting ? null : _complete,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.lightTextPrimary,
                           foregroundColor: AppTheme.lightBackgroundPrimary,
@@ -986,15 +1009,18 @@ class _ChannelSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.lightTextSecondary,
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.lightTextSecondary,
+            ),
           ),
         ),
-        const SizedBox(width: AppTheme.spaceMD),
+        const SizedBox(width: AppTheme.spaceSM),
         ...options.map(
           (option) => Padding(
             padding: const EdgeInsets.only(right: AppTheme.spaceSM),

@@ -10,12 +10,14 @@ class ResearchContextSnapshot {
     required this.activeParticipantId,
     required this.scenario,
     required this.notificationPreferences,
+    this.rejectedEntryCount = 0,
   });
 
   final List<ParticipantProfile> participants;
   final String? activeParticipantId;
   final UsageScenario scenario;
   final NotificationPreferences notificationPreferences;
+  final int rejectedEntryCount;
 }
 
 class ResearchContextStore {
@@ -28,15 +30,36 @@ class ResearchContextStore {
     final prefs = await SharedPreferences.getInstance();
     final participantsRaw =
         prefs.getStringList(_participantsKey) ?? const <String>[];
-    final participants = participantsRaw
-        .map(
-          (entry) => ParticipantProfile.fromJson(
-            jsonDecode(entry) as Map<String, dynamic>,
-          ),
-        )
-        .toList(growable: false);
+    final participants = <ParticipantProfile>[];
+    var rejectedEntryCount = 0;
+    for (final entry in participantsRaw) {
+      try {
+        final decoded = jsonDecode(entry);
+        if (decoded is! Map<String, dynamic>) {
+          rejectedEntryCount++;
+          continue;
+        }
+        participants.add(ParticipantProfile.fromJson(decoded));
+      } on Object {
+        rejectedEntryCount++;
+      }
+    }
     final activeId = prefs.getString(_activeParticipantKey);
     final notificationRaw = prefs.getString(_notificationKey);
+
+    var notificationPreferences = const NotificationPreferences();
+    if (notificationRaw != null) {
+      try {
+        final decoded = jsonDecode(notificationRaw);
+        if (decoded is Map<String, dynamic>) {
+          notificationPreferences = NotificationPreferences.fromJson(decoded);
+        } else {
+          rejectedEntryCount++;
+        }
+      } on Object {
+        rejectedEntryCount++;
+      }
+    }
 
     return ResearchContextSnapshot(
       participants: participants,
@@ -44,11 +67,8 @@ class ResearchContextStore {
           ? activeId
           : participants.firstOrNull?.id,
       scenario: UsageScenarioX.fromId(prefs.getString(_scenarioKey)),
-      notificationPreferences: notificationRaw == null
-          ? const NotificationPreferences()
-          : NotificationPreferences.fromJson(
-              jsonDecode(notificationRaw) as Map<String, dynamic>,
-            ),
+      notificationPreferences: notificationPreferences,
+      rejectedEntryCount: rejectedEntryCount,
     );
   }
 

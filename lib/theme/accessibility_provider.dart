@@ -11,13 +11,21 @@ class AccessibilityProvider {
   static bool get colorBlindMode => colorBlindNotifier.value;
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    colorBlindNotifier.value = prefs.getBool(_colorBlindKey) ?? false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      colorBlindNotifier.value = prefs.getBool(_colorBlindKey) ?? false;
+    } catch (_) {
+      colorBlindNotifier.value = false;
+    }
   }
 
   static Future<void> setColorBlindMode(bool enabled) async {
     colorBlindNotifier.value = enabled;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_colorBlindKey, enabled);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_colorBlindKey, enabled);
+    } catch (_) {
+      // Keep the in-memory preference for the current app session.
+    }
   }
 }

@@ -48,7 +48,7 @@ class SessionAggregator {
       _addActivationToGrid(grid, activation);
     }
 
-    final avgFactor = sessions.length > 0 ? 1.0 / sessions.length : 1.0;
+    final avgFactor = sessions.isNotEmpty ? 1.0 / sessions.length : 1.0;
     for (int r = 0; r < _gridRows; r++) {
       for (int c = 0; c < _gridCols; c++) {
         grid[r][c] *= avgFactor;

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:share_plus/share_plus.dart';
 
+import '../../domain/models/feedback_view.dart';
 import '../../domain/models/research_context.dart';
 import '../../domain/models/session_summary.dart';
 
@@ -60,7 +61,10 @@ class ResearchDataExportService {
       'sessionCount': sortedSessions.length,
       'measurementNotes': <String>[
         'durationSeconds is elapsed recording-session wall-clock time.',
-        'Feedback view was not persisted for historical sessions.',
+        'feedbackViewId identifies the view active for the full recording.',
+        'targetMuscleId identifies the muscle selected for the recording.',
+        'simulatedInput is true for demo sessions without physical sensors.',
+        'Historical sessions recorded before this field was added remain unlabeled.',
         'Activation values are within-session relative summaries, not percent MVC.',
         'The export contains summary data, not raw EMG samples.',
       ],
@@ -73,6 +77,8 @@ class ResearchDataExportService {
               ...session.toJson(),
               'durationMinutes': session.durationSeconds / 60,
               'scenarioLabel': UsageScenarioX.fromId(session.scenarioId).label,
+              'feedbackViewLabel': session.feedbackView?.label,
+              'targetMuscleLabel': session.targetMuscle?.chipLabel,
             },
           )
           .toList(growable: false),
@@ -125,6 +131,11 @@ class ResearchDataExportService {
       'participant_id',
       'scenario_id',
       'scenario_label',
+      'feedback_view_id',
+      'feedback_view_label',
+      'target_muscle_id',
+      'target_muscle_label',
+      'simulated_input',
       'started_at',
       'ended_at',
       'duration_seconds',
@@ -147,6 +158,11 @@ class ResearchDataExportService {
           session.participantId,
           session.scenarioId,
           scenario.label,
+          session.feedbackView?.id,
+          session.feedbackView?.label,
+          session.targetMuscle?.id,
+          session.targetMuscle?.chipLabel,
+          session.simulatedInput,
           session.startedAt.toIso8601String(),
           session.endedAt.toIso8601String(),
           session.durationSeconds,
@@ -214,7 +230,7 @@ class ResearchDataExportService {
   String _csvCell(Object? value) {
     if (value == null) return '';
     final text = value.toString();
-    if (!text.contains(RegExp('[,\"\r\n]'))) return text;
+    if (!text.contains(RegExp('[,"\r\n]'))) return text;
     return '"${text.replaceAll('"', '""')}"';
   }
 

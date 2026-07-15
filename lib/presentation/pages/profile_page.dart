@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -27,8 +29,16 @@ class ProfilePage extends StatelessWidget {
           0,
           (sum, item) => sum + item.durationSeconds,
         );
-        final totalMinutes = (totalSeconds / 60).round();
-        final totalHours = (totalSeconds / 3600).round();
+        final trackedTimeValue = totalSeconds >= 3600
+            ? (totalSeconds / 3600).toStringAsFixed(1)
+            : totalSeconds >= 60
+            ? (totalSeconds / 60).round().toString()
+            : totalSeconds.toString();
+        final trackedTimeUnit = totalSeconds >= 3600
+            ? 'h Tracked'
+            : totalSeconds >= 60
+            ? 'min Tracked'
+            : 'sec Tracked';
         final symmetryScores = participantHistory
             .map((s) => s.averageSymmetryIndex)
             .whereType<double>()
@@ -36,12 +46,15 @@ class ProfilePage extends StatelessWidget {
         final avgSI = symmetryScores.isEmpty
             ? null
             : symmetryScores.reduce((a, b) => a + b) / symmetryScores.length;
-        final balance = avgSI == null
+        final balanceScore = avgSI == null
+            ? null
+            : (100 - avgSI.abs()).clamp(0.0, 100.0);
+        final balance = balanceScore == null
             ? '—'
-            : (100 - avgSI.abs()).toStringAsFixed(1);
+            : balanceScore.toStringAsFixed(1);
         final balanceLabel = avgSI == null
             ? 'Awaiting data'
-            : (100 - avgSI.abs()) >= 90
+            : balanceScore! >= 90
             ? 'Optimal'
             : 'Tracking';
         final displayName = state.displayName;
@@ -77,48 +90,29 @@ class ProfilePage extends StatelessWidget {
             const ResearchContextBanner(),
             const SizedBox(height: 20),
             Center(
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: <Widget>[
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: context.txtPrimary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: context.bgPrimary, width: 3),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x26000000),
-                          blurRadius: 22,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: context.txtPrimary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.bgPrimary, width: 3),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x26000000),
+                      blurRadius: 22,
+                      offset: Offset(0, 12),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      initials,
-                      style: AppTheme.displayMedium.copyWith(
-                        color: context.bgPrimary,
-                        fontSize: 30,
-                      ),
-                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  initials,
+                  style: AppTheme.displayMedium.copyWith(
+                    color: context.bgPrimary,
+                    fontSize: 30,
                   ),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentGreen,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: context.bgPrimary, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.verified,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -184,12 +178,8 @@ class ProfilePage extends StatelessWidget {
             _ProfileStatCard(
               icon: Icons.timer_outlined,
               title: 'Time',
-              value: totalSeconds == 0
-                  ? '0'
-                  : (totalHours >= 1 ? '$totalHours' : '$totalMinutes'),
-              suffix: totalSeconds == 0
-                  ? 'h Total'
-                  : (totalHours >= 1 ? 'h Tracked' : 'min Tracked'),
+              value: trackedTimeValue,
+              suffix: trackedTimeUnit,
             ),
             const SizedBox(height: 10),
             _ProfileStatCard(
@@ -212,7 +202,7 @@ class ProfilePage extends StatelessWidget {
               icon: Icons.file_download_outlined,
               title: 'Export research data',
               body:
-                  'Share CSV and JSON copies of all saved participants, scenarios, session durations, and summary metrics.',
+                  'Share CSV and JSON copies of participants, scenarios, feedback views, durations, and summary metrics.',
               onTap: () => _exportResearchData(context, state),
             ),
             _ActionRow(
@@ -235,8 +225,11 @@ class ProfilePage extends StatelessWidget {
               icon: Icons.sensors_outlined,
               title: 'Sensor placement',
               body:
-                  'Review the upper-trapezius landmarks and bilateral setup steps.',
-              onTap: () => showSensorPlacementSheet(context),
+                  'Review the ${state.targetMuscle.chipLabel.toLowerCase()} landmarks and bilateral setup steps.',
+              onTap: () => showSensorPlacementSheet(
+                context,
+                targetMuscle: state.targetMuscle,
+              ),
             ),
             const SizedBox(height: 24),
             const _SectionTitle('Preferences'),
@@ -245,8 +238,10 @@ class ProfilePage extends StatelessWidget {
               body: 'Adjust interface luminosity for low-light environments.',
               value: context.isDark,
               onChanged: (isDark) {
-                ThemeProvider.setThemeMode(
-                  isDark ? ThemeMode.dark : ThemeMode.light,
+                unawaited(
+                  ThemeProvider.setThemeMode(
+                    isDark ? ThemeMode.dark : ThemeMode.light,
+                  ),
                 );
               },
             ),

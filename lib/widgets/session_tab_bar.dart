@@ -10,7 +10,7 @@ class SessionTabBar extends StatelessWidget {
   });
 
   final int selectedIndex;
-  final ValueChanged<int> onTap;
+  final ValueChanged<int>? onTap;
   final List<String> labels;
 
   @override
@@ -63,29 +63,37 @@ class SessionTabBar extends StatelessWidget {
                     children: List.generate(labels.length, (index) {
                       final isSelected = selectedIndex == index;
                       return Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => onTap(index),
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 200),
-                            opacity: isSelected ? 1.0 : 0.6,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  labels[index],
-                                  style: AppTheme.labelSmall.copyWith(
-                                    fontSize: 12,
-                                    letterSpacing: 0.3,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: isSelected
-                                        ? context.txtPrimary
-                                        : context.txtSecondary,
-                                  ),
+                        child: Semantics(
+                          button: true,
+                          selected: isSelected,
+                          enabled: onTap != null,
+                          label: labels[index],
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onTap == null ? null : () => onTap!(index),
+                            child: ExcludeSemantics(
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: isSelected ? 1.0 : 0.6,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      labels[index],
+                                      style: AppTheme.labelSmall.copyWith(
+                                        fontSize: 12,
+                                        letterSpacing: 0.3,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: isSelected
+                                            ? context.txtPrimary
+                                            : context.txtSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),

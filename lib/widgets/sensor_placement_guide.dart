@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../domain/models/target_muscle.dart';
 import '../theme/app_theme.dart';
 
-Future<void> showSensorPlacementSheet(BuildContext context) {
+Future<void> showSensorPlacementSheet(
+  BuildContext context, {
+  TargetMuscle targetMuscle = TargetMuscle.trapezius,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const _SensorPlacementSheet(),
+    builder: (context) => _SensorPlacementSheet(targetMuscle: targetMuscle),
   );
 }
 
@@ -82,7 +87,9 @@ class SensorPlacementDiagram extends StatelessWidget {
 }
 
 class _SensorPlacementSheet extends StatelessWidget {
-  const _SensorPlacementSheet();
+  const _SensorPlacementSheet({required this.targetMuscle});
+
+  final TargetMuscle targetMuscle;
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +125,7 @@ class _SensorPlacementSheet extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Upper-trapezius sensor placement',
+                      '${targetMuscle.chipLabel} sensor placement',
                       style: AppTheme.headingLarge.copyWith(
                         color: context.txtPrimary,
                       ),
@@ -139,16 +146,19 @@ class _SensorPlacementSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
-                height: 430,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F4F8),
-                  borderRadius: AppTheme.cardRadius,
-                  border: Border.all(color: context.dividerClr),
-                ),
-                child: const SensorPlacementDiagram(),
-              ),
+              if (targetMuscle == TargetMuscle.trapezius)
+                Container(
+                  height: 430,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4F8),
+                    borderRadius: AppTheme.cardRadius,
+                    border: Border.all(color: context.dividerClr),
+                  ),
+                  child: const SensorPlacementDiagram(),
+                )
+              else
+                _bicepsPlacementCard(context: context),
               const SizedBox(height: 16),
               const _PlacementStep(
                 number: '1',
@@ -156,17 +166,19 @@ class _SensorPlacementSheet extends StatelessWidget {
                 body:
                     'Use clean, dry, intact skin. Remove lotion and secure loose cables to reduce movement noise.',
               ),
-              const _PlacementStep(
+              _PlacementStep(
                 number: '2',
                 title: 'Find the landmarks',
-                body:
-                    'Locate C7 at the base of the neck and the acromion at the outer edge of the shoulder.',
+                body: targetMuscle == TargetMuscle.trapezius
+                    ? 'Locate C7 at the base of the neck and the acromion at the outer edge of the shoulder.'
+                    : 'Locate the elbow crease and the medial acromion at the inner edge of the shoulder.',
               ),
-              const _PlacementStep(
+              _PlacementStep(
                 number: '3',
                 title: 'Match both sides',
-                body:
-                    'Place each sensor halfway along that line and orient it in the same direction as the upper-trapezius fibers.',
+                body: targetMuscle == TargetMuscle.trapezius
+                    ? 'Place each sensor halfway along that line and orient it in the same direction as the upper-trapezius fibers.'
+                    : 'Place each sensor one-third of the way from the elbow crease toward the medial acromion, aligned with the muscle fibres.',
               ),
               const SizedBox(height: 8),
               Text(
@@ -180,6 +192,51 @@ class _SensorPlacementSheet extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _bicepsPlacementCard({required BuildContext context}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: context.bgCard,
+        borderRadius: AppTheme.cardRadius,
+        border: Border.all(color: context.dividerClr),
+      ),
+      child: Column(
+        children: <Widget>[
+          const Icon(Icons.fitness_center_rounded, size: 52),
+          const SizedBox(height: 12),
+          Text(
+            'Place the electrodes on the front of each upper arm, one-third of '
+            'the way from the elbow crease toward the inner shoulder landmark. '
+            'Align them with the muscle fibres and mirror the position on both sides.',
+            textAlign: TextAlign.center,
+            style: AppTheme.bodyMedium.copyWith(
+              color: context.txtSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: () async {
+              final opened = await launchUrl(
+                Uri.parse('https://seniam.org/bicepsbrachii.html'),
+                mode: LaunchMode.externalApplication,
+              );
+              if (!opened && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not open the reference.'),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text('Open SENIAM placement reference'),
+          ),
+        ],
+      ),
     );
   }
 }

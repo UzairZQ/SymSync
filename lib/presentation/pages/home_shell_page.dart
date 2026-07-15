@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/session_tab.dart';
+import '../../plux_service.dart';
 import '../bloc/session_bloc.dart';
 import '../../theme/app_theme.dart';
 import 'activation_summary_page.dart';
@@ -22,19 +24,29 @@ class HomeShellPage extends StatefulWidget {
 }
 
 class _HomeShellPageState extends State<HomeShellPage> {
-  static const String _deviceMac = '00:07:80:8C:0A:27';
+  static const String _deviceAddressKey = 'plux_device_address';
+  static final RegExp _macAddressPattern = RegExp(
+    r'^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$',
+  );
 
   Future<bool> _requestPermissions() async {
     if (!Platform.isAndroid) return true;
-    final statuses = await <Permission>[
-      Permission.bluetoothConnect,
-      Permission.bluetoothScan,
-      Permission.locationWhenInUse,
-    ].request();
+    final sdk = await PluxService().androidSdkInt() ?? 31;
+    final permissions = sdk >= 31
+        ? <Permission>[Permission.bluetoothConnect, Permission.bluetoothScan]
+        : <Permission>[Permission.locationWhenInUse];
+    final statuses = await permissions.request();
     return statuses.values.every((s) => s.isGranted || s.isLimited);
   }
 
   Future<void> _connect(BuildContext context) async {
+    final bloc = context.read<SessionBloc>();
+    if (bloc.state.isSimulatedHardware) {
+      unawaited(bloc.connect('SIMULATED'));
+      return;
+    }
+    final deviceAddress = await _promptForDeviceAddress(context);
+    if (deviceAddress == null || !context.mounted) return;
     final granted = await _requestPermissions();
     if (!granted) {
       if (!context.mounted) return;
@@ -44,15 +56,27 @@ class _HomeShellPageState extends State<HomeShellPage> {
       return;
     }
     if (!context.mounted) return;
-    unawaited(context.read<SessionBloc>().connect(_deviceMac));
+    unawaited(bloc.connect(deviceAddress));
+  }
+
+  Future<String?> _promptForDeviceAddress(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!context.mounted) return null;
+    final address = await showDialog<String>(
+      context: context,
+      builder: (_) => _DeviceAddressDialog(
+        initialAddress: prefs.getString(_deviceAddressKey) ?? '',
+        addressPattern: _macAddressPattern,
+      ),
+    );
+    if (address != null) {
+      await prefs.setString(_deviceAddressKey, address);
+    }
+    return address;
   }
 
   Future<void> _disconnect(BuildContext context) async {
     unawaited(context.read<SessionBloc>().disconnect());
-  }
-
-  Future<void> _calibrate(BuildContext context) async {
-    context.read<SessionBloc>().calibrate();
   }
 
   void _showError(BuildContext context, String message) {
@@ -78,7 +102,6 @@ class _HomeShellPageState extends State<HomeShellPage> {
             context.read<SessionBloc>().selectTab(SessionTab.summary),
         onConnect: () => _connect(context),
         onDisconnect: () => _disconnect(context),
-        onCalibrate: () => _calibrate(context),
       ),
       const SessionPage(),
       const ActivationSummaryPage(),
@@ -102,8 +125,9 @@ class _HomeShellPageState extends State<HomeShellPage> {
           listenWhen: (prev, cur) =>
               prev.errorMessage != cur.errorMessage && cur.errorMessage != null,
           listener: (context, state) {
-            if (state.errorMessage != null)
+            if (state.errorMessage != null) {
               _showError(context, state.errorMessage!);
+            }
           },
           child: Scaffold(
             body: Stack(
@@ -278,4 +302,81 @@ class _NavItemData {
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+}
+
+class _DeviceAddressDialog extends StatefulWidget {
+  const _DeviceAddressDialog({
+    required this.initialAddress,
+    required this.addressPattern,
+  });
+
+  final String initialAddress;
+  final RegExp addressPattern;
+
+  @override
+  State<_DeviceAddressDialog> createState() => _DeviceAddressDialogState();
+}
+
+class _DeviceAddressDialogState extends State<_DeviceAddressDialog> {
+  late final TextEditingController _controller;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialAddress);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final address = _controller.text.trim().toUpperCase();
+    if (!widget.addressPattern.hasMatch(address)) {
+      setState(() => _validationMessage = 'Enter a valid Bluetooth address.');
+      return;
+    }
+    Navigator.pop(context, address);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Connect biosignalsplux'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Enter the address printed on the biosignalsplux device. '
+            'This phone will remember it for next time.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
+            keyboardType: TextInputType.visiblePassword,
+            decoration: InputDecoration(
+              labelText: 'Bluetooth address',
+              hintText: '00:00:00:00:00:00',
+              errorText: _validationMessage,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Connect')),
+      ],
+    );
+  }
 }
