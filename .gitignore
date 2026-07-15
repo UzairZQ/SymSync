@@ -6,7 +6,7 @@ build/
 .packages
 .pub/
 .pub-cache/
-**/pubspec.lock
+# Application dependency lockfile is committed for reproducible builds.
 *.flutter-plugins
 *.flutter-plugins-dependencies
 *.dart_tool

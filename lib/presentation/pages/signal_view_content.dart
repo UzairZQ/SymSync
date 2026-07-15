@@ -74,7 +74,7 @@ class _SignalViewContentState extends State<SignalViewContent> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     _modeNotifier.dispose();
     super.dispose();
   }

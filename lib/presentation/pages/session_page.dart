@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../config/app_config.dart';
+import '../../domain/models/feedback_view.dart';
 import '../../screens/calibration_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_tab_bar.dart';
@@ -40,12 +41,16 @@ class SessionPage extends StatefulWidget {
 }
 
 class _SessionPageState extends State<SessionPage> {
-  final PageController _pageController = PageController();
-  int _selectedIndex = 0;
+  late final PageController _pageController;
+  late int _selectedIndex;
 
   @override
   void initState() {
     super.initState();
+    _selectedIndex = _indexForFeedbackView(
+      context.read<SessionBloc>().state.selectedFeedbackView,
+    );
+    _pageController = PageController(initialPage: _selectedIndex);
     _pageController.addListener(_onPageChanged);
   }
 
@@ -62,14 +67,29 @@ class _SessionPageState extends State<SessionPage> {
       final index = page.round();
       if (index != _selectedIndex && index >= 0) {
         setState(() => _selectedIndex = index);
+        context.read<SessionBloc>().selectFeedbackView(
+          _feedbackViewForIndex(index),
+        );
       }
     }
   }
 
+  FeedbackView? _feedbackViewForIndex(int index) => switch (index) {
+    0 => FeedbackView.anatomicalHeatmap,
+    1 => FeedbackView.balanceMonitor,
+    _ => null,
+  };
+
+  int _indexForFeedbackView(FeedbackView? view) => switch (view) {
+    FeedbackView.balanceMonitor => 1,
+    FeedbackView.anatomicalHeatmap => 0,
+    null => AppConfig.showResearcherTools ? 2 : 0,
+  };
+
   @override
   Widget build(BuildContext context) {
     final tabs = <String>[
-      'Anatomical',
+      'Heatmap',
       'Balance',
       if (AppConfig.showResearcherTools) 'Signal',
     ];
@@ -88,6 +108,16 @@ class _SessionPageState extends State<SessionPage> {
 
         final isConnected = state.isConnected;
         final isConnecting = state.status == SessionStatus.connecting;
+        final selectedFeedbackView = state.selectedFeedbackView;
+        final sharedIndex = _indexForFeedbackView(selectedFeedbackView);
+        if (sharedIndex != _selectedIndex && _pageController.hasClients) {
+          _selectedIndex = sharedIndex;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _pageController.hasClients) {
+              _pageController.jumpToPage(sharedIndex);
+            }
+          });
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,7 +173,7 @@ class _SessionPageState extends State<SessionPage> {
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
-                                'Live bilateral monitoring',
+                                selectedFeedbackView?.label ?? 'Signal View',
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTheme.bodyMedium.copyWith(
                                   color: context.txtSecondary,
@@ -168,15 +198,26 @@ class _SessionPageState extends State<SessionPage> {
             SessionTabBar(
               selectedIndex: _selectedIndex,
               labels: tabs,
-              onTap: (index) {
-                _pageController.jumpToPage(index);
-                setState(() => _selectedIndex = index);
-              },
+              onTap: state.isRecording
+                  ? null
+                  : (index) {
+                      _pageController.jumpToPage(index);
+                      setState(() => _selectedIndex = index);
+                      context.read<SessionBloc>().selectFeedbackView(
+                        _feedbackViewForIndex(index),
+                      );
+                    },
             ),
             const SizedBox(height: 4),
 
             Expanded(
-              child: PageView(controller: _pageController, children: pages),
+              child: PageView(
+                controller: _pageController,
+                physics: state.isRecording
+                    ? const NeverScrollableScrollPhysics()
+                    : const PageScrollPhysics(),
+                children: pages,
+              ),
             ),
 
             const SizedBox(height: 4),
@@ -216,7 +257,23 @@ class _SessionActionsBar extends StatelessWidget {
                             context,
                           );
                           if (confirmed && context.mounted) {
-                            await context.read<SessionBloc>().startRecording();
+                            final selectedView = context
+                                .read<SessionBloc>()
+                                .state
+                                .selectedFeedbackView;
+                            if (selectedView == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Choose Heatmap or Balance before recording.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            await context.read<SessionBloc>().startRecording(
+                              feedbackView: selectedView,
+                            );
                           }
                         }
                       },

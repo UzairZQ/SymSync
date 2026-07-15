@@ -230,16 +230,24 @@ class _BalanceMonitorContentState extends State<BalanceMonitorContent> {
                                 label: TargetMuscle.trapezius.chipLabel,
                                 selected:
                                     targetMuscle == TargetMuscle.trapezius,
-                                onTap: () => context
-                                    .read<SessionBloc>()
-                                    .selectTargetMuscle(TargetMuscle.trapezius),
+                                onTap: isRecording
+                                    ? null
+                                    : () => context
+                                          .read<SessionBloc>()
+                                          .selectTargetMuscle(
+                                            TargetMuscle.trapezius,
+                                          ),
                               ),
                               _MuscleChip(
                                 label: TargetMuscle.biceps.chipLabel,
                                 selected: targetMuscle == TargetMuscle.biceps,
-                                onTap: () => context
-                                    .read<SessionBloc>()
-                                    .selectTargetMuscle(TargetMuscle.biceps),
+                                onTap: isRecording
+                                    ? null
+                                    : () => context
+                                          .read<SessionBloc>()
+                                          .selectTargetMuscle(
+                                            TargetMuscle.biceps,
+                                          ),
                               ),
                               const Tooltip(
                                 message: 'Coming soon',

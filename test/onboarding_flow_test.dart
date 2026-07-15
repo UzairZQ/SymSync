@@ -10,7 +10,7 @@ import 'package:sym_sync/data/notifications/local_notification_service.dart';
 import 'package:sym_sync/data/research/research_context_store.dart';
 import 'package:sym_sync/domain/models/emg_frame.dart';
 import 'package:sym_sync/presentation/bloc/session_bloc.dart';
-import 'package:sym_sync/presentation/pages/participant_setup_page.dart';
+import 'package:sym_sync/presentation/pages/onboarding_page.dart';
 import 'package:sym_sync/theme/app_theme.dart';
 
 void main() {
@@ -20,7 +20,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('participant setup fits a standard phone viewport', (
+  testWidgets('onboarding persists a valid cable mapping before completion', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(412, 915);
@@ -28,30 +28,36 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final hardware = _LayoutTestHardware();
+    final hardware = _OnboardingHardware();
     final bloc = SessionBloc(
       hardware: hardware,
       historyStore: SessionHistoryStore(),
       researchContextStore: ResearchContextStore(),
-      notificationService: _LayoutNotificationService(),
+      notificationService: _OnboardingNotificationService(),
     );
+    var completed = false;
 
     await tester.pumpWidget(
       BlocProvider<SessionBloc>.value(
         value: bloc,
         child: MaterialApp(
           theme: AppTheme.lightTheme,
-          home: const ParticipantSetupPage(),
+          home: OnboardingPage(onComplete: () => completed = true),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final scrollable = tester.state<ScrollableState>(
-      find.byType(Scrollable).first,
-    );
-    expect(scrollable.position.maxScrollExtent, 0);
-    expect(find.text('Create Participant and Continue'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Get Started'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(completed, isTrue);
+    expect(prefs.getBool('onboarding_complete'), isTrue);
+    expect(prefs.getString('channel_mapping.A'), 'left');
+    expect(prefs.getString('channel_mapping.B'), 'right');
 
     await tester.pumpWidget(const SizedBox.shrink());
     await bloc.close();
@@ -59,12 +65,12 @@ void main() {
   });
 }
 
-class _LayoutTestHardware implements EmgHardware {
-  @override
-  bool get isSimulated => false;
-
+class _OnboardingHardware implements EmgHardware {
   final StreamController<EmgFrame> _frames =
       StreamController<EmgFrame>.broadcast();
+
+  @override
+  bool get isSimulated => false;
 
   @override
   Stream<EmgFrame> get frames => _frames.stream;
@@ -87,7 +93,7 @@ class _LayoutTestHardware implements EmgHardware {
   Future<void> dispose() => _frames.close();
 }
 
-class _LayoutNotificationService extends LocalNotificationService {
+class _OnboardingNotificationService extends LocalNotificationService {
   @override
   Future<void> initialize() async {}
 }

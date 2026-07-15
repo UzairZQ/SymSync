@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +8,7 @@ import 'package:sym_sync/data/notifications/local_notification_service.dart';
 import 'package:sym_sync/data/research/research_context_store.dart';
 import 'package:sym_sync/domain/models/emg_frame.dart';
 import 'package:sym_sync/presentation/bloc/session_bloc.dart';
-import 'package:sym_sync/presentation/pages/participant_setup_page.dart';
+import 'package:sym_sync/presentation/pages/home_shell_page.dart';
 import 'package:sym_sync/theme/app_theme.dart';
 
 void main() {
@@ -20,7 +18,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('participant setup fits a standard phone viewport', (
+  testWidgets('connection asks for and remembers a user-entered PLUX address', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(412, 915);
@@ -28,49 +26,66 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final hardware = _LayoutTestHardware();
+    final hardware = _AddressHardware();
     final bloc = SessionBloc(
       hardware: hardware,
       historyStore: SessionHistoryStore(),
       researchContextStore: ResearchContextStore(),
-      notificationService: _LayoutNotificationService(),
+      notificationService: _AddressNotificationService(),
     );
+    await bloc.start();
+    await bloc.createParticipant();
 
     await tester.pumpWidget(
       BlocProvider<SessionBloc>.value(
         value: bloc,
         child: MaterialApp(
           theme: AppTheme.lightTheme,
-          home: const ParticipantSetupPage(),
+          home: const HomeShellPage(),
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
 
-    final scrollable = tester.state<ScrollableState>(
-      find.byType(Scrollable).first,
+    await tester.tap(find.text('Connect Device').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Connect biosignalsplux'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '',
     );
-    expect(scrollable.position.maxScrollExtent, 0);
-    expect(find.text('Create Participant and Continue'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox.shrink());
+    const address = '12:34:56:78:9A:BC';
+    await tester.enterText(find.byType(TextField), address.toLowerCase());
+    await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(hardware.connectedAddress, address);
+    expect(prefs.getString('plux_device_address'), address);
+
+    await tester.runAsync(bloc.disconnect);
+    await tester.pump();
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     await bloc.close();
-    await hardware.dispose();
   });
 }
 
-class _LayoutTestHardware implements EmgHardware {
+class _AddressHardware implements EmgHardware {
+  String? connectedAddress;
+
   @override
   bool get isSimulated => false;
 
-  final StreamController<EmgFrame> _frames =
-      StreamController<EmgFrame>.broadcast();
+  @override
+  Stream<EmgFrame> get frames => const Stream<EmgFrame>.empty();
 
   @override
-  Stream<EmgFrame> get frames => _frames.stream;
-
-  @override
-  Future<void> connect(String macAddress) async {}
+  Future<void> connect(String macAddress) async {
+    connectedAddress = macAddress;
+  }
 
   @override
   Future<void> disconnect() async {}
@@ -83,11 +98,9 @@ class _LayoutTestHardware implements EmgHardware {
 
   @override
   Future<void> stopAcquisition() async {}
-
-  Future<void> dispose() => _frames.close();
 }
 
-class _LayoutNotificationService extends LocalNotificationService {
+class _AddressNotificationService extends LocalNotificationService {
   @override
   Future<void> initialize() async {}
 }

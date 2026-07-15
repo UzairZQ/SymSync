@@ -1,5 +1,8 @@
 import 'package:equatable/equatable.dart';
 
+import 'feedback_view.dart';
+import 'target_muscle.dart';
+
 class SessionSummary extends Equatable {
   const SessionSummary({
     required this.startedAt,
@@ -14,6 +17,9 @@ class SessionSummary extends Equatable {
     this.channelMapping,
     this.participantId,
     this.scenarioId,
+    this.feedbackView,
+    this.targetMuscle,
+    this.simulatedInput,
   });
 
   final DateTime startedAt;
@@ -28,6 +34,9 @@ class SessionSummary extends Equatable {
   final Map<String, String>? channelMapping;
   final String? participantId;
   final String? scenarioId;
+  final FeedbackView? feedbackView;
+  final TargetMuscle? targetMuscle;
+  final bool? simulatedInput;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -43,6 +52,9 @@ class SessionSummary extends Equatable {
       'channelMapping': channelMapping,
       'participantId': participantId,
       'scenarioId': scenarioId,
+      'feedbackViewId': feedbackView?.id,
+      'targetMuscleId': targetMuscle?.id,
+      'simulatedInput': simulatedInput,
     };
   }
 
@@ -63,6 +75,9 @@ class SessionSummary extends Equatable {
           ?.cast<String, String>(),
       participantId: json['participantId'] as String?,
       scenarioId: json['scenarioId'] as String?,
+      feedbackView: feedbackViewFromId(json['feedbackViewId'] as String?),
+      targetMuscle: targetMuscleFromId(json['targetMuscleId'] as String?),
+      simulatedInput: json['simulatedInput'] as bool?,
     );
   }
 
@@ -80,5 +95,8 @@ class SessionSummary extends Equatable {
     channelMapping,
     participantId,
     scenarioId,
+    feedbackView,
+    targetMuscle,
+    simulatedInput,
   ];
 }

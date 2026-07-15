@@ -80,7 +80,8 @@ class _ParticipantSetupPageState extends State<ParticipantSetupPage> {
                   Expanded(
                     child: Text(
                       'The next available code will be assigned automatically '
-                      '(for example P001). All measurements stay on this device.',
+                      '(for example P001). Measurements stay on this device '
+                      'unless you deliberately export a copy.',
                       style: AppTheme.bodySmall.copyWith(
                         color: context.txtSecondary,
                         height: 1.3,

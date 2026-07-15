@@ -11,6 +11,9 @@ class PluxEmgHardware implements EmgHardware {
   Stream<EmgFrame> get frames => _service.frameStream;
 
   @override
+  bool get isSimulated => false;
+
+  @override
   Future<void> connect(String macAddress) => _service.connect(macAddress);
 
   @override

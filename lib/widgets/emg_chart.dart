@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -80,7 +82,7 @@ class _EMGChartState extends State<EMGChart>
     _recentRawValues.clear();
     _wasActive = false;
     _isLost = false;
-    _fadeController.reverse();
+    unawaited(_fadeController.reverse());
     _currentRms = 0.0;
     _peakValue = defaultValue;
   }
@@ -94,7 +96,7 @@ class _EMGChartState extends State<EMGChart>
   }
 
   void _startListening() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     _subscription = widget.frameStream.listen((frame) {
       final double raw = widget.channelIndex == 0
           ? frame.ch1.toDouble()
@@ -124,12 +126,12 @@ class _EMGChartState extends State<EMGChart>
         }
         if (_isLost) {
           _isLost = false;
-          _fadeController.reverse();
+          unawaited(_fadeController.reverse());
         }
       } else {
         if (_wasActive && !_isLost) {
           _isLost = true;
-          _fadeController.forward();
+          unawaited(_fadeController.forward());
         }
       }
 
@@ -174,7 +176,7 @@ class _EMGChartState extends State<EMGChart>
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     _timer?.cancel();
     _fadeController.dispose();
     super.dispose();
@@ -187,13 +189,17 @@ class _EMGChartState extends State<EMGChart>
     double horizontalInterval = 10000.0;
 
     if (widget.mode == 'Filtered') {
-      minY = -500.0;
-      maxY = 500.0;
-      horizontalInterval = 200.0;
+      final maxMagnitude = _buffer.fold<double>(
+        0,
+        (current, value) => math.max(current, value.abs()),
+      );
+      maxY = math.max(500, maxMagnitude * 1.1);
+      minY = -maxY;
+      horizontalInterval = maxY / 3;
     } else if (widget.mode == 'RMS Envelope') {
       minY = 0.0;
-      maxY = 1.0;
-      horizontalInterval = 0.2;
+      maxY = math.max(100, _peakValue * 1.15);
+      horizontalInterval = maxY / 4;
     }
 
     final spots = List<FlSpot>.generate(
@@ -304,26 +310,31 @@ class _EMGChartState extends State<EMGChart>
                                     diffMid < tolerance) {
                                   String label = '';
                                   if (widget.mode == 'Raw ADC') {
-                                    if (diffMin < tolerance)
+                                    if (diffMin < tolerance) {
                                       label = '0';
-                                    else if (diffMid < tolerance)
+                                    } else if (diffMid < tolerance) {
                                       label = '32k';
-                                    else if (diffMax < tolerance)
+                                    } else if (diffMax < tolerance) {
                                       label = '65k';
+                                    }
                                   } else if (widget.mode == 'Filtered') {
-                                    if (diffMin < tolerance)
-                                      label = '-500';
-                                    else if (diffMid < tolerance)
-                                      label = '0';
-                                    else if (diffMax < tolerance)
-                                      label = '500';
+                                    if (diffMin < tolerance) {
+                                      label = minY.toStringAsFixed(0);
+                                    } else if (diffMid < tolerance) {
+                                      label = ((minY + maxY) / 2)
+                                          .toStringAsFixed(0);
+                                    } else if (diffMax < tolerance) {
+                                      label = maxY.toStringAsFixed(0);
+                                    }
                                   } else {
-                                    if (diffMin < tolerance)
-                                      label = '0.0';
-                                    else if (diffMid < tolerance)
-                                      label = '0.5';
-                                    else if (diffMax < tolerance)
-                                      label = '1.0';
+                                    if (diffMin < tolerance) {
+                                      label = minY.toStringAsFixed(0);
+                                    } else if (diffMid < tolerance) {
+                                      label = ((minY + maxY) / 2)
+                                          .toStringAsFixed(0);
+                                    } else if (diffMax < tolerance) {
+                                      label = maxY.toStringAsFixed(0);
+                                    }
                                   }
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 6.0),
@@ -347,17 +358,19 @@ class _EMGChartState extends State<EMGChart>
                               reservedSize: 18,
                               getTitlesWidget: (value, meta) {
                                 String label = '';
-                                if (value == 0)
+                                if (value == 0) {
                                   label = '-3s';
-                                else if ((value - 1000).abs() < 10)
+                                } else if ((value - 1000).abs() < 10) {
                                   label = '-2s';
-                                else if ((value - 2000).abs() < 10)
+                                } else if ((value - 2000).abs() < 10) {
                                   label = '-1s';
-                                else if ((value - 2999).abs() < 10)
+                                } else if ((value - 2999).abs() < 10) {
                                   label = 'Now';
+                                }
 
-                                if (label.isEmpty)
+                                if (label.isEmpty) {
                                   return const SizedBox.shrink();
+                                }
                                 return Text(
                                   label,
                                   style: AppTheme.monoSmall.copyWith(

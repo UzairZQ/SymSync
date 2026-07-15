@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../domain/models/feedback_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/research_context.dart';
@@ -43,7 +45,7 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
           filteredHistory,
           (session) => session.averageSymmetryIndex,
         );
-        final avgDeviation = avgSI == null ? null : avgSI.abs();
+        final avgDeviation = avgSI?.abs();
         final periodDominance = _dominanceValue(avgSI);
         final targetMuscle = state.targetMuscle;
 
@@ -182,17 +184,21 @@ class _ActivationSummaryPageState extends State<ActivationSummaryPage> {
                       _MuscleChip(
                         label: TargetMuscle.trapezius.chipLabel,
                         isActive: targetMuscle == TargetMuscle.trapezius,
-                        onTap: () => context
-                            .read<SessionBloc>()
-                            .selectTargetMuscle(TargetMuscle.trapezius),
+                        onTap: state.isRecording
+                            ? null
+                            : () => context
+                                  .read<SessionBloc>()
+                                  .selectTargetMuscle(TargetMuscle.trapezius),
                       ),
                       const SizedBox(width: AppTheme.spaceSM),
                       _MuscleChip(
                         label: TargetMuscle.biceps.chipLabel,
                         isActive: targetMuscle == TargetMuscle.biceps,
-                        onTap: () => context
-                            .read<SessionBloc>()
-                            .selectTargetMuscle(TargetMuscle.biceps),
+                        onTap: state.isRecording
+                            ? null
+                            : () => context
+                                  .read<SessionBloc>()
+                                  .selectTargetMuscle(TargetMuscle.biceps),
                       ),
                       const SizedBox(width: AppTheme.spaceSM),
                       const Tooltip(
@@ -689,8 +695,9 @@ class _SummaryScopeCard extends StatelessWidget {
     final minute = time.minute.toString().padLeft(2, '0');
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
     final scenario = _scenarioLabel(session.scenarioId);
+    final view = session.feedbackView?.label ?? 'View not recorded';
     final dominance = _dominanceLabel(session.averageSymmetryIndex);
-    return '$hour:$minute $period · $scenario · $dominance';
+    return '$hour:$minute $period · $scenario · $view · $dominance';
   }
 
   String _scenarioLabel(String? scenarioId) {

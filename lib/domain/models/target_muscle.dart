@@ -2,6 +2,8 @@ enum TargetMuscle {
   trapezius,
   biceps;
 
+  String get id => name;
+
   String get chipLabel => switch (this) {
     TargetMuscle.trapezius => 'Trapezius',
     TargetMuscle.biceps => 'Biceps',
@@ -60,4 +62,11 @@ enum TargetMuscle {
         ? '$side $muscle Slight Dominance'
         : '$side $muscle Dominance';
   }
+}
+
+TargetMuscle? targetMuscleFromId(String? id) {
+  for (final muscle in TargetMuscle.values) {
+    if (muscle.id == id) return muscle;
+  }
+  return null;
 }

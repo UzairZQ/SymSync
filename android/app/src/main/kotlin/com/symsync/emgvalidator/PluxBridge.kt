@@ -62,6 +62,8 @@ class PluxBridge(
     private var connectionWaitLoggedSeconds = 0
     private var loggedInternalState = false
     @Volatile
+    private var isConnecting = false
+    @Volatile
     private var lastConnectionState: Constants.States = Constants.States.NO_CONNECTION
 
     private val connectionReceiver = object : BroadcastReceiver() {
@@ -113,6 +115,10 @@ class PluxBridge(
                         ?: throw IllegalArgumentException("Missing MAC address")
                     Thread {
                         try {
+                            if (isConnecting) {
+                                throw IllegalStateException("A PLUX connection attempt is already in progress")
+                            }
+                            isConnecting = true
                             connect(mac)
                             mainHandler.post { result.success(null) }
                         } catch (error: Exception) {
@@ -124,6 +130,8 @@ class PluxBridge(
                                     null,
                                 )
                             }
+                        } finally {
+                            isConnecting = false
                         }
                     }.start()
                 }
@@ -146,6 +154,8 @@ class PluxBridge(
                     result.success(null)
                 }
 
+                "androidSdkInt" -> result.success(Build.VERSION.SDK_INT)
+
                 else -> result.notImplemented()
             }
         } catch (error: Exception) {
@@ -161,6 +171,13 @@ class PluxBridge(
     // Connect first so the device can be started and stopped without recreating the bridge.
     private fun connect(mac: String) {
         ensureBluetoothPermissions()
+
+        if (!android.bluetooth.BluetoothAdapter.checkBluetoothAddress(mac)) {
+            throw IllegalArgumentException("Invalid Bluetooth device address")
+        }
+        if (communication != null) {
+            throw IllegalStateException("A PLUX device is already connected")
+        }
 
         val adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter()
             ?: throw IllegalStateException("Bluetooth is not available on this device")
@@ -221,7 +238,16 @@ class PluxBridge(
     // Start the stream on CH1 at the requested rate, using a single 16-bit source because this is an EMG proof of concept.
     private fun startAcquisition(channels: List<Int>, sampleRate: Int) {
         val controller = communication ?: throw IllegalStateException("Connect first")
+        if (isAcquiring) {
+            throw IllegalStateException("Acquisition is already running")
+        }
+        if (sampleRate !in 1..4000) {
+            throw IllegalArgumentException("Sample rate must be between 1 and 4000 Hz")
+        }
         val ports = channels.ifEmpty { listOf(1) }.distinct()
+        if (ports.any { it !in 1..8 }) {
+            throw IllegalArgumentException("Analog channels must be between 1 and 8")
+        }
         val sources = ports.map { port ->
             Source(port, 16, 0x01.toByte(), 1)
         }
@@ -248,11 +274,11 @@ class PluxBridge(
 
     private fun disconnectInternal() {
         stopInternal()
-        val controller = communication ?: return
+        val controller = communication
         try {
-            controller.disconnect()
+            controller?.disconnect()
         } finally {
-            controller.unregisterReceivers()
+            controller?.runCatching { unregisterReceivers() }
             communication = null
             connectedMac = null
             unregisterConnectionReceiver()
@@ -299,7 +325,6 @@ class PluxBridge(
         val sink = eventSink ?: return
         val timestamp = System.currentTimeMillis()
         mainHandler.post {
-            Log.d(tag, "Frame ch1=$ch1 ch3=$ch3")
             sink.success(
                 mapOf(
                     "timestamp" to timestamp,

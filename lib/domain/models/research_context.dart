@@ -201,9 +201,14 @@ class NotificationPreferences extends Equatable {
   factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
     return NotificationPreferences(
       enabled: json['enabled'] as bool? ?? false,
-      imbalanceThreshold: (json['imbalanceThreshold'] as num?)?.toInt() ?? 20,
-      sustainedSeconds: (json['sustainedSeconds'] as num?)?.toInt() ?? 15,
-      cooldownMinutes: (json['cooldownMinutes'] as num?)?.toInt() ?? 5,
+      imbalanceThreshold: ((json['imbalanceThreshold'] as num?)?.toInt() ?? 20)
+          .clamp(10, 50),
+      sustainedSeconds: ((json['sustainedSeconds'] as num?)?.toInt() ?? 15)
+          .clamp(5, 60),
+      cooldownMinutes: ((json['cooldownMinutes'] as num?)?.toInt() ?? 5).clamp(
+        1,
+        30,
+      ),
     );
   }
 
